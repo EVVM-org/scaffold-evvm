@@ -171,7 +171,10 @@ function GoldenStakingComponent({
   stakingAddress: `0x${string}`;
 }) {
   const [isStaking, setIsStaking] = useState(true);
-  const [priority, setPriority] = useState("low"); // Default to sync nonces, user can change
+  // CRITICAL: Golden staking contract HARDCODES priorityFlag = false (sync nonces)
+  // See Staking.sol:262 - it ignores whatever priority you sign with
+  // and ALWAYS uses getNextCurrentSyncNonce() with priorityFlag: false
+  const priority = "low"; // MUST be "low" (sync) - contract requirement!
   const [dataToGet, setDataToGet] = useState<GoldenStakingData | null>(null);
   const [evvmBalance, setEvvmBalance] = useState<string | null>(null);
   const [currentNonce, setCurrentNonce] = useState<string | null>(null);
@@ -441,44 +444,41 @@ function GoldenStakingComponent({
         If you enter <strong>2</strong>, you will stake <strong>10,166 MATE</strong>.
       </p>
 
-      <PrioritySelector onPriorityChange={setPriority} />
+      <div style={{
+        marginBottom: "1rem",
+        padding: "1rem",
+        background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+        border: "2px solid #f59e0b",
+        borderRadius: "8px"
+      }}>
+        <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700", color: "#92400e" }}>
+          ⚠️ Golden Staking REQUIRES Sync Nonces
+        </h4>
+        <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem", color: "#78350f" }}>
+          The golden staking contract <strong>HARDCODES sync nonces</strong> (contract requirement).
+        </p>
+        <p style={{ margin: "0", fontSize: "0.85rem", color: "#78350f" }}>
+          You <strong>MUST</strong> use the exact sync nonce from the contract, displayed below.
+        </p>
+      </div>
 
       <NumberInputWithGenerator
-        label="Nonce"
+        label="Sync Nonce (from contract)"
         inputId="nonceInput_GoldenStaking"
-        placeholder="Enter nonce"
-        showRandomBtn={priority !== "low"}
+        placeholder="Use nonce shown above"
+        showRandomBtn={false}
       />
 
-      {priority === "low" && (
-        <HelperInfo label="How to find my sync nonce?">
-          <div>
-            You can retrieve your next sync nonce from the EVVM contract using the{" "}
-            <code>getNextCurrentSyncNonce</code> function.
-          </div>
-        </HelperInfo>
-      )}
-
-      {priority === "high" && (
-        <div style={{
-          marginTop: "0.5rem",
-          marginBottom: "1rem",
-          padding: "0.75rem",
-          background: "#dbeafe",
-          border: "1px solid #3b82f6",
-          borderRadius: "6px",
-          fontSize: "0.85rem"
-        }}>
-          <strong style={{ color: "#1e40af" }}>⚡ Async Nonce Mode:</strong>
-          <div style={{ color: "#1e3a8a", marginTop: "0.25rem" }}>
-            • Use a <strong>random number</strong> (e.g., timestamp or random 6-10 digits)
-            <br />
-            • Each nonce can only be used <strong>once</strong> per address
-            <br />
-            • Click <strong>"Generate Random"</strong> for a safe nonce
-          </div>
+      <HelperInfo label="Why can't I use async nonces?">
+        <div>
+          The golden staking contract calls <code>getNextCurrentSyncNonce()</code> internally
+          and <strong>hardcodes priorityFlag = false</strong> (line 262 in Staking.sol).
+          <br /><br />
+          Your signature MUST match: sync nonce + priorityFlag: false.
+          <br /><br />
+          Using async nonces will cause signature verification to fail!
         </div>
-      )}
+      </HelperInfo>
 
       <button onClick={makeSig} className={styles.submitButton} style={{ marginTop: "1rem" }}>
         Create signature
