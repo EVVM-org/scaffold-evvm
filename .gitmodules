@@ -1,0 +1,3 @@
+[submodule "contracts/lib/Testnet-Contracts"]
+	path = contracts/lib/Testnet-Contracts
+	url = https://github.com/EVVM-org/Testnet-Contracts.git

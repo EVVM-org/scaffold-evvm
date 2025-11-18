@@ -1,0 +1,130 @@
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-primary, #ffffff);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.navContainer {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #333);
+  transition: all 0.2s;
+}
+
+.logo:hover {
+  color: #00ee96;
+}
+
+.logoIcon {
+  font-size: 1.5rem;
+}
+
+.logoText {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .logoText {
+    display: inline;
+  }
+}
+
+.navLinks {
+  display: none;
+  flex: 1;
+  gap: 0.5rem;
+}
+
+@media (min-width: 1024px) {
+  .navLinks {
+    display: flex;
+  }
+}
+
+.navLink {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--text-secondary, #666);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.navLink:hover {
+  background: var(--bg-hover, #f5f5f5);
+  color: var(--text-primary, #333);
+}
+
+.navLink.active {
+  background: #00ee96;
+  color: white;
+}
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+/* Dark mode styles */
+:global(.dark) .nav {
+  background: var(--bg-primary-dark, #1a1a1a);
+  border-bottom-color: var(--border-color-dark, #333);
+}
+
+:global(.dark) .logo {
+  color: var(--text-primary-dark, #f0f0f0);
+}
+
+:global(.dark) .navLink {
+  color: var(--text-secondary-dark, #aaa);
+}
+
+:global(.dark) .navLink:hover {
+  background: var(--bg-hover-dark, #2a2a2a);
+  color: var(--text-primary-dark, #f0f0f0);
+}
+
+:global(.dark) .navLink.active {
+  background: #00ee96;
+  color: white;
+}
+
+/* Mobile menu toggle */
+@media (max-width: 1023px) {
+  .navLinks {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    right: 0;
+    background: var(--bg-primary, #ffffff);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    padding: 1rem;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  :global(.dark) .navLinks {
+    background: var(--bg-primary-dark, #1a1a1a);
+    border-bottom-color: var(--border-color-dark, #333);
+  }
+}

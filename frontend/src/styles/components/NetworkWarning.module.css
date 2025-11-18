@@ -1,0 +1,97 @@
+.warningContainer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(255, 193, 7, 0.2);
+}
+
+.warningIcon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.warningContent {
+  flex: 1;
+}
+
+.warningTitle {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #856404;
+}
+
+.warningMessage {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.95rem;
+  color: #856404;
+  line-height: 1.5;
+}
+
+.warningMessage strong {
+  font-weight: 700;
+  color: #664d03;
+}
+
+.warningHint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #856404;
+  font-style: italic;
+}
+
+.switchButton {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.switchButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+}
+
+.switchButton:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark mode support */
+[data-theme="dark"] .warningContainer {
+  background: linear-gradient(135deg, #3d3000 0%, #4d3c00 100%);
+  border-color: #ffc107;
+}
+
+[data-theme="dark"] .warningTitle,
+[data-theme="dark"] .warningMessage,
+[data-theme="dark"] .warningHint {
+  color: #ffc107;
+}
+
+[data-theme="dark"] .warningMessage strong {
+  color: #ffd54f;
+}

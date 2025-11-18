@@ -1,0 +1,46 @@
+{
+  "name": "scaffold-evvm",
+  "version": "1.0.0",
+  "description": "A complete testing & debugging framework for EVVM virtual blockchains",
+  "private": true,
+  "workspaces": [
+    "contracts",
+    "frontend"
+  ],
+  "overrides": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "scripts": {
+    "setup": "npm install --workspaces",
+    "postinstall": "npm run check-env",
+    "check-env": "node -e \"console.log('\\nSetup complete! Run: npm run scaffold')\"",
+    "scaffold": "npm run wizard && npm run dev",
+    "chain": "cd contracts && npm run anvil",
+    "wizard": "cd contracts && npm run wizard",
+    "deploy": "cd contracts && npm run deploy",
+    "deploy:local": "cd contracts && npm run deploy:local",
+    "deploy:eth": "cd contracts && npm run deploy:eth",
+    "deploy:arb": "cd contracts && npm run deploy:arb",
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd frontend && npm start",
+    "test": "cd contracts && npm test",
+    "compile": "cd contracts && npm run compile"
+  },
+  "keywords": [
+    "evvm",
+    "ethereum",
+    "blockchain",
+    "foundry",
+    "nextjs",
+    "viem"
+  ],
+  "author": "EVVM Organization",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "devDependencies": {}
+}

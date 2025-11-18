@@ -1,0 +1,29 @@
+.badge {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sepolia {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.arbitrum {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.localhost {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.unknown {
+  background: #fef3c7;
+  color: #92400e;
+}
