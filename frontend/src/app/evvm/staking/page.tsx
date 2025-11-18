@@ -300,9 +300,39 @@ function GoldenStakingComponent({
     const numberOfFishers = dataToGet.GoldenStakingInputData.amountOfStaking;
     const totalMate = dataToGet.PayInputData.amount / BigInt(10) ** BigInt(18);
 
+    // CRITICAL: Final EVVM balance check before execution
+    console.log("🔍 Final pre-flight checks...");
+    if (evvmBalance) {
+      const currentBalance = Number(evvmBalance);
+      const requiredMate = Number(totalMate);
+      console.log("  Current EVVM balance:", currentBalance, "MATE");
+      console.log("  Required for transaction:", requiredMate, "MATE");
+
+      if (currentBalance < requiredMate) {
+        const shortage = requiredMate - currentBalance;
+        alert(
+          `❌ CRITICAL: Insufficient EVVM Balance!\n\n` +
+          `This transaction WILL FAIL because you don't have enough MATE in your EVVM account.\n\n` +
+          `Required: ${requiredMate.toLocaleString()} MATE\n` +
+          `Your EVVM balance: ${currentBalance.toLocaleString()} MATE\n` +
+          `Shortage: ${shortage.toLocaleString()} MATE\n\n` +
+          `ACTION NEEDED:\n` +
+          `1. Go to the Payments page\n` +
+          `2. Send ${shortage.toLocaleString()} MATE to yourself to deposit into EVVM\n` +
+          `3. Then return here to stake\n\n` +
+          `Note: Your wallet balance and EVVM balance are DIFFERENT!\n` +
+          `You must deposit MATE to EVVM before staking.`
+        );
+        console.error("❌ Execution blocked: Insufficient EVVM balance");
+        return;
+      }
+      console.log("  ✅ EVVM balance sufficient");
+    }
+
     const confirmation = confirm(
       `You are about to ${isStaking ? "stake" : "unstake"} ${numberOfFishers} Golden Fisher(s).\n\n` +
-      `Total MATE tokens: ${totalMate.toLocaleString()}\n\n` +
+      `Total MATE tokens: ${totalMate.toLocaleString()}\n` +
+      `Your EVVM balance: ${evvmBalance ? Number(evvmBalance).toLocaleString() : "Unknown"} MATE\n\n` +
       `Are you sure you want to proceed?`
     );
 
@@ -314,16 +344,17 @@ function GoldenStakingComponent({
     const stakingAddress = dataToGet.PayInputData.to_address;
 
     try {
+      console.log("🚀 Executing golden staking transaction...");
       await executeGoldenStaking(dataToGet.GoldenStakingInputData, stakingAddress);
-      console.log("Golden staking executed successfully");
+      console.log("✅ Golden staking executed successfully!");
       alert(`✅ Golden staking ${isStaking ? "stake" : "unstake"} successful!`);
       setDataToGet(null);
       // Clear form
       const input = document.getElementById("amountOfStakingInput_GoldenStaking") as HTMLInputElement;
       if (input) input.value = "";
     } catch (error: any) {
-      console.error("Error executing golden staking:", error);
-      alert(`❌ Golden staking failed: ${error.message || "Unknown error"}`);
+      console.error("❌ Error executing golden staking:", error);
+      alert(`❌ Golden staking failed: ${error.message || "Unknown error"}\n\nCheck console for details.`);
     }
   };
 

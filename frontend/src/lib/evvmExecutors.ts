@@ -230,6 +230,23 @@ export async function readIsStaker(
 }
 
 /**
+ * Read golden fisher address
+ */
+export async function readGoldenFisher(
+  publicClient: PublicClient,
+  stakingAddress: `0x${string}`
+): Promise<`0x${string}`> {
+  const goldenFisher = await publicClient.readContract({
+    address: stakingAddress,
+    abi: StakingABI,
+    functionName: 'goldenFisher',
+    args: [],
+  });
+
+  return goldenFisher as `0x${string}`;
+}
+
+/**
  * Read username owner
  */
 export async function readUsernameOwner(
