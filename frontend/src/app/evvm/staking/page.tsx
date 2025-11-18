@@ -248,6 +248,15 @@ function GoldenStakingComponent({
       const walletClient = await getWalletClient(config);
       const signatureBuilder = new (StakingSignatureBuilder as any)(walletClient, walletData);
 
+      console.log("🔍 Golden Staking Signature Creation:");
+      console.log("  evvmID:", formData.evvmID);
+      console.log("  stakingAddress:", formData.stakingAddress);
+      console.log("  amountOfToken:", amountOfToken.toString(), "wei (", formData.amountOfStaking, "fishers)");
+      console.log("  nonce:", formData.nonce);
+      console.log("  priority:", priority, "→ priorityFlag:", priority === "high");
+      console.log("  Expected message format:");
+      console.log(`    ${formData.evvmID},pay,${formData.stakingAddress.toLowerCase()},0x0000000000000000000000000000000000000001,${amountOfToken.toString()},0,${formData.nonce},${priority === "high" ? "true" : "false"},${formData.stakingAddress.toLowerCase()}`);
+
       const signaturePay = await signatureBuilder.signGoldenStaking(
         BigInt(formData.evvmID),
         formData.stakingAddress as `0x${string}`,
@@ -255,6 +264,8 @@ function GoldenStakingComponent({
         BigInt(formData.nonce),
         priority === "high"
       );
+
+      console.log("✅ Signature created:", signaturePay);
 
       setDataToGet({
         PayInputData: {
