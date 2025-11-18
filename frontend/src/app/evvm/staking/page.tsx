@@ -371,8 +371,11 @@ function GoldenStakingComponent({
               <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>
                 {currentNonce !== null ? currentNonce : "Loading..."}
               </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginTop: "0.25rem" }}>
-                💡 Use this nonce below
+              <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "0.25rem", fontWeight: "600" }}>
+                ⚠️ IMPORTANT: Use this exact nonce!
+              </div>
+              <div style={{ fontSize: "0.7rem", color: "var(--color-text-secondary)", marginTop: "0.25rem" }}>
+                Failed transactions consume nonces too
               </div>
             </div>
           </div>
@@ -398,12 +401,33 @@ function GoldenStakingComponent({
 
       <PrioritySelector onPriorityChange={setPriority} />
 
-      <NumberInputWithGenerator
-        label="Nonce"
-        inputId="nonceInput_GoldenStaking"
-        placeholder="Enter nonce"
-        showRandomBtn={priority !== "low"}
-      />
+      <div style={{ marginBottom: "1rem" }}>
+        <NumberInputWithGenerator
+          label="Nonce"
+          inputId="nonceInput_GoldenStaking"
+          placeholder={currentNonce !== null ? `Use ${currentNonce}` : "Enter nonce"}
+          showRandomBtn={priority !== "low"}
+        />
+        {currentNonce !== null && (
+          <div style={{
+            marginTop: "0.5rem",
+            padding: "0.75rem",
+            background: "#fef3c7",
+            border: "1px solid #f59e0b",
+            borderRadius: "6px",
+            fontSize: "0.85rem"
+          }}>
+            <strong style={{ color: "#92400e" }}>⚠️ Nonce Reminder:</strong>
+            <div style={{ color: "#78350f", marginTop: "0.25rem" }}>
+              The correct nonce is: <strong>{currentNonce}</strong>
+              <br />
+              <span style={{ fontSize: "0.8rem" }}>
+                Even failed transactions consume nonces. Always use the latest nonce shown above.
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {priority === "low" && (
         <HelperInfo label="How to find my sync nonce?">
