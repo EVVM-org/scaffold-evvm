@@ -104,22 +104,60 @@ Before deploying, verify these work:
 - [ ] No React version mismatch warnings
 - [ ] Environment variables load correctly
 
+### 8. Name Service Signature Validation ✅
+**Problem**: "Cannot read properties of undefined (reading 'length')" when executing pre-registration/registration signatures
+**Root Cause**:
+- Signatures returned from `@evvm/viem-signature-library` were not being validated before execution
+- If `signPreRegistrationUsername` or `signRegistrationUsername` returned undefined signatures, the error manifested during contract execution
+- Missing wallet client checks caused silent failures
+
+**Solution**:
+- Added comprehensive validation in signature creation flow
+- Added wallet client existence checks before signature generation
+- Added signature format validation (must be string starting with '0x')
+- Added detailed console logging for debugging signature creation
+- Added defensive checks in executor functions to validate signatures before submission
+- **Files**:
+  - `/frontend/src/app/evvm/nameservice/page.tsx:107-156` (pre-registration validation)
+  - `/frontend/src/app/evvm/nameservice/page.tsx:223-273` (registration validation)
+  - `/frontend/src/utils/transactionExecuters/nameServiceExecuter.ts:32-85` (executor validation)
+  - `/frontend/src/utils/transactionExecuters/nameServiceExecuter.ts:93-148` (registration executor)
+
+**Validation Checks Added**:
+```typescript
+// 1. Wallet client check
+if (!walletClient) {
+  throw new Error("Wallet client not available. Please connect your wallet.");
+}
+
+// 2. Signature creation logging
+console.log("Signatures created:", { paySignature, actionSignature, ... });
+
+// 3. Undefined check
+if (!paySignature || !actionSignature) {
+  throw new Error("Signature creation failed: One or both signatures are undefined");
+}
+
+// 4. Format validation
+if (typeof actionSignature !== 'string' || !actionSignature.startsWith('0x')) {
+  throw new Error(`Invalid actionSignature format: ${actionSignature}`);
+}
+```
+
+**Debugging Help**:
+When signature creation fails, check browser console for:
+- "Creating signature builder with:" log showing input parameters
+- "Signatures created:" log showing signature values and types
+- Any errors from the signature library itself
+
 ## Known Issues & Notes
 
-### Signature Length Error (Registration)
-**Issue**: When creating name pre-registration signature, you may encounter a "length error"
-
-**Possible Causes**:
-1. **EVVM ID not set**: The contract's `evvmID` must be ≥1000 (activated)
-2. **Nonce incorrect**: Using sync nonce instead of async nonce for async operations
-3. **Username format**: Username may have invalid characters or length
-4. **Signature format**: The signature library may be generating incorrect byte length
-
-**Debugging Steps**:
-1. Check current EVVM ID on Register page
-2. Verify you're using the correct nonce type (async vs sync)
-3. Try a simple username (lowercase alphanumeric, 3-20 chars)
-4. Check browser console for detailed error message
+### Future Signature Improvements
+**Additional Checks to Consider**:
+1. **EVVM ID validation**: Ensure `evvmID` ≥ 1000 (activated state)
+2. **Nonce type verification**: Confirm using correct nonce type (async vs sync) based on priority
+3. **Username format validation**: Validate username matches contract requirements before signature creation
+4. **Signature length validation**: Verify signature is exactly 132 characters (0x + 130 hex chars)
 
 ### Future Improvements
 

@@ -105,6 +105,18 @@ export default function NameServicePage() {
       });
 
       const walletClient = await getWalletClient(config);
+
+      if (!walletClient) {
+        throw new Error("Wallet client not available. Please connect your wallet.");
+      }
+
+      console.log("Creating signature builder with:", {
+        walletClient,
+        walletData,
+        evvmID: deployment.evvmID,
+        nameService: deployment.nameService
+      });
+
       const signatureBuilder = new (NameServiceSignatureBuilder as any)(
         walletClient,
         walletData
@@ -121,6 +133,27 @@ export default function NameServicePage() {
           BigInt(formData.nonce_EVVM),
           formData.priorityFlag_EVVM
         );
+
+      console.log("Signatures created:", {
+        paySignature,
+        actionSignature,
+        paySignatureType: typeof paySignature,
+        actionSignatureType: typeof actionSignature,
+        paySignatureLength: paySignature?.length,
+        actionSignatureLength: actionSignature?.length
+      });
+
+      if (!paySignature || !actionSignature) {
+        throw new Error("Signature creation failed: One or both signatures are undefined");
+      }
+
+      if (typeof paySignature !== 'string' || !paySignature.startsWith('0x')) {
+        throw new Error(`Invalid paySignature format: ${paySignature}`);
+      }
+
+      if (typeof actionSignature !== 'string' || !actionSignature.startsWith('0x')) {
+        throw new Error(`Invalid actionSignature format: ${actionSignature}`);
+      }
 
       const hashUsername = hashPreRegisteredUsername(
         formData.username,
@@ -188,12 +221,24 @@ export default function NameServicePage() {
       });
 
       const walletClient = await getWalletClient(config);
+
+      if (!walletClient) {
+        throw new Error("Wallet client not available. Please connect your wallet.");
+      }
+
       const signatureBuilder = new (NameServiceSignatureBuilder as any)(
         walletClient,
         walletData
       );
 
       await readRewardAmount();
+
+      console.log("Creating registration signature with:", {
+        evvmID: deployment.evvmID,
+        username: formData.username,
+        clowNumber: formData.clowNumber,
+        rewardAmount
+      });
 
       const { paySignature, actionSignature } =
         await signatureBuilder.signRegistrationUsername(
@@ -207,6 +252,25 @@ export default function NameServicePage() {
           BigInt(formData.nonceEVVM),
           formData.priorityFlag
         );
+
+      console.log("Registration signatures created:", {
+        paySignature,
+        actionSignature,
+        paySignatureLength: paySignature?.length,
+        actionSignatureLength: actionSignature?.length
+      });
+
+      if (!paySignature || !actionSignature) {
+        throw new Error("Signature creation failed: One or both signatures are undefined");
+      }
+
+      if (typeof paySignature !== 'string' || !paySignature.startsWith('0x')) {
+        throw new Error(`Invalid paySignature format: ${paySignature}`);
+      }
+
+      if (typeof actionSignature !== 'string' || !actionSignature.startsWith('0x')) {
+        throw new Error(`Invalid actionSignature format: ${actionSignature}`);
+      }
 
       setDataToGet({
         PayInputData: {
