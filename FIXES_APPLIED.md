@@ -540,6 +540,121 @@ Please deposit more MATE to your EVVM account first.
 **Important Note**:
 Users must **deposit MATE to their EVVM account** (via EVVM.pay()) BEFORE they can stake. Simply having MATE in their wallet is not enough - it must be in the EVVM internal ledger.
 
+### 16. Golden Fisher Staking - Async vs Sync Nonce Type ✅
+**Problem**: Multiple failed transactions with nonce reuse and "execution reverted" errors
+**Transactions**:
+- https://sepolia.etherscan.io/tx/0xe39afc2854401c348c517143e3a06645dc99b7eafbd7984c088fc2f466816242
+- Multiple attempts all using nonce 1 repeatedly
+
+**Root Cause**:
+- Golden staking was configured with `priority: "low"` → `priorityFlag: false` → **SYNC nonces**
+- Sync nonces are sequential (0, 1, 2, 3...) retrieved via `getNextCurrentSyncNonce()`
+- **Golden staking requires ASYNC nonces** (random numbers with `priorityFlag: true`)
+- Using sync nonce mode created signature: `"1054,pay,...,1,false,..."` (false = sync)
+- Should create signature: `"1054,pay,...,789456,true,..."` (true = async)
+
+**How EVVM Nonce Types Work**:
+
+**Synchronous (Sync) Nonces**:
+- Retrieved via `EVVM.getNextCurrentSyncNonce(address)`
+- Sequential: 0, 1, 2, 3, 4...
+- Must be used in order
+- Created with `priority: "low"` → `priorityFlag: false`
+- Once consumed, cannot be reused (even if transaction fails)
+
+**Asynchronous (Async) Nonces**:
+- User-generated random numbers
+- Can be any unused number (timestamps, random 6-10 digits)
+- No sequential requirement
+- Created with `priority: "high"` → `priorityFlag: true`
+- Each nonce can only be used once per address
+- Independent nonce tracking from sync nonces
+
+**Library Signature Creation**:
+```typescript
+// From @evvm/viem-signature-library
+async signGoldenStaking(
+  evvmID: bigint,
+  stakingAddress: `0x${string}`,
+  totalPrice: bigint,
+  nonceEVVM: bigint,
+  priorityFlag: boolean  // ← CRITICAL: Controls nonce type!
+): Promise<`0x${string}`>
+
+// priorityFlag: false → Sync nonces (sequential)
+// priorityFlag: true  → Async nonces (random)
+```
+
+**Why User's Transactions Failed**:
+1. Used `priority: "low"` → `priorityFlag: false`
+2. Signature message included `"...,1,false,..."` indicating sync nonce mode
+3. Golden staking contract expected async nonce signature
+4. Nonce 1 was repeatedly attempted because it was being read from sync nonce counter
+5. Each failed transaction still consumed the sync nonce, but user kept seeing "1" as next nonce
+
+**Solution**:
+1. Changed default priority from `"low"` to **`"high"`** for golden staking
+2. Removed PrioritySelector component (golden staking MUST use async nonces)
+3. Added prominent blue info box explaining async nonce requirement
+4. Updated nonce input to show "Async Nonce (Random Number)"
+5. Always show "Generate Random" button for nonce generation
+6. Added async nonce usage guide explaining:
+   - Each nonce can only be used once per address
+   - Use random numbers (not sequential like 1, 2, 3...)
+   - Click "Generate Random" for a safe nonce
+   - Or use timestamp/random 6-10 digit number
+
+**Files Modified**:
+- `/frontend/src/app/evvm/staking/page.tsx`:
+  - Line 174: Changed `const [priority, setPriority] = useState("high")` (was "low")
+  - Lines 256: Removed PrioritySelector component
+  - Lines 402-419: Added async nonce explanation blue box
+  - Lines 421-447: Updated nonce input and added usage guide
+  - Line 426: Set `showRandomBtn={true}` (always show for async)
+
+**User Experience Now**:
+```
+⚡ Golden Staking Uses ASYNC Nonces
+
+Golden staking requires asynchronous (high priority) nonces.
+Use a random number that you haven't used before (e.g., timestamp, random 6-digit number).
+
+Async Nonce (Random Number): [Generate Random →] [________]
+
+✅ How Async Nonces Work:
+• Each nonce can only be used once per address
+• Use random numbers (not sequential like 1, 2, 3...)
+• Click "Generate Random" for a safe nonce
+• Or use timestamp/random 6-10 digit number
+```
+
+**Signature Message Format**:
+```
+// OLD (WRONG - sync nonce):
+"1054,pay,0xa9a33070...,0x0000...0001,5083000000000000000000,0,1,false,0xa9a33070..."
+                                                              ↑  ↑
+                                                           nonce=1, sync mode
+
+// NEW (CORRECT - async nonce):
+"1054,pay,0xa9a33070...,0x0000...0001,5083000000000000000000,0,789456123,true,0xa9a33070..."
+                                                                 ↑        ↑
+                                                          random nonce, async mode
+```
+
+**Benefits**:
+✅ Correct nonce type for golden staking (async)
+✅ No more nonce reuse confusion
+✅ Clear UI guidance on async nonce generation
+✅ Signature will now be validated correctly by staking contract
+✅ "Generate Random" button creates safe random nonces
+✅ Prevents sequential sync nonce mistakes
+
+**Technical Details**:
+- Async nonces are tracked separately from sync nonces in EVVM contract
+- Golden staking contract verifies the signature with async nonce expectation
+- Using wrong nonce type causes signature verification to fail
+- The `priorityFlag` parameter in signature creation MUST match the nonce type being used
+
 ## Known Issues & Notes
 
 ### Future Signature Improvements

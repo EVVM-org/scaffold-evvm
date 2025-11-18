@@ -171,7 +171,7 @@ function GoldenStakingComponent({
   stakingAddress: `0x${string}`;
 }) {
   const [isStaking, setIsStaking] = useState(true);
-  const [priority, setPriority] = useState("low");
+  const [priority, setPriority] = useState("high"); // Golden staking uses ASYNC nonces (high priority)
   const [dataToGet, setDataToGet] = useState<GoldenStakingData | null>(null);
   const [evvmBalance, setEvvmBalance] = useState<string | null>(null);
   const [currentNonce, setCurrentNonce] = useState<string | null>(null);
@@ -399,44 +399,52 @@ function GoldenStakingComponent({
         If you enter <strong>2</strong>, you will stake <strong>10,166 MATE</strong>.
       </p>
 
-      <PrioritySelector onPriorityChange={setPriority} />
+      <div style={{
+        marginBottom: "1.5rem",
+        padding: "1rem",
+        background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
+        border: "2px solid #3b82f6",
+        borderRadius: "8px"
+      }}>
+        <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700", color: "#1e40af" }}>
+          ⚡ Golden Staking Uses ASYNC Nonces
+        </h4>
+        <p style={{ margin: "0", fontSize: "0.9rem", color: "#1e3a8a" }}>
+          Golden staking <strong>requires asynchronous (high priority) nonces</strong>.
+          <br />
+          <span style={{ fontSize: "0.85rem" }}>
+            Use a <strong>random number</strong> that you haven't used before (e.g., timestamp, random 6-digit number).
+          </span>
+        </p>
+      </div>
 
       <div style={{ marginBottom: "1rem" }}>
         <NumberInputWithGenerator
-          label="Nonce"
+          label="Async Nonce (Random Number)"
           inputId="nonceInput_GoldenStaking"
-          placeholder={currentNonce !== null ? `Use ${currentNonce}` : "Enter nonce"}
-          showRandomBtn={priority !== "low"}
+          placeholder="Click Generate → or enter random number"
+          showRandomBtn={true}
         />
-        {currentNonce !== null && (
-          <div style={{
-            marginTop: "0.5rem",
-            padding: "0.75rem",
-            background: "#fef3c7",
-            border: "1px solid #f59e0b",
-            borderRadius: "6px",
-            fontSize: "0.85rem"
-          }}>
-            <strong style={{ color: "#92400e" }}>⚠️ Nonce Reminder:</strong>
-            <div style={{ color: "#78350f", marginTop: "0.25rem" }}>
-              The correct nonce is: <strong>{currentNonce}</strong>
-              <br />
-              <span style={{ fontSize: "0.8rem" }}>
-                Even failed transactions consume nonces. Always use the latest nonce shown above.
-              </span>
-            </div>
+        <div style={{
+          marginTop: "0.5rem",
+          padding: "0.75rem",
+          background: "#f0fdf4",
+          border: "1px solid #22c55e",
+          borderRadius: "6px",
+          fontSize: "0.85rem"
+        }}>
+          <strong style={{ color: "#15803d" }}>✅ How Async Nonces Work:</strong>
+          <div style={{ color: "#166534", marginTop: "0.25rem" }}>
+            • Each nonce can only be used <strong>once</strong> per address
+            <br />
+            • Use <strong>random numbers</strong> (not sequential like 1, 2, 3...)
+            <br />
+            • Click <strong>"Generate Random"</strong> for a safe nonce
+            <br />
+            • Or use timestamp/random 6-10 digit number
           </div>
-        )}
+        </div>
       </div>
-
-      {priority === "low" && (
-        <HelperInfo label="How to find my sync nonce?">
-          <div>
-            You can retrieve your next sync nonce from the EVVM contract using the{" "}
-            <code>getNextCurrentSyncNonce</code> function.
-          </div>
-        </HelperInfo>
-      )}
 
       <button onClick={makeSig} className={styles.submitButton} style={{ marginTop: "1rem" }}>
         Create signature
