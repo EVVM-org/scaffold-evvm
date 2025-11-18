@@ -1,135 +1,8 @@
 import type { WalletClient, PublicClient } from 'viem';
 import type { PayInputData, DispersePayInputData, StakingInputData } from '@/types/evvm';
-import { parseSignature } from './evvmSignatures';
-
-// Minimal EVVM ABI for the functions we need
-const EVVM_ABI = [
-  {
-    name: 'pay',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'from', type: 'address' },
-      { name: 'to_address', type: 'address' },
-      { name: 'to_identity', type: 'string' },
-      { name: 'token', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'priorityFee', type: 'uint256' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'priority', type: 'bool' },
-      { name: 'executor', type: 'address' },
-      { name: 'v', type: 'uint8' },
-      { name: 'r', type: 'bytes32' },
-      { name: 's', type: 'bytes32' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'dispersePay',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'from', type: 'address' },
-      { name: 'token', type: 'address' },
-      { name: 'recipients', type: 'address[]' },
-      { name: 'amounts', type: 'uint256[]' },
-      { name: 'priorityFee', type: 'uint256' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'priority', type: 'bool' },
-      { name: 'executor', type: 'address' },
-      { name: 'v', type: 'uint8' },
-      { name: 'r', type: 'bytes32' },
-      { name: 's', type: 'bytes32' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'getBalance',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'account', type: 'address' },
-      { name: 'token', type: 'address' },
-    ],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'getNextCurrentSyncNonce',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-] as const;
-
-const STAKING_ABI = [
-  {
-    name: 'stakePublic',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'from', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'v', type: 'uint8' },
-      { name: 'r', type: 'bytes32' },
-      { name: 's', type: 'bytes32' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'getStakedAmount',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'isAddressStaker',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-] as const;
-
-const NAMESERVICE_ABI = [
-  {
-    name: 'preRegisterIdentity',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'from', type: 'address' },
-      { name: 'identity', type: 'string' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'v', type: 'uint8' },
-      { name: 'r', type: 'bytes32' },
-      { name: 's', type: 'bytes32' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'registerIdentity',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'from', type: 'address' },
-      { name: 'identity', type: 'string' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'v', type: 'uint8' },
-      { name: 'r', type: 'bytes32' },
-      { name: 's', type: 'bytes32' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'getOwnerOfIdentity',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'identity', type: 'string' }],
-    outputs: [{ name: '', type: 'address' }],
-  },
-] as const;
+import { config } from '@/config';
+import { writeContract } from '@wagmi/core';
+import { EvvmABI, StakingABI, NameServiceABI } from '@evvm/viem-signature-library';
 
 // ============================================
 // PAYMENT EXECUTORS
@@ -137,6 +10,7 @@ const NAMESERVICE_ABI = [
 
 /**
  * Execute a pay transaction
+ * Following the reference implementation pattern from EVVM-Signature-Constructor-Front
  */
 export async function executePay(
   walletClient: WalletClient,
@@ -144,12 +18,27 @@ export async function executePay(
   evvmAddress: `0x${string}`,
   data: PayInputData
 ): Promise<`0x${string}`> {
-  const { r, s, v } = parseSignature(data.signature);
+  if (!data) {
+    throw new Error("No data to execute payment");
+  }
 
-  const hash = await walletClient.writeContract({
+  console.log("Executing pay with args:", {
+    from: data.from,
+    to_address: data.to_address,
+    to_identity: data.to_identity,
+    token: data.token,
+    amount: data.amount.toString(),
+    priorityFee: data.priorityFee.toString(),
+    nonce: data.nonce.toString(),
+    priority: data.priority,
+    executor: data.executor,
+    signature: data.signature,
+  });
+
+  const hash = await writeContract(config, {
+    abi: EvvmABI,
     address: evvmAddress,
-    abi: EVVM_ABI,
-    functionName: 'pay',
+    functionName: "pay",
     args: [
       data.from,
       data.to_address,
@@ -159,20 +48,18 @@ export async function executePay(
       data.priorityFee,
       data.nonce,
       data.priority,
-      data.executor as `0x${string}`,
-      v,
-      r,
-      s,
+      data.executor,
+      data.signature,  // Full signature, NOT v,r,s
     ],
-    chain: walletClient.chain,
-    account: walletClient.account,
-  } as any);
+  });
 
-  return hash;
+  console.log("Pay transaction submitted:", hash);
+  return hash as `0x${string}`;
 }
 
 /**
  * Execute a disperse pay transaction
+ * Following the reference implementation pattern from EVVM-Signature-Constructor-Front
  */
 export async function executeDispersePay(
   walletClient: WalletClient,
@@ -180,33 +67,48 @@ export async function executeDispersePay(
   evvmAddress: `0x${string}`,
   data: DispersePayInputData
 ): Promise<`0x${string}`> {
-  const { r, s, v } = parseSignature(data.signature);
+  if (!data) {
+    throw new Error("No data to execute disperse payment");
+  }
 
-  const recipients = data.recipients.map((r) => r.address);
-  const amounts = data.recipients.map((r) => r.amount);
+  // Transform to match library's DispersePayInputData format
+  const toData = data.recipients.map(r => ({
+    to_address: r.address,
+    to_identity: "",
+    amount: r.amount,
+  }));
 
-  const hash = await walletClient.writeContract({
+  console.log("Executing dispersePay with args:", {
+    from: data.from,
+    toData,
+    token: data.token,
+    amount: data.recipients.reduce((sum, r) => sum + r.amount, 0n).toString(),
+    priorityFee: data.priorityFee.toString(),
+    nonce: data.nonce.toString(),
+    priority: data.priority,
+    executor: data.executor,
+    signature: data.signature,
+  });
+
+  const hash = await writeContract(config, {
+    abi: EvvmABI,
     address: evvmAddress,
-    abi: EVVM_ABI,
-    functionName: 'dispersePay',
+    functionName: "dispersePay",
     args: [
       data.from,
+      toData,
       data.token,
-      recipients,
-      amounts,
+      data.recipients.reduce((sum, r) => sum + r.amount, 0n),
       data.priorityFee,
       data.nonce,
       data.priority,
-      data.executor as `0x${string}`,
-      v,
-      r,
-      s,
+      data.executor,
+      data.signature,  // Full signature, NOT v,r,s
     ],
-    chain: walletClient.chain,
-    account: walletClient.account,
-  } as any);
+  });
 
-  return hash;
+  console.log("Disperse pay transaction submitted:", hash);
+  return hash as `0x${string}`;
 }
 
 // ============================================
@@ -215,6 +117,7 @@ export async function executeDispersePay(
 
 /**
  * Execute a staking transaction
+ * Following the reference implementation pattern
  */
 export async function executeStaking(
   walletClient: WalletClient,
@@ -222,18 +125,31 @@ export async function executeStaking(
   stakingAddress: `0x${string}`,
   data: StakingInputData
 ): Promise<`0x${string}`> {
-  const { r, s, v } = parseSignature(data.signature);
+  if (!data) {
+    throw new Error("No data to execute staking");
+  }
 
-  const hash = await walletClient.writeContract({
+  console.log("Executing stakePublic with args:", {
+    from: data.from,
+    amount: data.amount.toString(),
+    nonce: data.nonce.toString(),
+    signature: data.signature,
+  });
+
+  const hash = await writeContract(config, {
+    abi: StakingABI,
     address: stakingAddress,
-    abi: STAKING_ABI,
-    functionName: 'stakePublic',
-    args: [data.from, data.amount, data.nonce, v, r, s],
-    chain: walletClient.chain,
-    account: walletClient.account,
-  } as any);
+    functionName: "stakePublic",
+    args: [
+      data.from,
+      data.amount,
+      data.nonce,
+      data.signature,  // Full signature, NOT v,r,s
+    ],
+  });
 
-  return hash;
+  console.log("Staking transaction submitted:", hash);
+  return hash as `0x${string}`;
 }
 
 // ============================================
@@ -251,7 +167,7 @@ export async function readBalance(
 ): Promise<bigint> {
   const balance = await publicClient.readContract({
     address: evvmAddress,
-    abi: EVVM_ABI,
+    abi: EvvmABI,
     functionName: 'getBalance',
     args: [account, token],
   });
@@ -269,7 +185,7 @@ export async function readNextNonce(
 ): Promise<bigint> {
   const nonce = await publicClient.readContract({
     address: evvmAddress,
-    abi: EVVM_ABI,
+    abi: EvvmABI,
     functionName: 'getNextCurrentSyncNonce',
     args: [account],
   });
@@ -287,7 +203,7 @@ export async function readStakedAmount(
 ): Promise<bigint> {
   const amount = await publicClient.readContract({
     address: stakingAddress,
-    abi: STAKING_ABI,
+    abi: StakingABI,
     functionName: 'getStakedAmount',
     args: [account],
   });
@@ -305,7 +221,7 @@ export async function readIsStaker(
 ): Promise<boolean> {
   const isStaker = await publicClient.readContract({
     address: stakingAddress,
-    abi: STAKING_ABI,
+    abi: StakingABI,
     functionName: 'isAddressStaker',
     args: [account],
   });
@@ -323,7 +239,7 @@ export async function readUsernameOwner(
 ): Promise<`0x${string}`> {
   const owner = await publicClient.readContract({
     address: nameServiceAddress,
-    abi: NAMESERVICE_ABI,
+    abi: NameServiceABI,
     functionName: 'getOwnerOfIdentity',
     args: [username],
   });

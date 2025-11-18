@@ -292,6 +292,95 @@ When signature creation fails, check browser console for:
 - "Signatures created:" log showing signature values and types
 - Any errors from the signature library itself
 
+### 13. Transaction Executors - Library ABI and Signature Format ✅
+**Problem**: Custom ABI definitions with incorrect signature format (v, r, s components)
+**Root Cause**:
+- Payment/staking executors used custom ABI definitions instead of official library ABIs
+- Executors parsed signatures into v, r, s components before passing to contracts
+- EVVM contracts expect full signature bytes, not separate v, r, s parameters
+- Pattern didn't match the reference implementation
+
+**Investigation**:
+Analyzed reference implementation `EVVM-Signature-Constructor-Front`:
+```typescript
+// Reference (CORRECT):
+const executePay = async (
+  InputData: PayInputData,
+  evvmAddress: `0x${string}`,
+) => {
+  return writeContract(config, {
+    abi: EvvmABI,  // ← Library ABI
+    address: evvmAddress,
+    functionName: "pay",
+    args: [
+      ...
+      InputData.signature,  // ← Full signature (0x...)
+    ],
+  })
+};
+
+// Our implementation (WRONG):
+const { r, s, v } = parseSignature(data.signature);  // ← Parsing
+const hash = await walletClient.writeContract({
+  abi: EVVM_ABI,  // ← Custom ABI
+  args: [
+    ...
+    v, r, s,  // ← Wrong! Should be full signature
+  ],
+});
+```
+
+**Solution**:
+1. Imported official ABIs from `@evvm/viem-signature-library`:
+   - `EvvmABI` for payment functions
+   - `StakingABI` for staking functions
+   - `NameServiceABI` for name service functions
+2. Changed to use `writeContract(config, {...})` from `@wagmi/core`
+3. Pass **full signature** instead of parsing to v, r, s components
+4. Removed `parseSignature` function usage from executors
+5. Added comprehensive logging for debugging
+
+**Files Modified**:
+- `/frontend/src/lib/evvmExecutors.ts`:
+  - `executePay`: Now uses EvvmABI and passes full signature
+  - `executeDispersePay`: Updated to match reference pattern
+  - `executeStaking`: Uses StakingABI and full signature
+  - All read functions: Updated to use library ABIs
+- `/frontend/src/utils/transactionExecuters/nameServiceExecuter.ts`: Already correct ✅
+
+**Pattern Applied**:
+```typescript
+// Correct pattern:
+import { writeContract } from "@wagmi/core";
+import { EvvmABI } from "@evvm/viem-signature-library";
+import { config } from "@/config";
+
+const hash = await writeContract(config, {
+  abi: EvvmABI,
+  address: evvmAddress,
+  functionName: "pay",
+  args: [
+    data.from,
+    data.to_address,
+    data.to_identity,
+    data.token,
+    data.amount,
+    data.priorityFee,
+    data.nonce,
+    data.priority,
+    data.executor,
+    data.signature,  // Full 0x... signature
+  ],
+});
+```
+
+**Verification**:
+✅ NameService executors already followed correct pattern
+✅ Payment executors now match reference implementation
+✅ Staking executors now match reference implementation
+✅ All executors use official library ABIs
+✅ All executors pass full signatures
+
 ## Known Issues & Notes
 
 ### Future Signature Improvements
