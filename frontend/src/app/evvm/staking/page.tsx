@@ -26,6 +26,7 @@ import {
   StakingSignatureBuilder,
 } from "@evvm/viem-signature-library";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
+import { NetworkWarning } from "@/components/NetworkWarning";
 import styles from "@/styles/pages/Staking.module.css";
 
 type GoldenStakingData = {
@@ -102,6 +103,8 @@ export default function StakingPage() {
           </div>
         )}
       </div>
+
+      <NetworkWarning deployment={deployment} />
 
       <div className={styles.stakingInfo}>
         <h3>Staking Information</h3>
@@ -222,37 +225,80 @@ function GoldenStakingComponent({
 
   const execute = async () => {
     if (!dataToGet) {
-      console.error("No data to execute payment");
+      alert("No data to execute. Please create a signature first.");
       return;
     }
+
+    const numberOfFishers = dataToGet.GoldenStakingInputData.amountOfStaking;
+    const totalMate = dataToGet.PayInputData.amount / BigInt(10) ** BigInt(18);
+
+    const confirmation = confirm(
+      `You are about to ${isStaking ? "stake" : "unstake"} ${numberOfFishers} Golden Fisher(s).\n\n` +
+      `Total MATE tokens: ${totalMate.toLocaleString()}\n\n` +
+      `Are you sure you want to proceed?`
+    );
+
+    if (!confirmation) {
+      console.log("Golden staking cancelled by user");
+      return;
+    }
+
     const stakingAddress = dataToGet.PayInputData.to_address;
 
-    executeGoldenStaking(dataToGet.GoldenStakingInputData, stakingAddress)
-      .then(() => {
-        console.log("Golden staking executed successfully");
-      })
-      .catch((error) => {
-        console.error("Error executing golden staking:", error);
-      });
+    try {
+      await executeGoldenStaking(dataToGet.GoldenStakingInputData, stakingAddress);
+      console.log("Golden staking executed successfully");
+      alert(`✅ Golden staking ${isStaking ? "stake" : "unstake"} successful!`);
+      setDataToGet(null);
+      // Clear form
+      const input = document.getElementById("amountOfStakingInput_GoldenStaking") as HTMLInputElement;
+      if (input) input.value = "";
+    } catch (error: any) {
+      console.error("Error executing golden staking:", error);
+      alert(`❌ Golden staking failed: ${error.message || "Unknown error"}`);
+    }
   };
 
   return (
     <div className={styles.stakingForm}>
       <TitleAndLink
-        title="Golden Staking"
+        title="Golden Staking (Become a Golden Fisher)"
         link="https://www.evvm.info/docs/SignatureStructures/SMate/StakingUnstakingStructure"
       />
-      <p style={{ marginBottom: "1rem", color: "var(--color-text-secondary)" }}>
-        Golden stakers have exclusive privileges and higher rewards. Staking amount is multiplied by 5083.
-      </p>
+
+      <div style={{
+        marginBottom: "1.5rem",
+        padding: "1rem",
+        background: "linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)",
+        border: "2px solid #ffa500",
+        borderRadius: "8px",
+        color: "#000"
+      }}>
+        <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700" }}>🐟 Golden Fisher Staking</h4>
+        <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
+          Each <strong>Golden Fisher</strong> costs exactly <strong>5,083 MATE tokens</strong>.
+        </p>
+        <p style={{ margin: "0", fontSize: "0.85rem", fontStyle: "italic" }}>
+          Enter the number of fishers (e.g., 1, 2, 3...), not the MATE amount.
+        </p>
+      </div>
 
       <StakingActionSelector onChange={setIsStaking} />
 
       <NumberInputField
-        label={isStaking ? "Amount of MATE to stake" : "Amount of MATE to unstake (sMATE)"}
+        label={isStaking ? "Number of Golden Fishers to Stake" : "Number of Golden Fishers to Unstake"}
         inputId="amountOfStakingInput_GoldenStaking"
-        placeholder="Enter amount"
+        placeholder="Enter number of fishers (e.g., 1)"
       />
+
+      <p style={{
+        margin: "0.5rem 0 1rem 0",
+        fontSize: "0.85rem",
+        color: "var(--color-text-secondary)"
+      }}>
+        💡 If you enter <strong>1</strong>, you will stake <strong>5,083 MATE</strong>.
+        If you enter <strong>2</strong>, you will stake <strong>10,166 MATE</strong>.
+      </p>
 
       <PrioritySelector onPriorityChange={setPriority} />
 

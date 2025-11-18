@@ -381,6 +381,85 @@ const hash = await writeContract(config, {
 ✅ All executors use official library ABIs
 ✅ All executors pass full signatures
 
+### 14. Golden Fisher Staking - UI Label Confusion ✅
+**Problem**: Transaction failed when attempting to become a golden fisher
+**Transaction**: https://sepolia.etherscan.io/tx/0xe39afc2854401c348c517143e3a06645dc99b7eafbd7984c088fc2f466816242
+
+**Root Cause**:
+- UI label said "Amount of MATE to stake" instead of "Number of Golden Fishers"
+- User entered `5083` thinking it was MATE tokens
+- System interpreted this as `5083 fishers`
+- Calculated required tokens: `5083 × 5,083 MATE = 25,836,889 MATE tokens`
+- User didn't have enough MATE to stake 5083 fishers
+
+**How Golden Fisher Staking Works**:
+Each Golden Fisher costs exactly **5,083 MATE tokens**:
+- 1 fisher = 5,083 MATE
+- 2 fishers = 10,166 MATE
+- 3 fishers = 15,249 MATE
+
+**User's Failed Transaction Data**:
+```json
+PayInputData: {
+  "amount": "25836889000000000000000000",  // 25,836,889 MATE!
+  "nonce": "1"
+}
+GoldenStakingInputData: {
+  "isStaking": true,
+  "amountOfStaking": "5083",  // User wanted 1 fisher but entered MATE amount
+  "signature_EVVM": "0xe8d7d6e..."
+}
+```
+
+**Calculation Verification**:
+- Amount entered: 5083
+- System calculated: 5083 × 5083 × 10^18 = 25,836,889 × 10^18
+- Contract expected: 5083 fishers worth of MATE tokens
+
+**Solution**:
+1. Changed UI label from "Amount of MATE to stake" to **"Number of Golden Fishers to Stake"**
+2. Added prominent golden info box explaining:
+   - Each Golden Fisher costs 5,083 MATE tokens
+   - User should enter number of fishers (1, 2, 3...), not MATE amount
+3. Added helper text with examples:
+   - "If you enter 1, you will stake 5,083 MATE"
+   - "If you enter 2, you will stake 10,166 MATE"
+4. Updated placeholder to "Enter number of fishers (e.g., 1)"
+5. Added confirmation dialog showing exact fisher count and MATE amount before execution
+6. Added NetworkWarning component to staking page
+7. Improved error handling and success feedback
+
+**Files Modified**:
+- `/frontend/src/app/evvm/staking/page.tsx`:
+  - Lines 241-278: Added golden info box with clear instructions
+  - Lines 265-268: Changed label and placeholder
+  - Lines 223-257: Enhanced execute function with confirmation and validation
+  - Line 107: Added NetworkWarning component
+
+**User Experience Now**:
+```
+🐟 Golden Fisher Staking
+Each Golden Fisher costs exactly 5,083 MATE tokens.
+Enter the number of fishers (e.g., 1, 2, 3...), not the MATE amount.
+
+Number of Golden Fishers to Stake: [1]
+
+💡 If you enter 1, you will stake 5,083 MATE.
+   If you enter 2, you will stake 10,166 MATE.
+
+[Create signature] → Confirmation dialog:
+"You are about to stake 1 Golden Fisher(s).
+Total MATE tokens: 5,083
+Are you sure you want to proceed?"
+```
+
+**Benefits**:
+✅ Clear distinction between fisher count and MATE amount
+✅ Visual golden-themed info box draws attention
+✅ Examples help users understand the calculation
+✅ Confirmation dialog prevents accidental large stakes
+✅ Network validation prevents wrong network execution
+
 ## Known Issues & Notes
 
 ### Future Signature Improvements
