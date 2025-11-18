@@ -91,8 +91,11 @@ export default function Home() {
             </div>
 
             <div className={styles.cardActions}>
+              <Link href="/faucet" className={`${styles.actionButton} ${styles.featuredAction}`}>
+                🚰 Faucet
+              </Link>
               <Link href="/evvm/status" className={styles.actionButton}>
-                View Status
+                Status
               </Link>
               <Link href="/evvm/payments" className={styles.actionButton}>
                 Payments
@@ -101,7 +104,7 @@ export default function Home() {
                 Staking
               </Link>
               <Link href="/evvm/nameservice" className={styles.actionButton}>
-                Name Service
+                Names
               </Link>
             </div>
           </div>
