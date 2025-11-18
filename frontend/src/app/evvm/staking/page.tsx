@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { config } from "@/config/index";
 import { getWalletClient, getAccount } from "@wagmi/core";
+import { usePublicClient } from "wagmi";
 import {
   TitleAndLink,
   NumberInputWithGenerator,
@@ -27,6 +28,7 @@ import {
 } from "@evvm/viem-signature-library";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import { NetworkWarning } from "@/components/NetworkWarning";
+import { readBalance, readNextNonce } from "@/lib/evvmExecutors";
 import styles from "@/styles/pages/Staking.module.css";
 
 type GoldenStakingData = {
@@ -171,10 +173,45 @@ function GoldenStakingComponent({
   const [isStaking, setIsStaking] = useState(true);
   const [priority, setPriority] = useState("low");
   const [dataToGet, setDataToGet] = useState<GoldenStakingData | null>(null);
+  const [evvmBalance, setEvvmBalance] = useState<string | null>(null);
+  const [currentNonce, setCurrentNonce] = useState<string | null>(null);
+  const [account, setAccount] = useState<`0x${string}` | null>(null);
+  const publicClient = usePublicClient();
+
+  // Load user's EVVM balance and nonce
+  useEffect(() => {
+    async function loadUserData() {
+      try {
+        const walletData = await getAccountWithRetry(config);
+        if (!walletData || !publicClient) return;
+
+        setAccount(walletData.address as `0x${string}`);
+
+        const { deployment } = await import("@/lib/evvmConfig").then(m => m.loadDeployments().then(d => ({ deployment: d[0] })));
+        if (!deployment) return;
+
+        // Read EVVM balance (MATE token)
+        const mateToken = "0x0000000000000000000000000000000000000001" as `0x${string}`;
+        const balance = await readBalance(publicClient, deployment.evvm as `0x${string}`, walletData.address as `0x${string}`, mateToken);
+        setEvvmBalance((Number(balance) / 1e18).toFixed(2));
+
+        // Read next nonce
+        const nonce = await readNextNonce(publicClient, deployment.evvm as `0x${string}`, walletData.address as `0x${string}`);
+        setCurrentNonce(nonce.toString());
+      } catch (error) {
+        console.error("Failed to load user data:", error);
+      }
+    }
+
+    loadUserData();
+  }, [publicClient]);
 
   const makeSig = async () => {
     const walletData = await getAccountWithRetry(config);
-    if (!walletData) return;
+    if (!walletData) {
+      alert("Please connect your wallet first.");
+      return;
+    }
 
     const getValue = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
 
@@ -185,7 +222,27 @@ function GoldenStakingComponent({
       amountOfStaking: Number(getValue("amountOfStakingInput_GoldenStaking")),
     };
 
+    // Validation
+    if (!formData.amountOfStaking || formData.amountOfStaking <= 0) {
+      alert("Please enter a valid number of Golden Fishers (at least 1).");
+      return;
+    }
+
     const amountOfToken = BigInt(formData.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
+    const requiredMate = Number(amountOfToken) / 1e18;
+
+    // Check EVVM balance
+    if (evvmBalance && Number(evvmBalance) < requiredMate) {
+      const shortage = requiredMate - Number(evvmBalance);
+      alert(
+        `❌ Insufficient EVVM Balance!\n\n` +
+        `You need ${requiredMate.toLocaleString()} MATE tokens to stake ${formData.amountOfStaking} Golden Fisher(s).\n\n` +
+        `Your current EVVM balance: ${Number(evvmBalance).toLocaleString()} MATE\n` +
+        `Shortage: ${shortage.toLocaleString()} MATE\n\n` +
+        `Please deposit more MATE to your EVVM account first.`
+      );
+      return;
+    }
 
     try {
       const walletClient = await getWalletClient(config);
@@ -282,6 +339,45 @@ function GoldenStakingComponent({
           Enter the number of fishers (e.g., 1, 2, 3...), not the MATE amount.
         </p>
       </div>
+
+      {/* User Balance and Nonce Info */}
+      {account && (
+        <div style={{
+          marginBottom: "1.5rem",
+          padding: "1rem",
+          background: "var(--color-bg-secondary)",
+          border: "1px solid var(--color-border)",
+          borderRadius: "8px"
+        }}>
+          <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "1rem", fontWeight: "600" }}>Your EVVM Account</h4>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div>
+              <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "0.25rem" }}>
+                EVVM Balance (MATE)
+              </div>
+              <div style={{ fontSize: "1.25rem", fontWeight: "700", color: evvmBalance && Number(evvmBalance) < 5083 ? "#ef4444" : "#10b981" }}>
+                {evvmBalance ? Number(evvmBalance).toLocaleString() : "Loading..."}
+              </div>
+              {evvmBalance && Number(evvmBalance) < 5083 && (
+                <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "0.25rem" }}>
+                  ⚠️ Insufficient for 1 fisher
+                </div>
+              )}
+            </div>
+            <div>
+              <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "0.25rem" }}>
+                Next Nonce (use this)
+              </div>
+              <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>
+                {currentNonce !== null ? currentNonce : "Loading..."}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginTop: "0.25rem" }}>
+                💡 Use this nonce below
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <StakingActionSelector onChange={setIsStaking} />
 

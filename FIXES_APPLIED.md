@@ -460,6 +460,86 @@ Are you sure you want to proceed?"
 ✅ Confirmation dialog prevents accidental large stakes
 ✅ Network validation prevents wrong network execution
 
+### 15. Golden Fisher Staking - EVVM Balance Requirement ✅
+**Problem**: Second attempt at golden fisher staking failed with signature verification error
+**Transaction**: https://sepolia.etherscan.io/tx/0x84c5d3fcdf121932f91e6bf322327d4b769a678a9113a7a10ba588f21999f854
+
+**Root Cause**:
+- User tried to stake 1 Golden Fisher (requiring 5,083 MATE)
+- Transaction failed with "execution reverted" (likely `InvalidSignatureOnStaking`)
+- User's EVVM balance was insufficient to cover the staking amount
+- No pre-flight validation to check EVVM balance before signature creation
+- No display of current nonce, leading to potential nonce reuse
+
+**How Golden Staking Works**:
+1. User creates signature authorizing EVVM payment from their EVVM account to staking contract
+2. User calls `goldenStaking(isStaking, amountOfStaking, signature_EVVM)`
+3. Staking contract verifies signature and executes internal EVVM.pay() call
+4. If EVVM balance insufficient OR signature invalid → transaction reverts
+
+**Critical Requirements**:
+- User MUST have MATE tokens in their **EVVM account** (not just wallet)
+- Use correct nonce (next available sync nonce from EVVM contract)
+- Signature must authorize payment from user → staking contract
+
+**Solution**:
+1. Added real-time EVVM balance display showing:
+   - Current EVVM balance (MATE tokens)
+   - Color-coded warning (red if < 5,083, green if sufficient)
+   - Next available nonce to use
+2. Added pre-signature validation:
+   - Check user entered valid fisher count (≥ 1)
+   - Calculate required MATE (fishers × 5,083)
+   - Verify EVVM balance ≥ required MATE
+   - Show detailed error if insufficient with shortage amount
+3. Added balance loading on component mount
+4. Integrated with existing confirmation dialog
+
+**Files Modified**:
+- `/frontend/src/app/evvm/staking/page.tsx`:
+  - Lines 6: Added usePublicClient import
+  - Lines 31: Added readBalance, readNextNonce imports
+  - Lines 174-178: Added state for balance and nonce
+  - Lines 181-207: Added useEffect to load EVVM data
+  - Lines 225-245: Added validation before signature creation
+  - Lines 343-380: Added balance/nonce display UI
+
+**User Experience Now**:
+```
+🐟 Golden Fisher Staking
+Each Golden Fisher costs exactly 5,083 MATE tokens.
+
+┌─────────────────────────────────────────┐
+│ Your EVVM Account                       │
+│                                         │
+│ EVVM Balance (MATE)    Next Nonce      │
+│ 10,000 ✅              1 💡            │
+│                        Use this nonce  │
+└─────────────────────────────────────────┘
+
+Number of Golden Fishers: [1]
+
+If insufficient balance:
+❌ Insufficient EVVM Balance!
+
+You need 5,083 MATE tokens to stake 1 Golden Fisher(s).
+
+Your current EVVM balance: 0 MATE
+Shortage: 5,083 MATE
+
+Please deposit more MATE to your EVVM account first.
+```
+
+**Benefits**:
+✅ Shows EVVM balance before user attempts staking
+✅ Prevents failed transactions due to insufficient balance
+✅ Displays correct nonce to use (prevents nonce reuse errors)
+✅ Clear error messages explaining the shortage
+✅ Saves gas by validating before transaction
+
+**Important Note**:
+Users must **deposit MATE to their EVVM account** (via EVVM.pay()) BEFORE they can stake. Simply having MATE in their wallet is not enough - it must be in the EVVM internal ledger.
+
 ## Known Issues & Notes
 
 ### Future Signature Improvements
