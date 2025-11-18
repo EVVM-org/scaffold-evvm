@@ -104,7 +104,47 @@ Before deploying, verify these work:
 - [ ] No React version mismatch warnings
 - [ ] Environment variables load correctly
 
-### 8. Name Service Signature Validation ✅
+### 8. Arbitrum Mainnet Chain Support ✅
+**Problem**: "Unsupported chain ID: 42161" error when using Arbitrum mainnet
+**Solution**:
+- Added Arbitrum mainnet (chain ID 42161) to supported chains in viemClients.ts
+- Added RPC URL configuration with fallback to public RPC
+- **File**: `/frontend/src/lib/viemClients.ts:10-26`
+
+### 9. Wallet Client Availability & Proper Retrieval ✅
+**Problem**: "Wallet client not available" errors in payments page
+**Root Cause**:
+- Using `useWalletClient()` hook which can be undefined
+- No proper wallet connection validation before signature creation
+- Hook-based approach doesn't work reliably for async operations
+
+**Solution**:
+- Changed from `useWalletClient()` hook to `getWalletClient(config)` from `@wagmi/core`
+- Added wallet client retrieval directly in signature creation functions
+- Added comprehensive wallet connection validation
+- Better error messages guiding users to connect wallet
+- **Files**:
+  - `/frontend/src/app/evvm/payments/page.tsx:6` (import change)
+  - `/frontend/src/app/evvm/payments/page.tsx:55` (removed hook)
+  - `/frontend/src/app/evvm/payments/page.tsx:150-160` (single payment wallet client)
+  - `/frontend/src/app/evvm/payments/page.tsx:228-232` (single payment execution)
+  - `/frontend/src/app/evvm/payments/page.tsx:332-343` (disperse payment wallet client)
+  - `/frontend/src/app/evvm/payments/page.tsx:408-412` (disperse payment execution)
+
+**Pattern Applied**:
+```typescript
+// OLD (unreliable)
+const { data: walletClient } = useWalletClient();
+// Later... if (!walletClient) throw error
+
+// NEW (reliable)
+const walletClient = await getWalletClient(config);
+if (!walletClient) {
+  throw new Error("Wallet client not available. Please connect your wallet...");
+}
+```
+
+### 10. Name Service Signature Validation ✅
 **Problem**: "Cannot read properties of undefined (reading 'length')" when executing pre-registration/registration signatures
 **Root Cause**:
 - Signatures returned from `@evvm/viem-signature-library` were not being validated before execution

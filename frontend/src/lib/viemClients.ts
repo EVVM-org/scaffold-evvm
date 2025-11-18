@@ -7,12 +7,13 @@ import {
   type WalletClient,
   type Chain,
 } from 'viem';
-import {  sepolia, arbitrumSepolia, localhost } from 'viem/chains';
+import {  sepolia, arbitrumSepolia, arbitrum, localhost } from 'viem/chains';
 
 // Supported chains
 export const supportedChains: Record<number, Chain> = {
   11155111: sepolia,
   421614: arbitrumSepolia,
+  42161: arbitrum, // Arbitrum mainnet
   31337: localhost,
 };
 
@@ -20,6 +21,7 @@ export const supportedChains: Record<number, Chain> = {
 const RPC_URLS: Record<number, string> = {
   11155111: process.env.NEXT_PUBLIC_RPC_URL_ETH_SEPOLIA || 'https://0xrpc.io/sep',
   421614: process.env.NEXT_PUBLIC_RPC_URL_ARB_SEPOLIA || 'https://sepolia-rollup.arbitrum.io/rpc',
+  42161: process.env.NEXT_PUBLIC_RPC_URL_ARB_MAINNET || 'https://arb1.arbitrum.io/rpc',
   31337: 'http://localhost:8545',
 };
 

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { useWalletClient, usePublicClient } from "wagmi";
+import { usePublicClient } from "wagmi";
+import { getWalletClient } from "@wagmi/core";
 import { config } from "@/config";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import { WalletConnect } from "@/components/WalletConnect";
@@ -52,7 +53,6 @@ const transformDisperseData = (data: any): import("@/types/evvm").DispersePayInp
 export default function PaymentsPage() {
   const { deployment, loading: deploymentLoading, error: deploymentError } = useEvvmDeployment();
   const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const [activeTab, setActiveTab] = useState<"single" | "disperse">("single");
 
@@ -147,9 +147,17 @@ export default function PaymentsPage() {
         throw new Error("Nonce is required");
       }
 
+      const walletClient = await getWalletClient(config);
+
       if (!walletClient) {
-        throw new Error("Wallet client not available");
+        throw new Error("Wallet client not available. Please connect your wallet and ensure you're on the correct network.");
       }
+
+      console.log("Creating EVVM signature builder with:", {
+        walletClient,
+        walletData,
+        evvmID: formData.evvmID
+      });
 
       const signatureBuilder = new (EVVMSignatureBuilder as any)(
         walletClient,
@@ -166,6 +174,20 @@ export default function PaymentsPage() {
         priority === "high",
         formData.executor as `0x${string}`
       );
+
+      console.log("Payment signature created:", {
+        signature,
+        signatureType: typeof signature,
+        signatureLength: signature?.length
+      });
+
+      if (!signature) {
+        throw new Error("Signature creation failed: Signature is undefined");
+      }
+
+      if (typeof signature !== 'string' || !signature.startsWith('0x')) {
+        throw new Error(`Invalid signature format: ${signature}`);
+      }
 
       const payData: any = {
         from: walletData.address as `0x${string}`,
@@ -203,8 +225,10 @@ export default function PaymentsPage() {
       return;
     }
 
+    const walletClient = await getWalletClient(config);
+
     if (!walletClient || !publicClient) {
-      setTxError("Wallet client is not available");
+      setTxError("Wallet client is not available. Please connect your wallet.");
       return;
     }
 
@@ -305,9 +329,18 @@ export default function PaymentsPage() {
         throw new Error("At least one recipient is required");
       }
 
+      const walletClient = await getWalletClient(config);
+
       if (!walletClient) {
-        throw new Error("Wallet client not available");
+        throw new Error("Wallet client not available. Please connect your wallet and ensure you're on the correct network.");
       }
+
+      console.log("Creating EVVM disperse signature builder with:", {
+        walletClient,
+        walletData,
+        evvmID: formData.evvmID,
+        recipientCount: toData.length
+      });
 
       const signatureBuilder = new (EVVMSignatureBuilder as any)(
         walletClient,
@@ -324,6 +357,20 @@ export default function PaymentsPage() {
         priorityDisperse === "high",
         formData.executor as `0x${string}`
       );
+
+      console.log("Disperse payment signature created:", {
+        dispersePaySignature,
+        signatureType: typeof dispersePaySignature,
+        signatureLength: dispersePaySignature?.length
+      });
+
+      if (!dispersePaySignature) {
+        throw new Error("Signature creation failed: Signature is undefined");
+      }
+
+      if (typeof dispersePaySignature !== 'string' || !dispersePaySignature.startsWith('0x')) {
+        throw new Error(`Invalid signature format: ${dispersePaySignature}`);
+      }
 
       const disperseData: any = {
         from: walletData.address as `0x${string}`,
@@ -358,8 +405,10 @@ export default function PaymentsPage() {
       return;
     }
 
+    const walletClient = await getWalletClient(config);
+
     if (!walletClient || !publicClient) {
-      setTxError("Wallet client is not available");
+      setTxError("Wallet client is not available. Please connect your wallet.");
       return;
     }
 
