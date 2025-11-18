@@ -144,7 +144,63 @@ if (!walletClient) {
 }
 ```
 
-### 10. Name Service Signature Validation ✅
+### 10. Optional PaySignature Handling in Name Service ✅
+**Problem**: "Signature creation failed: One or both signatures are undefined" when creating pre-registration signatures with priorityFee = 0
+**Root Cause**:
+- The `@evvm/viem-signature-library` returns `DualSignatureResult` where `paySignature` is **optional**
+- `paySignature` is only created when `priorityFee_EVVM > 0n` (source: library line 77)
+- Our validation incorrectly required BOTH signatures to be defined
+- When priorityFee is 0, paySignature is legitimately undefined, but we were rejecting it
+
+**Library Behavior** (from node_modules/@evvm/viem-signature-library/src/signatures/nameService.ts):
+```typescript
+export interface DualSignatureResult {
+  paySignature?: `0x${string}`;  // <-- OPTIONAL (undefined when priorityFee = 0)
+  actionSignature: `0x${string}`;
+}
+
+async signPreRegistrationUsername(...): Promise<DualSignatureResult> {
+  const actionSignature = await this.signERC191Message(preRegistrationMessage);
+
+  let paySignature: `0x${string}` | undefined;
+  if (priorityFee_EVVM > 0n) {  // <-- Only creates when fee > 0
+    paySignature = await this.signERC191Message(payMessage);
+  }
+
+  return { paySignature, actionSignature };
+}
+```
+
+**Solution**:
+- Updated validation to only require actionSignature (always present)
+- Made paySignature validation conditional on priorityFee > 0
+- Use zero signature (`0x${'00'.repeat(65)}`) when paySignature is undefined
+- Registration still requires both signatures (library always creates both for registration)
+- **Files**:
+  - `/frontend/src/app/evvm/nameservice/page.tsx:148-165` (pre-registration validation)
+  - `/frontend/src/app/evvm/nameservice/page.tsx:172-181` (zero signature handling)
+  - `/frontend/src/app/evvm/nameservice/page.tsx:286-297` (registration validation - both required)
+
+**Validation Pattern**:
+```typescript
+// Pre-registration: actionSignature required, paySignature optional
+if (!actionSignature) {
+  throw new Error("actionSignature is undefined");
+}
+
+// Only validate paySignature if priorityFee > 0
+if (BigInt(formData.priorityFee_EVVM) > 0n) {
+  if (!paySignature) {
+    throw new Error("paySignature required when priorityFee > 0");
+  }
+}
+
+// Use zero signature as fallback
+const ZERO_SIGNATURE = `0x${'00'.repeat(65)}` as `0x${string}`;
+const finalPaySignature = paySignature || ZERO_SIGNATURE;
+```
+
+### 11. Name Service Signature Validation ✅
 **Problem**: "Cannot read properties of undefined (reading 'length')" when executing pre-registration/registration signatures
 **Root Cause**:
 - Signatures returned from `@evvm/viem-signature-library` were not being validated before execution

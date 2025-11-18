@@ -140,25 +140,45 @@ export default function NameServicePage() {
         paySignatureType: typeof paySignature,
         actionSignatureType: typeof actionSignature,
         paySignatureLength: paySignature?.length,
-        actionSignatureLength: actionSignature?.length
+        actionSignatureLength: actionSignature?.length,
+        priorityFee: formData.priorityFee_EVVM,
+        note: "paySignature is optional (only present if priorityFee > 0)"
       });
 
-      if (!paySignature || !actionSignature) {
-        throw new Error("Signature creation failed: One or both signatures are undefined");
-      }
-
-      if (typeof paySignature !== 'string' || !paySignature.startsWith('0x')) {
-        throw new Error(`Invalid paySignature format: ${paySignature}`);
+      // actionSignature is always required
+      if (!actionSignature) {
+        throw new Error("Signature creation failed: actionSignature is undefined");
       }
 
       if (typeof actionSignature !== 'string' || !actionSignature.startsWith('0x')) {
         throw new Error(`Invalid actionSignature format: ${actionSignature}`);
       }
 
+      // paySignature is only required if priorityFee > 0
+      if (BigInt(formData.priorityFee_EVVM) > 0n) {
+        if (!paySignature) {
+          throw new Error("Signature creation failed: paySignature is undefined (required when priorityFee > 0)");
+        }
+        if (typeof paySignature !== 'string' || !paySignature.startsWith('0x')) {
+          throw new Error(`Invalid paySignature format: ${paySignature}`);
+        }
+      }
+
       const hashUsername = hashPreRegisteredUsername(
         formData.username,
         BigInt(formData.clowNumber)
       );
+
+      // Use zero signature if paySignature is undefined (when priorityFee = 0)
+      const ZERO_SIGNATURE = `0x${'00'.repeat(65)}` as `0x${string}`;
+      const finalPaySignature = paySignature || ZERO_SIGNATURE;
+
+      console.log("Final signatures for transaction:", {
+        actionSignature,
+        paySignature: finalPaySignature,
+        isZeroSignature: !paySignature,
+        priorityFee: formData.priorityFee_EVVM
+      });
 
       setDataToGet({
         PayInputData: {
@@ -171,7 +191,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonce_EVVM),
           priority: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: finalPaySignature,
         },
         ActionInputData: {
           user: walletData.address as `0x${string}`,
@@ -183,7 +203,7 @@ export default function NameServicePage() {
           priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
           nonce_EVVM: BigInt(formData.nonce_EVVM),
           priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: paySignature,
+          signature_EVVM: finalPaySignature,
         },
       });
     } catch (error) {
@@ -256,10 +276,14 @@ export default function NameServicePage() {
       console.log("Registration signatures created:", {
         paySignature,
         actionSignature,
+        paySignatureType: typeof paySignature,
+        actionSignatureType: typeof actionSignature,
         paySignatureLength: paySignature?.length,
-        actionSignatureLength: actionSignature?.length
+        actionSignatureLength: actionSignature?.length,
+        note: "Both signatures are required for registration"
       });
 
+      // For registration, both signatures are always required
       if (!paySignature || !actionSignature) {
         throw new Error("Signature creation failed: One or both signatures are undefined");
       }
