@@ -10,6 +10,7 @@
   --color-primary: #4f46e5;
   --color-primary-hover: #4338ca;
   --color-secondary: #10b981;
+  --color-evvm: #00ee96;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
   --color-bg: #ffffff;
@@ -29,6 +30,32 @@
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+  /* Additional variables for components */
+  --bg-primary: #ffffff;
+  --bg-hover: #f5f5f5;
+  --text-primary: #333;
+  --border-color: #e0e0e0;
+}
+
+/* Dark mode */
+.dark {
+  --color-bg: #1a1a1a;
+  --color-bg-secondary: #111111;
+  --color-bg-tertiary: #2a2a2a;
+  --color-text: #f0f0f0;
+  --color-text-secondary: #aaaaaa;
+  --color-border: #333333;
+  --color-code-bg: #0f0f0f;
+  --color-code-text: #e0e0e0;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+
+  --bg-primary: #1a1a1a;
+  --bg-hover: #2a2a2a;
+  --text-primary: #f0f0f0;
+  --border-color: #333;
 }
 
 html,

@@ -1,266 +1,363 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { WalletConnect } from '@/components/WalletConnect';
-import { DebugConsole } from '@/components/DebugConsole';
-import { loadDeployments, getExplorerTxUrl, type EvvmDeployment } from '@/lib/evvmConfig';
-import { getWalletClient, getPublicClient, getCurrentChainId } from '@/lib/viemClients';
-import { buildAndSignPay, buildAndSignDispersePay } from '@/lib/evvmSignatures';
-import { executePay, executeDispersePay } from '@/lib/evvmExecutors';
-import type { DebugEntry, DispersePayRecipient } from '@/types/evvm';
-import styles from '@/styles/pages/Payments.module.css';
+import React, { useState, useEffect } from "react";
+import { useAccount, getWalletClient } from "wagmi";
+import { config } from "@/config";
+import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
+import { WalletConnect } from "@/components/WalletConnect";
+import {
+  TitleAndLink,
+  NumberInputWithGenerator,
+  AddressInputField,
+  PrioritySelector,
+  ExecutorSelector,
+  DataDisplayWithClear,
+  HelperInfo,
+  NumberInputField,
+} from "@/components/SigConstructors/InputsAndModules";
+import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
+import {
+  executePay,
+  executeDispersePay,
+} from "@/utils/transactionExecuters";
+import {
+  EVVMSignatureBuilder,
+  PayInputData,
+  DispersePayInputData,
+  DispersePayMetadata,
+} from "@evvm/viem-signature-library";
+import styles from "@/styles/pages/Payments.module.css";
 
 export default function PaymentsPage() {
-  const [deployment, setDeployment] = useState<EvvmDeployment | null>(null);
-  const [account, setAccount] = useState<`0x${string}` | null>(null);
-  const [chainId, setChainId] = useState<number | null>(null);
-  const [debugEntries, setDebugEntries] = useState<DebugEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'single' | 'disperse'>('single');
+  const { deployment, loading: deploymentLoading, error: deploymentError } = useEvvmDeployment();
+  const { address, isConnected } = useAccount();
+  const [activeTab, setActiveTab] = useState<"single" | "disperse">("single");
 
-  // Single pay state
-  const [recipientAddress, setRecipientAddress] = useState('');
-  const [amount, setAmount] = useState('');
-  const [token, setToken] = useState('0x0000000000000000000000000000000000000001'); // MATE
-  const [priorityFee, setPriorityFee] = useState('0');
-  const [nonce, setNonce] = useState('');
-  const [priority, setPriority] = useState(false);
-  const [executor, setExecutor] = useState('0x0000000000000000000000000000000000000000');
+  // Single payment state
+  const [isUsingUsername, setIsUsingUsername] = useState(false);
+  const [isUsingExecutor, setIsUsingExecutor] = useState(false);
+  const [priority, setPriority] = useState("low");
+  const [payDataToGet, setPayDataToGet] = useState<PayInputData | null>(null);
+  const [payLoading, setPayLoading] = useState(false);
 
-  // Disperse pay state
-  const [recipients, setRecipients] = useState<DispersePayRecipient[]>([
-    { address: '' as `0x${string}`, amount: 0n },
+  // Disperse payment state
+  const [isUsingExecutorDisperse, setIsUsingExecutorDisperse] = useState(false);
+  const [priorityDisperse, setPriorityDisperse] = useState("low");
+  const [isUsingUsernameOnDisperse, setIsUsingUsernameOnDisperse] = useState<boolean[]>([
+    false, false, false, false, false,
   ]);
+  const [numberOfUsersToDisperse, setNumberOfUsersToDisperse] = useState(1);
+  const [disperseDataToGet, setDisperseDataToGet] = useState<DispersePayInputData | null>(null);
+  const [disperseLoading, setDisperseLoading] = useState(false);
 
-  const [loading, setLoading] = useState(false);
+  // Transaction status
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [txError, setTxError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadDeploymentData();
-    checkWalletConnection();
-  }, []);
-
-  async function loadDeploymentData() {
-    try {
-      const deployments = await loadDeployments();
-      if (deployments.length > 0) {
-        setDeployment(deployments[0]);
-      }
-    } catch (error) {
-      addDebugEntry('error', 'Failed to load deployment', error);
-    }
-  }
-
-  async function checkWalletConnection() {
-    try {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          setAccount(accounts[0]);
-          const currentChainId = await getCurrentChainId();
-          setChainId(currentChainId);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to check wallet:', error);
-    }
-  }
-
-  function addDebugEntry(type: DebugEntry['type'], label: string, payload: any) {
-    setDebugEntries((prev) => [
-      ...prev,
-      { type, label, payload, timestamp: Date.now() },
-    ]);
-  }
-
-  async function handleBuildAndSignPay() {
-    if (!deployment || !account || !chainId) {
-      addDebugEntry('error', 'Missing Requirements', 'Please connect wallet and ensure deployment exists');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const walletClient = getWalletClient(chainId);
-      if (!walletClient) {
-        throw new Error('Wallet client not available');
-      }
-
-      const params = {
-        evvmID: BigInt(deployment.evvmID),
-        to: recipientAddress,
-        token: token as `0x${string}`,
-        amount: BigInt(amount),
-        priorityFee: BigInt(priorityFee),
-        nonce: BigInt(nonce),
-        priority,
-        executor: executor as `0x${string}`,
-      };
-
-      addDebugEntry('info', 'Building pay message', params);
-
-      const { message, signature } = await buildAndSignPay(walletClient, account, params);
-
-      addDebugEntry('request', 'Message Built', message);
-      addDebugEntry('response', 'Signature Generated', signature);
-
-      // Auto-execute
-      await executeSinglePay(signature, message);
-    } catch (error: any) {
-      addDebugEntry('error', 'Build & Sign Failed', error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function executeSinglePay(signature: `0x${string}`, message: string) {
-    if (!deployment || !account || !chainId) return;
-
-    try {
-      const walletClient = getWalletClient(chainId);
-      const publicClient = getPublicClient(chainId);
-      if (!walletClient) {
-        throw new Error('Wallet client not available');
-      }
-
-      const payData = {
-        from: account,
-        to_address: recipientAddress.startsWith('0x')
-          ? (recipientAddress as `0x${string}`)
-          : '0x0000000000000000000000000000000000000000' as `0x${string}`,
-        to_identity: recipientAddress.startsWith('0x') ? '' : recipientAddress,
-        token: token as `0x${string}`,
-        amount: BigInt(amount),
-        priorityFee: BigInt(priorityFee),
-        nonce: BigInt(nonce),
-        priority,
-        executor,
-        signature,
-      };
-
-      addDebugEntry('info', 'Executing pay transaction', payData);
-
-      const txHash = await executePay(walletClient, publicClient, deployment.evvm, payData);
-
-      addDebugEntry('response', 'Transaction Submitted', {
-        hash: txHash,
-        explorer: getExplorerTxUrl(chainId, txHash),
-      });
-
-      // Wait for transaction
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-      addDebugEntry('response', 'Transaction Confirmed', receipt);
-    } catch (error: any) {
-      addDebugEntry('error', 'Execution Failed', error.message);
-    }
-  }
-
-  async function handleBuildAndSignDispersePay() {
-    if (!deployment || !account || !chainId) {
-      addDebugEntry('error', 'Missing Requirements', 'Please connect wallet and ensure deployment exists');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const walletClient = getWalletClient(chainId);
-      if (!walletClient) {
-        throw new Error('Wallet client not available');
-      }
-
-      const params = {
-        evvmID: BigInt(deployment.evvmID),
-        token: token as `0x${string}`,
-        recipients: recipients.map(r => ({
-          address: r.address,
-          amount: BigInt(r.amount)
-        })),
-        priorityFee: BigInt(priorityFee),
-        nonce: BigInt(nonce),
-        priority,
-        executor: executor as `0x${string}`,
-      };
-
-      addDebugEntry('info', 'Building disperse pay message', params);
-
-      const { message, signature } = await buildAndSignDispersePay(walletClient, account, params);
-
-      addDebugEntry('request', 'Message Built', message);
-      addDebugEntry('response', 'Signature Generated', signature);
-
-      // Auto-execute
-      await executeDispersePayTx(signature);
-    } catch (error: any) {
-      addDebugEntry('error', 'Build & Sign Failed', error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function executeDispersePayTx(signature: `0x${string}`) {
-    if (!deployment || !account || !chainId) return;
-
-    try {
-      const walletClient = getWalletClient(chainId);
-      const publicClient = getPublicClient(chainId);
-      if (!walletClient) {
-        throw new Error('Wallet client not available');
-      }
-
-      const disperseData = {
-        from: account,
-        token: token as `0x${string}`,
-        recipients: recipients.map(r => ({
-          address: r.address,
-          amount: BigInt(r.amount)
-        })),
-        priorityFee: BigInt(priorityFee),
-        nonce: BigInt(nonce),
-        priority,
-        executor,
-        signature,
-      };
-
-      addDebugEntry('info', 'Executing disperse pay transaction', disperseData);
-
-      const txHash = await executeDispersePay(walletClient, publicClient, deployment.evvm, disperseData);
-
-      addDebugEntry('response', 'Transaction Submitted', {
-        hash: txHash,
-        explorer: getExplorerTxUrl(chainId, txHash),
-      });
-
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-      addDebugEntry('response', 'Transaction Confirmed', receipt);
-    } catch (error: any) {
-      addDebugEntry('error', 'Execution Failed', error.message);
-    }
-  }
-
-  function addRecipient() {
-    setRecipients([...recipients, { address: '' as `0x${string}`, amount: 0n }]);
-  }
-
-  function removeRecipient(index: number) {
-    setRecipients(recipients.filter((_, i) => i !== index));
-  }
-
-  function updateRecipient(index: number, field: 'address' | 'amount', value: string) {
-    const updated = [...recipients];
-    if (field === 'address') {
-      updated[index].address = value as `0x${string}`;
-    } else {
-      updated[index].amount = BigInt(value || '0');
-    }
-    setRecipients(updated);
-  }
-
-  if (!deployment) {
+  if (deploymentLoading) {
     return (
       <div className={styles.container}>
-        <WalletConnect />
-        <div className={styles.error}>No EVVM deployment found.</div>
+        <div className={styles.header}>
+          <h2>EVVM Payments</h2>
+          <WalletConnect />
+        </div>
+        <p>Loading deployment information...</p>
       </div>
     );
   }
+
+  if (deploymentError || !deployment) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h2>EVVM Payments</h2>
+          <WalletConnect />
+        </div>
+        <div className={styles.error}>
+          {deploymentError || "No EVVM deployment found."}
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================
+  // SINGLE PAYMENT FUNCTIONS
+  // ============================================
+
+  const makeSinglePaySignature = async () => {
+    const walletData = await getAccountWithRetry(config);
+    if (!walletData) {
+      setTxError("Unable to get wallet data. Please connect your wallet.");
+      return;
+    }
+
+    setPayLoading(true);
+    setTxError(null);
+
+    try {
+      const getValue = (id: string) =>
+        (document.getElementById(id) as HTMLInputElement)?.value || "";
+
+      const formData = {
+        evvmID: deployment.evvmID.toString(),
+        nonce: getValue("nonceInput_Pay"),
+        tokenAddress: getValue("tokenAddress_Pay"),
+        to: getValue(isUsingUsername ? "toUsername" : "toAddress"),
+        executor: isUsingExecutor
+          ? getValue("executorInput_Pay")
+          : "0x0000000000000000000000000000000000000000",
+        amount: getValue("amountTokenInput_Pay"),
+        priorityFee: getValue("priorityFeeInput_Pay"),
+      };
+
+      // Validation
+      if (!formData.to) {
+        throw new Error("Recipient address or username is required");
+      }
+      if (!formData.tokenAddress) {
+        throw new Error("Token address is required");
+      }
+      if (!formData.amount || formData.amount === "0") {
+        throw new Error("Amount must be greater than 0");
+      }
+      if (!formData.nonce) {
+        throw new Error("Nonce is required");
+      }
+
+      const walletClient = await getWalletClient(config);
+      if (!walletClient) {
+        throw new Error("Wallet client not available");
+      }
+
+      const signatureBuilder = new (EVVMSignatureBuilder as any)(
+        walletClient,
+        walletData
+      );
+
+      const signature = await signatureBuilder.signPay(
+        BigInt(formData.evvmID),
+        formData.to,
+        formData.tokenAddress as `0x${string}`,
+        BigInt(formData.amount),
+        BigInt(formData.priorityFee),
+        BigInt(formData.nonce),
+        priority === "high",
+        formData.executor as `0x${string}`
+      );
+
+      const payData: PayInputData = {
+        from: walletData.address as `0x${string}`,
+        to_address: (formData.to.startsWith("0x")
+          ? formData.to
+          : "0x0000000000000000000000000000000000000000") as `0x${string}`,
+        to_identity: formData.to.startsWith("0x") ? "" : formData.to,
+        token: formData.tokenAddress as `0x${string}`,
+        amount: BigInt(formData.amount),
+        priorityFee: BigInt(formData.priorityFee),
+        nonce: BigInt(formData.nonce),
+        priority: priority === "high",
+        executor: formData.executor,
+        signature,
+      };
+
+      setPayDataToGet(payData);
+      console.log("Payment signature created successfully", payData);
+    } catch (error: any) {
+      console.error("Error creating signature:", error);
+      setTxError(error.message || "Failed to create signature");
+    } finally {
+      setPayLoading(false);
+    }
+  };
+
+  const executePayment = async () => {
+    if (!payDataToGet) {
+      setTxError("No payment data available. Please create a signature first.");
+      return;
+    }
+
+    if (!deployment?.evvm) {
+      setTxError("EVVM address is not available");
+      return;
+    }
+
+    setPayLoading(true);
+    setTxError(null);
+    setTxHash(null);
+
+    try {
+      await executePay(payDataToGet, deployment.evvm as `0x${string}`);
+      console.log("Payment executed successfully");
+      setPayDataToGet(null);
+      // Reset form
+      const inputs = ["nonceInput_Pay", "tokenAddress_Pay", "toAddress", "toUsername", "amountTokenInput_Pay", "priorityFeeInput_Pay", "executorInput_Pay"];
+      inputs.forEach(id => {
+        const input = document.getElementById(id) as HTMLInputElement;
+        if (input) input.value = "";
+      });
+    } catch (error: any) {
+      console.error("Error executing payment:", error);
+      setTxError(error.message || "Failed to execute payment");
+    } finally {
+      setPayLoading(false);
+    }
+  };
+
+  // ============================================
+  // DISPERSE PAYMENT FUNCTIONS
+  // ============================================
+
+  const makeDispersePaySignature = async () => {
+    const walletData = await getAccountWithRetry(config);
+    if (!walletData) {
+      setTxError("Unable to get wallet data. Please connect your wallet.");
+      return;
+    }
+
+    setDisperseLoading(true);
+    setTxError(null);
+
+    try {
+      const getValue = (id: string) =>
+        (document.getElementById(id) as HTMLInputElement)?.value || "";
+
+      const formData = {
+        evvmID: deployment.evvmID.toString(),
+        tokenAddress: getValue("tokenAddressDispersePay"),
+        amount: getValue("amountTokenInputSplit"),
+        priorityFee: getValue("priorityFeeInputSplit"),
+        nonce: getValue("nonceInputDispersePay"),
+        executor: isUsingExecutorDisperse
+          ? getValue("executorInputSplit")
+          : "0x0000000000000000000000000000000000000000",
+      };
+
+      // Build recipient metadata
+      const toData: DispersePayMetadata[] = [];
+      for (let i = 0; i < numberOfUsersToDisperse; i++) {
+        const isUsingUsername = isUsingUsernameOnDisperse[i];
+        const toInputId = isUsingUsername
+          ? `toUsernameSplitUserNumber${i}`
+          : `toAddressSplitUserNumber${i}`;
+        const to = getValue(toInputId);
+        const amount = getValue(`amountTokenToGiveUser${i}`);
+
+        if (!to) {
+          throw new Error(`Recipient ${i + 1}: Address or username is required`);
+        }
+        if (!amount || amount === "0") {
+          throw new Error(`Recipient ${i + 1}: Amount must be greater than 0`);
+        }
+
+        toData.push({
+          amount: BigInt(amount),
+          to_address: isUsingUsername
+            ? "0x0000000000000000000000000000000000000000"
+            : (to as `0x${string}`),
+          to_identity: isUsingUsername ? to : "",
+        });
+      }
+
+      // Validation
+      if (!formData.tokenAddress) {
+        throw new Error("Token address is required");
+      }
+      if (!formData.amount || formData.amount === "0") {
+        throw new Error("Total amount must be greater than 0");
+      }
+      if (!formData.nonce) {
+        throw new Error("Nonce is required");
+      }
+      if (toData.length === 0) {
+        throw new Error("At least one recipient is required");
+      }
+
+      const walletClient = await getWalletClient(config);
+      if (!walletClient) {
+        throw new Error("Wallet client not available");
+      }
+
+      const signatureBuilder = new (EVVMSignatureBuilder as any)(
+        walletClient,
+        walletData
+      );
+
+      const dispersePaySignature = await signatureBuilder.signDispersePay(
+        BigInt(formData.evvmID),
+        toData,
+        formData.tokenAddress as `0x${string}`,
+        BigInt(formData.amount),
+        BigInt(formData.priorityFee),
+        BigInt(formData.nonce),
+        priorityDisperse === "high",
+        formData.executor as `0x${string}`
+      );
+
+      const disperseData: DispersePayInputData = {
+        from: walletData.address as `0x${string}`,
+        toData,
+        token: formData.tokenAddress as `0x${string}`,
+        amount: BigInt(formData.amount),
+        priorityFee: BigInt(formData.priorityFee),
+        priority: priorityDisperse === "high",
+        nonce: BigInt(formData.nonce),
+        executor: formData.executor,
+        signature: dispersePaySignature,
+      };
+
+      setDisperseDataToGet(disperseData);
+      console.log("Disperse payment signature created successfully", disperseData);
+    } catch (error: any) {
+      console.error("Error creating disperse signature:", error);
+      setTxError(error.message || "Failed to create disperse signature");
+    } finally {
+      setDisperseLoading(false);
+    }
+  };
+
+  const executeDispersePayment = async () => {
+    if (!disperseDataToGet) {
+      setTxError("No disperse payment data available. Please create a signature first.");
+      return;
+    }
+
+    if (!deployment?.evvm) {
+      setTxError("EVVM address is not available");
+      return;
+    }
+
+    setDisperseLoading(true);
+    setTxError(null);
+    setTxHash(null);
+
+    try {
+      await executeDispersePay(disperseDataToGet, deployment.evvm as `0x${string}`);
+      console.log("Disperse payment executed successfully");
+      setDisperseDataToGet(null);
+      // Reset form
+      const inputs = ["tokenAddressDispersePay", "amountTokenInputSplit", "priorityFeeInputSplit", "nonceInputDispersePay", "executorInputSplit"];
+      inputs.forEach(id => {
+        const input = document.getElementById(id) as HTMLInputElement;
+        if (input) input.value = "";
+      });
+      // Reset recipient inputs
+      for (let i = 0; i < numberOfUsersToDisperse; i++) {
+        const toInputId = isUsingUsernameOnDisperse[i]
+          ? `toUsernameSplitUserNumber${i}`
+          : `toAddressSplitUserNumber${i}`;
+        const amountInputId = `amountTokenToGiveUser${i}`;
+        [toInputId, amountInputId].forEach(id => {
+          const input = document.getElementById(id) as HTMLInputElement;
+          if (input) input.value = "";
+        });
+      }
+    } catch (error: any) {
+      console.error("Error executing disperse payment:", error);
+      setTxError(error.message || "Failed to execute disperse payment");
+    } finally {
+      setDisperseLoading(false);
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -269,181 +366,329 @@ export default function PaymentsPage() {
         <WalletConnect />
       </div>
 
+      {/* Error Display */}
+      {txError && (
+        <div className={styles.error}>
+          <strong>Error:</strong> {txError}
+          <button
+            onClick={() => setTxError(null)}
+            style={{ marginLeft: "1rem", padding: "0.25rem 0.5rem" }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Transaction Hash Display */}
+      {txHash && (
+        <div style={{ padding: "1rem", background: "#d1fae5", borderRadius: "8px", marginBottom: "1rem" }}>
+          <strong>Transaction submitted!</strong>
+          <br />
+          <a
+            href={`https://sepolia.etherscan.io/tx/${txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "#059669", textDecoration: "underline" }}
+          >
+            View on Etherscan
+          </a>
+        </div>
+      )}
+
+      {/* Tabs */}
       <div className={styles.tabs}>
         <button
-          className={activeTab === 'single' ? styles.activeTab : styles.tab}
-          onClick={() => setActiveTab('single')}
+          className={activeTab === "single" ? styles.activeTab : styles.tab}
+          onClick={() => setActiveTab("single")}
         >
-          Single Pay
+          Single Payment
         </button>
         <button
-          className={activeTab === 'disperse' ? styles.activeTab : styles.tab}
-          onClick={() => setActiveTab('disperse')}
+          className={activeTab === "disperse" ? styles.activeTab : styles.tab}
+          onClick={() => setActiveTab("disperse")}
         >
-          Disperse Pay
+          Disperse Payment
         </button>
       </div>
 
-      {activeTab === 'single' && (
-        <div className={styles.form}>
-          <h3>Single Payment</h3>
-          <div className={styles.formGroup}>
-            <label>Recipient (address or username):</label>
-            <input
-              type="text"
-              value={recipientAddress}
-              onChange={(e) => setRecipientAddress(e.target.value)}
-              placeholder="0x... or username"
-            />
-          </div>
+      {/* Single Payment Tab */}
+      {activeTab === "single" && (
+        <div className="flex flex-1 flex-col justify-center items-center">
+          <TitleAndLink
+            title="Single payment"
+            link="https://www.evvm.info/docs/SignatureStructures/EVVM/SinglePaymentSignatureStructure"
+          />
+          <br />
 
-          <div className={styles.formGroup}>
-            <label>Amount:</label>
-            <input
-              type="text"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="1000000000000000000"
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>Token Address:</label>
-            <input
-              type="text"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="0x0000000000000000000000000000000000000001"
-            />
-            <small>MATE: 0x...001, ETH: 0x...000</small>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>Nonce:</label>
-            <input
-              type="text"
-              value={nonce}
-              onChange={(e) => setNonce(e.target.value)}
-              placeholder="0"
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>Priority Fee:</label>
-            <input
-              type="text"
-              value={priorityFee}
-              onChange={(e) => setPriorityFee(e.target.value)}
-              placeholder="0"
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>
+          {/* Recipient configuration */}
+          <div style={{ marginBottom: "1rem" }}>
+            <p>
+              To:{" "}
+              <select
+                style={{
+                  color: "black",
+                  backgroundColor: "white",
+                  height: "2rem",
+                  width: "6rem",
+                }}
+                onChange={(e) => setIsUsingUsername(e.target.value === "true")}
+              >
+                <option value="false">Address</option>
+                <option value="true">Username</option>
+              </select>
               <input
-                type="checkbox"
-                checked={priority}
-                onChange={(e) => setPriority(e.target.checked)}
+                type="text"
+                placeholder={isUsingUsername ? "Enter username" : "Enter address"}
+                id={isUsingUsername ? "toUsername" : "toAddress"}
+                style={{
+                  color: "black",
+                  backgroundColor: "white",
+                  height: "2rem",
+                  width: "25rem",
+                  marginLeft: "0.5rem",
+                }}
               />
-              Priority Transaction
-            </label>
+            </p>
           </div>
 
-          <div className={styles.formGroup}>
-            <label>Executor:</label>
-            <input
-              type="text"
-              value={executor}
-              onChange={(e) => setExecutor(e.target.value)}
-              placeholder="0x0000000000000000000000000000000000000000"
-            />
+          <AddressInputField
+            label="Token address"
+            inputId="tokenAddress_Pay"
+            placeholder="Enter token address"
+            defaultValue="0x0000000000000000000000000000000000000001"
+          />
+
+          {/* Amount and Priority Fee */}
+          <NumberInputField
+            label="Amount"
+            inputId="amountTokenInput_Pay"
+            placeholder="Enter amount"
+          />
+          <NumberInputField
+            label="Priority fee"
+            inputId="priorityFeeInput_Pay"
+            placeholder="Enter priority fee"
+            defaultValue="0"
+          />
+
+          {/* Executor configuration */}
+          <ExecutorSelector
+            inputId="executorInput_Pay"
+            placeholder="Enter executor address"
+            onExecutorToggle={setIsUsingExecutor}
+            isUsingExecutor={isUsingExecutor}
+          />
+
+          {/* Priority configuration */}
+          <PrioritySelector onPriorityChange={setPriority} />
+
+          {/* Nonce section */}
+          <NumberInputWithGenerator
+            label="Nonce"
+            inputId="nonceInput_Pay"
+            placeholder="Enter nonce"
+            showRandomBtn={priority !== "low"}
+          />
+
+          <div>
+            {priority === "low" && (
+              <HelperInfo label="How to find my sync nonce?">
+                <div>
+                  You can retrieve your next sync nonce from the EVVM contract using
+                  the <code>getNextCurrentSyncNonce</code> function.
+                </div>
+              </HelperInfo>
+            )}
           </div>
 
+          {/* Create signature button */}
           <button
-            onClick={handleBuildAndSignPay}
-            disabled={loading || !account}
-            className={styles.submitButton}
+            onClick={makeSinglePaySignature}
+            disabled={payLoading || !isConnected}
+            style={{
+              padding: "0.5rem",
+              marginTop: "1rem",
+              opacity: payLoading || !isConnected ? 0.5 : 1,
+            }}
           >
-            {loading ? 'Processing...' : 'Build, Sign & Execute'}
+            {payLoading ? "Creating signature..." : "Create signature"}
           </button>
+
+          {/* Results section */}
+          <DataDisplayWithClear
+            dataToGet={payDataToGet}
+            onClear={() => setPayDataToGet(null)}
+            onExecute={executePayment}
+          />
         </div>
       )}
 
-      {activeTab === 'disperse' && (
-        <div className={styles.form}>
-          <h3>Disperse Payment (Multiple Recipients)</h3>
+      {/* Disperse Payment Tab */}
+      {activeTab === "disperse" && (
+        <div className="flex flex-1 flex-col justify-center items-center">
+          <TitleAndLink
+            title="Disperse payment"
+            link="https://www.evvm.info/docs/SignatureStructures/EVVM/DispersePaymentSignatureStructure"
+          />
+          <br />
 
-          {recipients.map((recipient, index) => (
-            <div key={index} className={styles.recipientRow}>
+          {/* Token address */}
+          <AddressInputField
+            label="Token address"
+            inputId="tokenAddressDispersePay"
+            placeholder="Enter token address"
+            defaultValue="0x0000000000000000000000000000000000000001"
+          />
+
+          {/* Total Amount */}
+          <NumberInputField
+            label="Total Amount (sum of all payments)"
+            inputId="amountTokenInputSplit"
+            placeholder="Enter total amount"
+          />
+
+          {/* Priority fee */}
+          <NumberInputField
+            label="Priority fee"
+            inputId="priorityFeeInputSplit"
+            placeholder="Enter priority fee"
+            defaultValue="0"
+          />
+
+          {/* Executor selection */}
+          <ExecutorSelector
+            inputId="executorInputSplit"
+            placeholder="Enter executor"
+            onExecutorToggle={setIsUsingExecutorDisperse}
+            isUsingExecutor={isUsingExecutorDisperse}
+          />
+
+          {/* Number of users */}
+          <div style={{ marginBottom: "1rem" }}>
+            <p>Number of accounts to split the payment</p>
+            <select
+              style={{
+                color: "black",
+                backgroundColor: "white",
+                height: "2rem",
+                width: "5rem",
+              }}
+              onChange={(e) => setNumberOfUsersToDisperse(Number(e.target.value))}
+            >
+              {[1, 2, 3, 4, 5].map((num) => (
+                <option key={num} value={num}>
+                  {num}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <p style={{ fontSize: "0.875rem", color: "#666" }}>
+            For testing purposes, the number of users is limited to 5.
+          </p>
+
+          {/* User inputs */}
+          {Array.from({ length: numberOfUsersToDisperse }).map((_, index) => (
+            <div key={index} style={{ marginTop: "1rem", marginBottom: "1rem" }}>
+              <h4 style={{ color: "black", marginBottom: "0.5rem" }}>{`Payment ${
+                index + 1
+              }`}</h4>
+              <p>To:</p>
+              <select
+                style={{
+                  color: "black",
+                  backgroundColor: "white",
+                  height: "2rem",
+                  width: "5.5rem",
+                }}
+                onChange={(e) => {
+                  setIsUsingUsernameOnDisperse((prev) => {
+                    const newPrev = [...prev];
+                    newPrev[index] = e.target.value === "true";
+                    return newPrev;
+                  });
+                }}
+              >
+                <option value="false">Address</option>
+                <option value="true">Username</option>
+              </select>
               <input
                 type="text"
-                value={recipient.address}
-                onChange={(e) => updateRecipient(index, 'address', e.target.value)}
-                placeholder="Recipient address"
+                placeholder={
+                  isUsingUsernameOnDisperse[index]
+                    ? "Enter username"
+                    : "Enter address"
+                }
+                id={
+                  isUsingUsernameOnDisperse[index]
+                    ? `toUsernameSplitUserNumber${index}`
+                    : `toAddressSplitUserNumber${index}`
+                }
+                style={{
+                  color: "black",
+                  backgroundColor: "white",
+                  height: "2rem",
+                  width: "25rem",
+                }}
               />
+              <p style={{ marginTop: "0.5rem" }}>Amount</p>
               <input
-                type="text"
-                value={recipient.amount.toString()}
-                onChange={(e) => updateRecipient(index, 'amount', e.target.value)}
-                placeholder="Amount"
+                type="number"
+                placeholder="Enter amount"
+                id={`amountTokenToGiveUser${index}`}
+                style={{
+                  color: "black",
+                  backgroundColor: "white",
+                  height: "2rem",
+                  width: "25rem",
+                }}
               />
-              {recipients.length > 1 && (
-                <button onClick={() => removeRecipient(index)} className={styles.removeButton}>
-                  ✕
-                </button>
-              )}
             </div>
           ))}
 
-          <button onClick={addRecipient} className={styles.addButton}>
-            + Add Recipient
-          </button>
+          {/* Priority selection */}
+          <PrioritySelector onPriorityChange={setPriorityDisperse} />
 
-          <div className={styles.formGroup}>
-            <label>Token Address:</label>
-            <input
-              type="text"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-            />
+          {/* Nonce input */}
+          <NumberInputWithGenerator
+            label="Nonce"
+            inputId="nonceInputDispersePay"
+            placeholder="Enter nonce"
+            showRandomBtn={priorityDisperse !== "low"}
+          />
+
+          <div>
+            {priorityDisperse === "low" && (
+              <HelperInfo label="How to find my sync nonce?">
+                <div>
+                  You can retrieve your next sync nonce from the EVVM contract using
+                  the <code>getNextCurrentSyncNonce</code> function.
+                </div>
+              </HelperInfo>
+            )}
           </div>
 
-          <div className={styles.formGroup}>
-            <label>Nonce:</label>
-            <input type="text" value={nonce} onChange={(e) => setNonce(e.target.value)} />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>Priority Fee:</label>
-            <input
-              type="text"
-              value={priorityFee}
-              onChange={(e) => setPriorityFee(e.target.value)}
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>
-              <input
-                type="checkbox"
-                checked={priority}
-                onChange={(e) => setPriority(e.target.checked)}
-              />
-              Priority Transaction
-            </label>
-          </div>
-
+          {/* Create signature button */}
           <button
-            onClick={handleBuildAndSignDispersePay}
-            disabled={loading || !account}
-            className={styles.submitButton}
+            onClick={makeDispersePaySignature}
+            disabled={disperseLoading || !isConnected}
+            style={{
+              padding: "0.5rem",
+              marginTop: "1rem",
+              opacity: disperseLoading || !isConnected ? 0.5 : 1,
+            }}
           >
-            {loading ? 'Processing...' : 'Build, Sign & Execute Disperse'}
+            {disperseLoading ? "Creating signature..." : "Create signature"}
           </button>
+
+          {/* Display results */}
+          <DataDisplayWithClear
+            dataToGet={disperseDataToGet}
+            onClear={() => setDisperseDataToGet(null)}
+            onExecute={executeDispersePayment}
+          />
         </div>
       )}
-
-      <DebugConsole entries={debugEntries} onClear={() => setDebugEntries([])} />
     </div>
   );
 }
