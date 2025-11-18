@@ -32,14 +32,22 @@ export function useEvvmDeployment() {
     async function loadDeployment() {
       try {
         setLoading(true);
-        const response = await fetch('/api/deployments');
+        const response = await fetch('/api/deployments', {
+          // Disable caching to always get fresh data
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
 
         if (!response.ok) {
           throw new Error(`Failed to load deployment: ${response.statusText}`);
         }
 
         const data = await response.json();
-        setDeployment(data);
+        // API returns array, get first element
+        const deploymentData = Array.isArray(data) ? data[0] : data;
+        setDeployment(deploymentData);
         setError(null);
       } catch (err: any) {
         console.error('Error loading deployment:', err);

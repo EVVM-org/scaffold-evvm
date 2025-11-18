@@ -5,6 +5,7 @@
   "description": "EVVM contracts deployment and management",
   "scripts": {
     "wizard": "tsx scripts/wizard.ts",
+    "refresh": "tsx scripts/refresh-deployment.ts",
     "anvil": "make anvil",
     "deploy": "npm run wizard",
     "deploy:local": "make deployLocalTestnet",
