@@ -27,10 +27,10 @@ const executeGoldenStaking = async (
   stakingAddress: `0x${string}`
 ) => {
   if (!InputData) {
-    return Promise.reject("No data to execute golden staking");
+    return Promise.reject("No data to execute payment");
   }
 
-  return writeContract(config, {
+  writeContract(config, {
     abi: StakingABI,
     address: stakingAddress,
     functionName: "goldenStaking",
@@ -59,10 +59,10 @@ const executePresaleStaking = async (
   stakingAddress: `0x${string}`
 ) => {
   if (!InputData) {
-    return Promise.reject("No data to execute presale staking");
+    return Promise.reject("No data to execute payment");
   }
 
-  return writeContract(config, {
+  writeContract(config, {
     abi: StakingABI,
     address: stakingAddress,
     functionName: "presaleStaking",
@@ -96,10 +96,10 @@ const executePublicStaking = async (
   stakingAddress: `0x${string}`
 ) => {
   if (!InputData) {
-    return Promise.reject("No data to execute public staking");
+    return Promise.reject("No data to execute payment");
   }
 
-  return writeContract(config, {
+  writeContract(config, {
     abi: StakingABI,
     address: stakingAddress,
     functionName: "publicStaking",
@@ -134,10 +134,10 @@ const executePublicServiceStaking = async (
   stakingAddress: `0x${string}`
 ) => {
   if (!InputData) {
-    return Promise.reject("No data to execute public service staking");
+    return Promise.reject("No data to execute payment");
   }
 
-  return writeContract(config, {
+  writeContract(config, {
     abi: StakingABI,
     address: stakingAddress,
     functionName: "publicServiceStaking",
