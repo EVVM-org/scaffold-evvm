@@ -1,0 +1,16 @@
+{
+  "chainId": 11155111,
+  "networkName": "Ethereum Sepolia",
+  "evvm": "0x0f4ae57c594c8ed86f855f75f8ddb5536325594a",
+  "nameService": "0x91b3452f2c6426aefffcc7008cead26e403896b2",
+  "staking": "0xe374dea0080e0dbb5bcda465309182430202b1dc",
+  "estimator": "0x8c065de69a86ec056ad875810dc456bb3e936deb",
+  "treasury": "0x719d5b8bd54cfeb3be3f90aaf693f4856cf27abc",
+  "p2pSwap": "0x96827fd0293626bd79925553e36c9707b979e081",
+  "evvmID": 0,
+  "evvmName": "ScaffoldTest",
+  "registry": "0x389dC8fb09211bbDA841D59f4a51160dA2377832",
+  "admin": "0x9c77c6fafc1eb0821F1De12972Ef0199C97C6e45",
+  "goldenFisher": "0x9c77c6fafc1eb0821F1De12972Ef0199C97C6e45",
+  "activator": "0x9c77c6fafc1eb0821F1De12972Ef0199C97C6e45"
+}

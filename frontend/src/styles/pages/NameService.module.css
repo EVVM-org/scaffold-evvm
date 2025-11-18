@@ -1,0 +1,124 @@
+.container {
+  padding: 0;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xl);
+}
+
+.header h2 {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.error {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+  text-align: center;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.tab,
+.activeTab {
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.activeTab {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.tab:hover {
+  color: var(--color-text);
+  background: var(--color-bg-tertiary);
+}
+
+.form,
+.info {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.form h3,
+.info h3 {
+  font-size: 1.25rem;
+  margin: 0 0 var(--spacing-lg);
+}
+
+.description {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-lg);
+  line-height: 1.6;
+}
+
+.formGroup {
+  margin-bottom: var(--spacing-lg);
+}
+
+.formGroup label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-text);
+}
+
+.formGroup input {
+  width: 100%;
+}
+
+.submitButton {
+  background: var(--color-primary);
+  color: white;
+  padding: var(--spacing-md);
+  font-weight: 600;
+  width: 100%;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.result {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--border-radius);
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.info p {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--spacing-md);
+}
+
+.info ul {
+  padding-left: var(--spacing-lg);
+  color: var(--color-text-secondary);
+}
+
+.info li {
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.5;
+}

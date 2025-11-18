@@ -1,0 +1,29 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+remappings = [
+  "@evvm/testnet-contracts/=lib/Testnet-Contracts/src/",
+  "@openzeppelin/=lib/Testnet-Contracts/lib/openzeppelin-contracts/",
+  "forge-std/=lib/Testnet-Contracts/lib/forge-std/src/"
+]
+fs_permissions = [{ access = "read-write", path = "./" }]
+
+# Optimizer settings
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+
+[rpc_endpoints]
+localhost = "http://127.0.0.1:8545"
+sepolia = "${RPC_URL_ETH_SEPOLIA}"
+arbitrumSepolia = "${RPC_URL_ARB_SEPOLIA}"
+
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API}" }
+arbitrumSepolia = { key = "${ETHERSCAN_API}" }
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true
