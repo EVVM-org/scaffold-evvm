@@ -75,6 +75,52 @@ Production build completes successfully with 10 routes generated.
 - Externalized problematic packages (pino-pretty, lokijs, encoding, punycode)
 - **File**: `/frontend/next.config.mjs:23-52`
 
+### 12. Network Validation and Auto-Switch ✅
+**Problem**: EVVM deployed on Ethereum Sepolia (11155111) but transactions being executed on wrong network (e.g., Arbitrum Sepolia 421614)
+**Root Cause**:
+- No validation of wallet network vs deployment network
+- Users could be connected to any network without realizing the mismatch
+- Transactions would fail or execute on wrong contracts silently
+
+**Solution**:
+- Created `useNetworkValidation` hook to detect network mismatches
+- Created `NetworkWarning` component with automatic network switching
+- Added NetworkWarning to all critical pages (nameservice, payments, status)
+- Shows prominent warning when wallet is on wrong network
+- One-click switch to correct network button
+
+**Implementation**:
+- `/frontend/src/hooks/useNetworkValidation.ts` (new hook)
+- `/frontend/src/components/NetworkWarning.tsx` (new component)
+- `/frontend/src/styles/components/NetworkWarning.module.css` (styling)
+- Updated pages: nameservice, payments, status (more to come)
+
+**Hook Features**:
+```typescript
+const {
+  isCorrectNetwork,      // boolean: wallet on correct network?
+  walletChainId,         // current wallet network
+  requiredChainId,       // required network from deployment
+  networkName,           // human-readable network name
+  requiresSwitch,        // boolean: need to switch?
+  switchNetwork,         // function to auto-switch
+  isConnected,          // wallet connection status
+} = useNetworkValidation(deployment);
+```
+
+**User Experience**:
+- ⚠️ Prominent yellow warning appears when on wrong network
+- Shows: "Your wallet is connected to **Arbitrum Sepolia**, but this EVVM is deployed on **Ethereum Sepolia**"
+- Click "Switch to Ethereum Sepolia" button
+- Network automatically switches in wallet
+- Warning disappears when on correct network
+
+**Benefits**:
+- ✅ Prevents executing transactions on wrong network
+- ✅ Clear user guidance with one-click fix
+- ✅ Automatic detection and console warnings
+- ✅ Works with all supported networks (Sepolia, Arbitrum Sepolia, Arbitrum Mainnet, Localhost)
+
 ## Files Modified
 
 | File | Changes |

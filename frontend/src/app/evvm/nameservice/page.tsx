@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { config } from "@/config/index";
 import { getWalletClient, readContract } from "@wagmi/core";
+import { NetworkWarning } from "@/components/NetworkWarning";
 import {
   TitleAndLink,
   NumberInputWithGenerator,
@@ -1089,6 +1090,8 @@ export default function NameServicePage() {
         <h1>Name Service Signature Constructor</h1>
         <p>EVVM ID: {deployment.evvmID} | Network: {deployment.networkName}</p>
       </div>
+
+      <NetworkWarning deployment={deployment} />
 
       <div className={styles.tabs}>
         <button

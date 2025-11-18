@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { NetworkBadge } from '@/components/NetworkBadge';
+import { NetworkWarning } from '@/components/NetworkWarning';
 import { Balances } from '@/components/Balances';
 import { EvvmInfo } from '@/components/EvvmInfo';
 import { loadDeployments, getExplorerUrl } from '@/lib/evvmConfig';
@@ -96,6 +97,8 @@ export default function StatusPage() {
       <div className={styles.header}>
         <h2>EVVM Status Dashboard</h2>
       </div>
+
+      <NetworkWarning deployment={deployment} />
 
       {/* EVVM Info Component - Shows all contract addresses */}
       <EvvmInfo />

@@ -7,6 +7,7 @@ import { getWalletClient } from "@wagmi/core";
 import { config } from "@/config";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import { WalletConnect } from "@/components/WalletConnect";
+import { NetworkWarning } from "@/components/NetworkWarning";
 import {
   TitleAndLink,
   NumberInputWithGenerator,
@@ -457,6 +458,8 @@ export default function PaymentsPage() {
         <h2>EVVM Payments</h2>
         <WalletConnect />
       </div>
+
+      <NetworkWarning deployment={deployment} />
 
       {/* Error Display */}
       {txError && (
