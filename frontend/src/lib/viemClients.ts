@@ -54,7 +54,7 @@ export function getWalletClient(chainId: number): WalletClient | null {
 
   return createWalletClient({
     chain,
-    transport: custom(window.ethereum),
+    transport: custom(window.ethereum as any),
   });
 }
 
@@ -66,7 +66,7 @@ export async function requestAccounts(): Promise<`0x${string}`[]> {
     throw new Error('No Ethereum wallet detected. Please install MetaMask or another Web3 wallet.');
   }
 
-  const accounts = await window.ethereum.request({
+  const accounts = await ((window.ethereum.request as any) as any)({
     method: 'eth_requestAccounts',
   }) as `0x${string}`[];
 
@@ -84,7 +84,7 @@ export async function switchChain(chainId: number): Promise<void> {
   const hexChainId = `0x${chainId.toString(16)}`;
 
   try {
-    await window.ethereum.request({
+    await (window.ethereum.request as any)({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: hexChainId }],
     });
@@ -96,7 +96,7 @@ export async function switchChain(chainId: number): Promise<void> {
         throw new Error(`Chain ${chainId} not supported`);
       }
 
-      await window.ethereum.request({
+      await (window.ethereum.request as any)({
         method: 'wallet_addEthereumChain',
         params: [{
           chainId: hexChainId,
@@ -120,20 +120,9 @@ export async function getCurrentChainId(): Promise<number> {
     throw new Error('No Ethereum wallet detected');
   }
 
-  const chainIdHex = await window.ethereum.request({
+  const chainIdHex = await (window.ethereum.request as any)({
     method: 'eth_chainId',
   }) as string;
 
   return parseInt(chainIdHex, 16);
-}
-
-// Extend Window interface for TypeScript
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
-      on?: (event: string, handler: (...args: any[]) => void) => void;
-      removeListener?: (event: string, handler: (...args: any[]) => void) => void;
-    };
-  }
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useAccount, getWalletClient } from "wagmi";
+import { useAccount } from "wagmi";
+import { getWalletClient } from "@wagmi/core";
 import { config } from "@/config";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import { WalletConnect } from "@/components/WalletConnect";

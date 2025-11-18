@@ -6,7 +6,6 @@ import { writeContract, waitForTransactionReceipt } from '@wagmi/core';
 import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import { EvvmABI } from '@evvm/viem-signature-library';
-import { WalletConnect } from '@/components/WalletConnect';
 import styles from '@/styles/pages/Faucet.module.css';
 
 // Common token addresses in EVVM
@@ -107,7 +106,6 @@ export default function FaucetPage() {
       <div className={styles.header}>
         <h1>🚰 MATE Token Faucet</h1>
         <p>Claim test MATE tokens for development and testing</p>
-        <WalletConnect />
       </div>
 
       <div className={styles.deploymentInfo}>

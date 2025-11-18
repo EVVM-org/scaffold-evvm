@@ -164,7 +164,9 @@ export async function executePay(
       r,
       s,
     ],
-  });
+    chain: walletClient.chain,
+    account: walletClient.account,
+  } as any);
 
   return hash;
 }
@@ -200,7 +202,9 @@ export async function executeDispersePay(
       r,
       s,
     ],
-  });
+    chain: walletClient.chain,
+    account: walletClient.account,
+  } as any);
 
   return hash;
 }
@@ -225,7 +229,9 @@ export async function executeStaking(
     abi: STAKING_ABI,
     functionName: 'stakePublic',
     args: [data.from, data.amount, data.nonce, v, r, s],
-  });
+    chain: walletClient.chain,
+    account: walletClient.account,
+  } as any);
 
   return hash;
 }

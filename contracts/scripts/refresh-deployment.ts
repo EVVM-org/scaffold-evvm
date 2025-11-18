@@ -17,9 +17,9 @@ const __dirname = path.dirname(__filename);
 const contractsRoot = path.resolve(__dirname, '..');
 const projectRoot = path.resolve(contractsRoot, '..');
 
-// Load environment variables
+// Load environment variables from Scaffold-EVVM project root
+// Single source of truth - all env vars are in the root .env file
 dotenvConfig({ path: path.join(projectRoot, '.env') });
-dotenvConfig({ path: path.join(contractsRoot, '.env'), override: true });
 
 async function refreshDeployment() {
   console.log(chalk.blue('\n📝 Refreshing deployment summary from blockchain...\n'));

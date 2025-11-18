@@ -226,33 +226,4 @@
   }
 }
 
-/* Dark mode support - using CSS variables */
-:root {
-  --card-background: #ffffff;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --accent-color: #3b82f6;
-  --accent-color-dark: #2563eb;
-  --button-background: #f3f4f6;
-  --button-hover: #e5e7eb;
-  --border-color: #d1d5db;
-  --secondary-background: #f9fafb;
-  --secondary-background-hover: #f3f4f6;
-  --skeleton-start: #e5e7eb;
-  --skeleton-middle: #f3f4f6;
-}
-
-[data-theme='dark'] {
-  --card-background: #1f2937;
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --accent-color: #60a5fa;
-  --accent-color-dark: #3b82f6;
-  --button-background: #374151;
-  --button-hover: #4b5563;
-  --border-color: #4b5563;
-  --secondary-background: #111827;
-  --secondary-background-hover: #1f2937;
-  --skeleton-start: #374151;
-  --skeleton-middle: #4b5563;
-}
+/* Note: CSS variables are defined in globals.css */

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useAccount, getWalletClient } from "wagmi";
+import { useAccount } from "wagmi";
+import { useWalletClient, usePublicClient } from "wagmi";
 import { config } from "@/config";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import { WalletConnect } from "@/components/WalletConnect";
@@ -19,7 +20,7 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import {
   executePay,
   executeDispersePay,
-} from "@/utils/transactionExecuters";
+} from "@/lib/evvmExecutors";
 import {
   EVVMSignatureBuilder,
   PayInputData,
@@ -28,9 +29,31 @@ import {
 } from "@evvm/viem-signature-library";
 import styles from "@/styles/pages/Payments.module.css";
 
+// Helper to transform library types to our types
+const transformPayData = (data: any): import("@/types/evvm").PayInputData => ({
+  ...data,
+  signature: data.signature as `0x${string}`,
+});
+
+const transformDisperseData = (data: any): import("@/types/evvm").DispersePayInputData => ({
+  from: data.from,
+  token: data.token,
+  recipients: data.toData.map((t: any) => ({
+    address: t.to_address,
+    amount: t.amount,
+  })),
+  priorityFee: data.priorityFee,
+  nonce: data.nonce,
+  priority: data.priority,
+  executor: data.executor,
+  signature: data.signature as `0x${string}`,
+});
+
 export default function PaymentsPage() {
   const { deployment, loading: deploymentLoading, error: deploymentError } = useEvvmDeployment();
   const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
   const [activeTab, setActiveTab] = useState<"single" | "disperse">("single");
 
   // Single payment state
@@ -124,7 +147,6 @@ export default function PaymentsPage() {
         throw new Error("Nonce is required");
       }
 
-      const walletClient = await getWalletClient(config);
       if (!walletClient) {
         throw new Error("Wallet client not available");
       }
@@ -145,7 +167,7 @@ export default function PaymentsPage() {
         formData.executor as `0x${string}`
       );
 
-      const payData: PayInputData = {
+      const payData: any = {
         from: walletData.address as `0x${string}`,
         to_address: (formData.to.startsWith("0x")
           ? formData.to
@@ -157,7 +179,7 @@ export default function PaymentsPage() {
         nonce: BigInt(formData.nonce),
         priority: priority === "high",
         executor: formData.executor,
-        signature,
+        signature: signature as `0x${string}`,
       };
 
       setPayDataToGet(payData);
@@ -181,13 +203,24 @@ export default function PaymentsPage() {
       return;
     }
 
+    if (!walletClient || !publicClient) {
+      setTxError("Wallet client is not available");
+      return;
+    }
+
     setPayLoading(true);
     setTxError(null);
     setTxHash(null);
 
     try {
-      await executePay(payDataToGet, deployment.evvm as `0x${string}`);
-      console.log("Payment executed successfully");
+      const hash = await executePay(
+        walletClient,
+        publicClient,
+        deployment.evvm as `0x${string}`,
+        transformPayData(payDataToGet)
+      );
+      console.log("Payment executed successfully", hash);
+      setTxHash(hash);
       setPayDataToGet(null);
       // Reset form
       const inputs = ["nonceInput_Pay", "tokenAddress_Pay", "toAddress", "toUsername", "amountTokenInput_Pay", "priorityFeeInput_Pay", "executorInput_Pay"];
@@ -272,7 +305,6 @@ export default function PaymentsPage() {
         throw new Error("At least one recipient is required");
       }
 
-      const walletClient = await getWalletClient(config);
       if (!walletClient) {
         throw new Error("Wallet client not available");
       }
@@ -293,7 +325,7 @@ export default function PaymentsPage() {
         formData.executor as `0x${string}`
       );
 
-      const disperseData: DispersePayInputData = {
+      const disperseData: any = {
         from: walletData.address as `0x${string}`,
         toData,
         token: formData.tokenAddress as `0x${string}`,
@@ -302,7 +334,7 @@ export default function PaymentsPage() {
         priority: priorityDisperse === "high",
         nonce: BigInt(formData.nonce),
         executor: formData.executor,
-        signature: dispersePaySignature,
+        signature: dispersePaySignature as `0x${string}`,
       };
 
       setDisperseDataToGet(disperseData);
@@ -326,13 +358,24 @@ export default function PaymentsPage() {
       return;
     }
 
+    if (!walletClient || !publicClient) {
+      setTxError("Wallet client is not available");
+      return;
+    }
+
     setDisperseLoading(true);
     setTxError(null);
     setTxHash(null);
 
     try {
-      await executeDispersePay(disperseDataToGet, deployment.evvm as `0x${string}`);
-      console.log("Disperse payment executed successfully");
+      const hash = await executeDispersePay(
+        walletClient,
+        publicClient,
+        deployment.evvm as `0x${string}`,
+        transformDisperseData(disperseDataToGet)
+      );
+      console.log("Disperse payment executed successfully", hash);
+      setTxHash(hash);
       setDisperseDataToGet(null);
       // Reset form
       const inputs = ["tokenAddressDispersePay", "amountTokenInputSplit", "priorityFeeInputSplit", "nonceInputDispersePay", "executorInputSplit"];

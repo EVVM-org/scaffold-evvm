@@ -6,7 +6,6 @@ import { writeContract, waitForTransactionReceipt, readContract } from '@wagmi/c
 import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import { EvvmABI } from '@evvm/viem-signature-library';
-import { WalletConnect } from '@/components/WalletConnect';
 import styles from '@/styles/pages/Register.module.css';
 
 // EVVM Registry Contract on Ethereum Sepolia
@@ -191,7 +190,6 @@ export default function RegisterPage() {
       <div className={styles.header}>
         <h1>🔐 EVVM Registration & Activation</h1>
         <p>Register your EVVM instance on the official registry and activate it</p>
-        <WalletConnect />
       </div>
 
       <div className={styles.infoCard}>
@@ -243,7 +241,7 @@ export default function RegisterPage() {
 
         <button
           onClick={handleRegister}
-          disabled={!isConnected || isRegistering || address !== deployment.admin || isRegistered}
+          disabled={!isConnected || isRegistering || address !== deployment.admin || !!isRegistered}
           className={styles.registerButton}
         >
           {isRegistering ? '⏳ Registering...' : '📝 Register EVVM on Sepolia'}
@@ -301,7 +299,7 @@ export default function RegisterPage() {
 
         <button
           onClick={handleSetEvvmId}
-          disabled={!isConnected || isSettingId || !assignedId || address !== deployment.admin || isRegistered}
+          disabled={!isConnected || isSettingId || !assignedId || address !== deployment.admin || !!isRegistered}
           className={styles.activateButton}
         >
           {isSettingId ? '⏳ Activating...' : '🚀 Activate EVVM ID'}

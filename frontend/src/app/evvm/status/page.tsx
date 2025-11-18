@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { WalletConnect } from '@/components/WalletConnect';
 import { NetworkBadge } from '@/components/NetworkBadge';
 import { Balances } from '@/components/Balances';
 import { EvvmInfo } from '@/components/EvvmInfo';
-import { loadDeployments, getExplorerUrl, type EvvmDeployment } from '@/lib/evvmConfig';
+import { loadDeployments, getExplorerUrl } from '@/lib/evvmConfig';
+import type { EvvmDeployment } from '@/types/evvm';
 import { getPublicClient, getCurrentChainId } from '@/lib/viemClients';
-import { readBalance, readNextNonce, readStakedAmount, readIsStaker } from '@/lib/evvmExecutors';
+import { readBalance, readNextNonce as readNonce, readStakedAmount, readIsStaker } from '@/lib/evvmExecutors';
 import styles from '@/styles/pages/Status.module.css';
 
 export default function StatusPage() {
@@ -39,7 +39,7 @@ export default function StatusPage() {
   async function checkWalletConnection() {
     try {
       if (typeof window !== 'undefined' && window.ethereum) {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        const accounts = await (window.ethereum.request as any)({ method: 'eth_accounts' });
         if (accounts.length > 0) {
           setAccount(accounts[0]);
           const currentChainId = await getCurrentChainId();
@@ -83,7 +83,6 @@ export default function StatusPage() {
   if (!deployment) {
     return (
       <div className={styles.container}>
-        <WalletConnect />
         <div className={styles.error}>
           <p>No EVVM deployment found.</p>
           <p>Please run the deployment wizard first.</p>
@@ -96,7 +95,6 @@ export default function StatusPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h2>EVVM Status Dashboard</h2>
-        <WalletConnect />
       </div>
 
       {/* EVVM Info Component - Shows all contract addresses */}

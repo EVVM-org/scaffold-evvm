@@ -18,10 +18,9 @@ const __dirname = path.dirname(__filename);
 const contractsRoot = path.resolve(__dirname, '..');
 const projectRoot = path.resolve(contractsRoot, '..');
 
-// Load environment variables from Scaffold-EVVM project
-// Load from project root first, then contracts directory (contracts overrides root)
+// Load environment variables from Scaffold-EVVM project root
+// Single source of truth - all env vars are in the root .env file
 dotenvConfig({ path: path.join(projectRoot, '.env') });
-dotenvConfig({ path: path.join(contractsRoot, '.env'), override: true });
 
 // Try multiple paths to find Testnet-Contracts
 function findTestnetContracts(): string | null {

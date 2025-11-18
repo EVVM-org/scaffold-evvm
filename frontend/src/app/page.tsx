@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { WalletConnect } from '@/components/WalletConnect';
 import { NetworkBadge } from '@/components/NetworkBadge';
-import { loadDeployments, type EvvmDeployment } from '@/lib/evvmConfig';
+import { loadDeployments } from '@/lib/evvmConfig';
+import type { EvvmDeployment } from '@/types/evvm';
 import styles from '@/styles/Home.module.css';
 
 export default function Home() {
@@ -29,10 +29,6 @@ export default function Home() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <WalletConnect />
-      </div>
-
       <section className={styles.hero}>
         <h2>Welcome to Scaffold-EVVM</h2>
         <p>

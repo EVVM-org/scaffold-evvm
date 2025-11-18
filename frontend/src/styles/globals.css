@@ -36,6 +36,16 @@
   --bg-hover: #f5f5f5;
   --text-primary: #333;
   --border-color: #e0e0e0;
+
+  /* Balances component variables */
+  --card-background: #ffffff;
+  --accent-color-dark: #2563eb;
+  --button-background: #f3f4f6;
+  --button-hover: #e5e7eb;
+  --secondary-background: #f9fafb;
+  --secondary-background-hover: #f3f4f6;
+  --skeleton-start: #e5e7eb;
+  --skeleton-middle: #f3f4f6;
 }
 
 /* Dark mode */
@@ -56,6 +66,32 @@
   --bg-hover: #2a2a2a;
   --text-primary: #f0f0f0;
   --border-color: #333;
+
+  /* Balances component dark mode variables */
+  --card-background: #1f2937;
+  --accent-color-dark: #3b82f6;
+  --button-background: #374151;
+  --button-hover: #4b5563;
+  --secondary-background: #111827;
+  --secondary-background-hover: #1f2937;
+  --skeleton-start: #374151;
+  --skeleton-middle: #4b5563;
+}
+
+/* Alternative dark mode using data-theme attribute */
+[data-theme='dark'] {
+  --card-background: #1f2937;
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --accent-color: #60a5fa;
+  --accent-color-dark: #3b82f6;
+  --button-background: #374151;
+  --button-hover: #4b5563;
+  --border-color: #4b5563;
+  --secondary-background: #111827;
+  --secondary-background-hover: #1f2937;
+  --skeleton-start: #374151;
+  --skeleton-middle: #4b5563;
 }
 
 html,
