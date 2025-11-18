@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { WalletConnect } from '@/components/WalletConnect';
 import { NetworkBadge } from '@/components/NetworkBadge';
+import { Balances } from '@/components/Balances';
+import { EvvmInfo } from '@/components/EvvmInfo';
 import { loadDeployments, getExplorerUrl, type EvvmDeployment } from '@/lib/evvmConfig';
 import { getPublicClient, getCurrentChainId } from '@/lib/viemClients';
 import { readBalance, readNextNonce, readStakedAmount, readIsStaker } from '@/lib/evvmExecutors';
@@ -93,65 +95,15 @@ export default function StatusPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h2>EVVM Status</h2>
+        <h2>EVVM Status Dashboard</h2>
         <WalletConnect />
       </div>
 
-      <section className={styles.deploymentInfo}>
-        <h3>Deployment Information</h3>
-        <div className={styles.infoGrid}>
-          <div className={styles.infoItem}>
-            <span className={styles.label}>EVVM Name:</span>
-            <span className={styles.value}>{deployment.evvmName || 'N/A'}</span>
-          </div>
-          <div className={styles.infoItem}>
-            <span className={styles.label}>EVVM ID:</span>
-            <span className={styles.value}>{deployment.evvmID}</span>
-          </div>
-          <div className={styles.infoItem}>
-            <span className={styles.label}>Network:</span>
-            <NetworkBadge chainId={deployment.chainId} networkName={deployment.networkName} />
-          </div>
-          <div className={styles.infoItem}>
-            <span className={styles.label}>EVVM Address:</span>
-            <a
-              href={getExplorerUrl(deployment.chainId, deployment.evvm)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.link}
-            >
-              {deployment.evvm}
-            </a>
-          </div>
-        </div>
-      </section>
+      {/* EVVM Info Component - Shows all contract addresses */}
+      <EvvmInfo />
 
-      <section className={styles.contractAddresses}>
-        <h3>Contract Addresses</h3>
-        <div className={styles.addressList}>
-          {[
-            { name: 'Name Service', address: deployment.nameService },
-            { name: 'Staking', address: deployment.staking },
-            { name: 'Estimator', address: deployment.estimator },
-            { name: 'Treasury', address: deployment.treasury },
-            { name: 'P2P Swap', address: deployment.p2pSwap },
-          ].map(({ name, address }) => (
-            address && (
-              <div key={name} className={styles.addressItem}>
-                <span className={styles.contractName}>{name}:</span>
-                <a
-                  href={getExplorerUrl(deployment.chainId, address)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.link}
-                >
-                  {address}
-                </a>
-              </div>
-            )
-          ))}
-        </div>
-      </section>
+      {/* Balances Component - Shows token balances */}
+      {account && <Balances />}
 
       {account && (
         <section className={styles.userInfo}>

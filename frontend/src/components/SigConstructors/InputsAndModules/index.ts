@@ -1,4 +1,5 @@
 export { AddressInputField } from "./AddressInputField";
+export { AsStakerSelector } from "./AsStakerSelector";
 export { DataDisplayWithClear } from "./DataDisplayWithClear";
 export { DateInputField } from "./DateInputField";
 export { DetailedData } from "./DetailedData";
