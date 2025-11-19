@@ -171,10 +171,7 @@ function GoldenStakingComponent({
   stakingAddress: `0x${string}`;
 }) {
   const [isStaking, setIsStaking] = useState(true);
-  // CRITICAL: Golden staking contract HARDCODES priorityFlag = false (sync nonces)
-  // See Staking.sol:262 - it ignores whatever priority you sign with
-  // and ALWAYS uses getNextCurrentSyncNonce() with priorityFlag: false
-  const priority = "low"; // MUST be "low" (sync) - contract requirement!
+  const [priority, setPriority] = useState("low"); // User can choose sync or async!
   const [dataToGet, setDataToGet] = useState<GoldenStakingData | null>(null);
   const [evvmBalance, setEvvmBalance] = useState<string | null>(null);
   const [currentNonce, setCurrentNonce] = useState<string | null>(null);
@@ -251,14 +248,19 @@ function GoldenStakingComponent({
       const walletClient = await getWalletClient(config);
       const signatureBuilder = new (StakingSignatureBuilder as any)(walletClient, walletData);
 
-      console.log("🔍 Golden Staking Signature Creation:");
-      console.log("  evvmID:", formData.evvmID);
-      console.log("  stakingAddress:", formData.stakingAddress);
-      console.log("  amountOfToken:", amountOfToken.toString(), "wei (", formData.amountOfStaking, "fishers)");
-      console.log("  nonce:", formData.nonce);
-      console.log("  priority:", priority, "→ priorityFlag:", priority === "high");
-      console.log("  Expected message format:");
-      console.log(`    ${formData.evvmID},pay,${formData.stakingAddress.toLowerCase()},0x0000000000000000000000000000000000000001,${amountOfToken.toString()},0,${formData.nonce},${priority === "high" ? "true" : "false"},${formData.stakingAddress.toLowerCase()}`);
+      console.log("=".repeat(60));
+      console.log("🔍 GOLDEN STAKING SIGNATURE CREATION");
+      console.log("=".repeat(60));
+      console.log("  EVVM ID:", formData.evvmID);
+      console.log("  Staking Address:", formData.stakingAddress);
+      console.log("  Amount of Fishers:", formData.amountOfStaking);
+      console.log("  Amount of MATE:", amountOfToken.toString(), "wei =", requiredMate.toLocaleString(), "MATE");
+      console.log("  Nonce (auto-fetched):", formData.nonce);
+      console.log("  Priority:", priority, "→ priorityFlag:", priority === "high");
+      console.log("");
+      console.log("📝 Signature Message Format:");
+      console.log(`  ${formData.evvmID},pay,${formData.stakingAddress.toLowerCase()},0x0000000000000000000000000000000000000001,${amountOfToken.toString()},0,${formData.nonce},${priority === "high" ? "true" : "false"},${formData.stakingAddress.toLowerCase()}`);
+      console.log("");
 
       const signaturePay = await signatureBuilder.signGoldenStaking(
         BigInt(formData.evvmID),
@@ -269,6 +271,11 @@ function GoldenStakingComponent({
       );
 
       console.log("✅ Signature created:", signaturePay);
+      console.log("=".repeat(60));
+      console.log("");
+      console.log("⏭️  NEXT STEP: Click 'Execute' button");
+      console.log("💡 TIP: Async nonces don't require immediate execution");
+      console.log("");
 
       setDataToGet({
         PayInputData: {
@@ -302,6 +309,44 @@ function GoldenStakingComponent({
 
     const numberOfFishers = dataToGet.GoldenStakingInputData.amountOfStaking;
     const totalMate = dataToGet.PayInputData.amount / BigInt(10) ** BigInt(18);
+
+    // Only verify nonce for SYNC transactions
+    if (dataToGet.PayInputData.priority === false) {
+      console.log("🔍 Verifying sync nonce hasn't changed...");
+      try {
+        if (!publicClient) {
+          alert("Public client not available. Please refresh the page.");
+          return;
+        }
+        const { deployment } = await import("@/lib/evvmConfig").then(m => m.loadDeployments().then(d => ({ deployment: d[0] })));
+        if (!deployment || !account) {
+          alert("Deployment or account not found.");
+          return;
+        }
+        const currentNonceNow = await readNextNonce(publicClient, deployment.evvm as `0x${string}`, account);
+        const nonceInSignature = dataToGet.PayInputData.nonce;
+
+        console.log("  Nonce used in signature:", nonceInSignature.toString());
+        console.log("  Current sync nonce from contract:", currentNonceNow.toString());
+
+        if (currentNonceNow !== nonceInSignature) {
+          console.error("❌ NONCE MISMATCH! Signature is now INVALID!");
+          const proceed = confirm(
+            `⚠️ WARNING: Nonce Mismatch!\n\n` +
+            `Signature nonce: ${nonceInSignature.toString()}\n` +
+            `Current nonce: ${currentNonceNow.toString()}\n\n` +
+            `This signature may fail. Do you want to proceed anyway?`
+          );
+          if (!proceed) return;
+        } else {
+          console.log("  ✅ Sync nonce verification passed!");
+        }
+      } catch (error) {
+        console.error("Failed to verify nonce:", error);
+      }
+    } else {
+      console.log("🔄 Using ASYNC nonce - no verification needed");
+    }
 
     // CRITICAL: Final EVVM balance check before execution
     console.log("🔍 Final pre-flight checks...");
@@ -411,16 +456,13 @@ function GoldenStakingComponent({
             </div>
             <div>
               <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "0.25rem" }}>
-                Next Nonce (use this)
+                Current Sync Nonce
               </div>
               <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>
                 {currentNonce !== null ? currentNonce : "Loading..."}
               </div>
-              <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "0.25rem", fontWeight: "600" }}>
-                ⚠️ IMPORTANT: Use this exact nonce!
-              </div>
-              <div style={{ fontSize: "0.7rem", color: "var(--color-text-secondary)", marginTop: "0.25rem" }}>
-                Failed transactions consume nonces too
+              <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.25rem" }}>
+                For sync (low priority) transactions
               </div>
             </div>
           </div>
@@ -444,39 +486,37 @@ function GoldenStakingComponent({
         If you enter <strong>2</strong>, you will stake <strong>10,166 MATE</strong>.
       </p>
 
-      <div style={{
-        marginBottom: "1rem",
-        padding: "1rem",
-        background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
-        border: "2px solid #f59e0b",
-        borderRadius: "8px"
-      }}>
-        <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700", color: "#92400e" }}>
-          ⚠️ Golden Staking REQUIRES Sync Nonces
-        </h4>
-        <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem", color: "#78350f" }}>
-          The golden staking contract <strong>HARDCODES sync nonces</strong> (contract requirement).
-        </p>
-        <p style={{ margin: "0", fontSize: "0.85rem", color: "#78350f" }}>
-          You <strong>MUST</strong> use the exact sync nonce from the contract, displayed below.
-        </p>
-      </div>
+      {/* Priority Selector */}
+      <PrioritySelector onPriorityChange={setPriority} />
 
+      {/* Nonce Input */}
       <NumberInputWithGenerator
-        label="Sync Nonce (from contract)"
+        label={priority === "low" ? "Sync Nonce" : "Async Nonce"}
         inputId="nonceInput_GoldenStaking"
-        placeholder="Use nonce shown above"
-        showRandomBtn={false}
+        placeholder={priority === "low" ? `Use current: ${currentNonce || "..."}` : "Enter any unused nonce"}
+        showRandomBtn={priority !== "low"}
       />
 
-      <HelperInfo label="Why can't I use async nonces?">
+      <HelperInfo label="How to choose nonces?">
         <div>
-          The golden staking contract calls <code>getNextCurrentSyncNonce()</code> internally
-          and <strong>hardcodes priorityFlag = false</strong> (line 262 in Staking.sol).
-          <br /><br />
-          Your signature MUST match: sync nonce + priorityFlag: false.
-          <br /><br />
-          Using async nonces will cause signature verification to fail!
+          <strong>Sync Nonces (Low Priority):</strong>
+          <br />
+          - Must use the EXACT current sync nonce: <strong>{currentNonce || "..."}</strong>
+          <br />
+          - Execute IMMEDIATELY after signing
+          <br />
+          - Do NOT make other transactions in between
+          <br />
+          <br />
+          <strong>Async Nonces (High Priority):</strong>
+          <br />
+          - Can use ANY unused random number
+          <br />
+          - No rush to execute
+          <br />
+          - Multiple signatures can be created in parallel
+          <br />
+          - Use the "Generate Random" button for a safe random nonce
         </div>
       </HelperInfo>
 

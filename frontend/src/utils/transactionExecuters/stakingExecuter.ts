@@ -25,27 +25,26 @@ import {
 const executeGoldenStaking = async (
   InputData: GoldenStakingInputData,
   stakingAddress: `0x${string}`
-) => {
+): Promise<void> => {
   if (!InputData) {
-    return Promise.reject("No data to execute payment");
+    throw new Error("No data to execute golden staking");
   }
 
-  writeContract(config, {
-    abi: StakingABI,
-    address: stakingAddress,
-    functionName: "goldenStaking",
-    args: [
-      InputData.isStaking,
-      InputData.amountOfStaking,
-      InputData.signature_EVVM,
-    ],
-  })
-    .then(() => {
-      return Promise.resolve();
-    })
-    .catch((error) => {
-      return Promise.reject(error);
+  try {
+    await writeContract(config, {
+      abi: StakingABI,
+      address: stakingAddress,
+      functionName: "goldenStaking",
+      args: [
+        InputData.isStaking,
+        InputData.amountOfStaking,
+        InputData.signature_EVVM,
+      ],
     });
+  } catch (error) {
+    console.error("Golden staking execution failed:", error);
+    throw error;
+  }
 };
 
 /**
@@ -62,7 +61,7 @@ const executePresaleStaking = async (
     return Promise.reject("No data to execute payment");
   }
 
-  writeContract(config, {
+  return writeContract(config, {
     abi: StakingABI,
     address: stakingAddress,
     functionName: "presaleStaking",
@@ -99,7 +98,7 @@ const executePublicStaking = async (
     return Promise.reject("No data to execute payment");
   }
 
-  writeContract(config, {
+  return writeContract(config, {
     abi: StakingABI,
     address: stakingAddress,
     functionName: "publicStaking",
@@ -137,7 +136,7 @@ const executePublicServiceStaking = async (
     return Promise.reject("No data to execute payment");
   }
 
-  writeContract(config, {
+  return writeContract(config, {
     abi: StakingABI,
     address: stakingAddress,
     functionName: "publicServiceStaking",
