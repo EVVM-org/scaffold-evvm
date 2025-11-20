@@ -37,28 +37,6 @@ const executePreRegistrationUsername = async (
     return Promise.reject("No input to execute");
   }
 
-  // Validate signature before execution
-  if (!InputData.signature || typeof InputData.signature !== 'string') {
-    console.error("Invalid actionSignature:", InputData.signature);
-    return Promise.reject(`Invalid action signature: ${InputData.signature}`);
-  }
-
-  if (!InputData.signature_EVVM || typeof InputData.signature_EVVM !== 'string') {
-    console.error("Invalid EVVM signature:", InputData.signature_EVVM);
-    return Promise.reject(`Invalid EVVM signature: ${InputData.signature_EVVM}`);
-  }
-
-  console.log("Executing preRegistrationUsername with args:", {
-    user: InputData.user,
-    hash: InputData.hashPreRegisteredUsername,
-    nonce: InputData.nonce.toString(),
-    signature: InputData.signature,
-    priorityFee: InputData.priorityFee_EVVM.toString(),
-    nonceEVVM: InputData.nonce_EVVM.toString(),
-    priorityFlag: InputData.priorityFlag_EVVM,
-    signatureEVVM: InputData.signature_EVVM,
-  });
-
   return writeContract(config, {
     abi: NameServiceABI,
     address: nameServiceAddress,
@@ -74,12 +52,10 @@ const executePreRegistrationUsername = async (
       InputData.signature_EVVM,
     ],
   })
-    .then((hash) => {
-      console.log("Pre-registration transaction submitted:", hash);
+    .then(() => {
       return Promise.resolve();
     })
     .catch((error) => {
-      console.error("Pre-registration transaction failed:", error);
       return Promise.reject(error);
     });
 };
@@ -98,29 +74,6 @@ const executeRegistrationUsername = async (
     return Promise.reject("No input to execute");
   }
 
-  // Validate signature before execution
-  if (!InputData.signature || typeof InputData.signature !== 'string') {
-    console.error("Invalid actionSignature:", InputData.signature);
-    return Promise.reject(`Invalid action signature: ${InputData.signature}`);
-  }
-
-  if (!InputData.signature_EVVM || typeof InputData.signature_EVVM !== 'string') {
-    console.error("Invalid EVVM signature:", InputData.signature_EVVM);
-    return Promise.reject(`Invalid EVVM signature: ${InputData.signature_EVVM}`);
-  }
-
-  console.log("Executing registrationUsername with args:", {
-    user: InputData.user,
-    username: InputData.username,
-    clowNumber: InputData.clowNumber.toString(),
-    nonce: InputData.nonce.toString(),
-    signature: InputData.signature,
-    priorityFee: InputData.priorityFee_EVVM.toString(),
-    nonceEVVM: InputData.nonce_EVVM.toString(),
-    priorityFlag: InputData.priorityFlag_EVVM,
-    signatureEVVM: InputData.signature_EVVM,
-  });
-
   return writeContract(config, {
     abi: NameServiceABI,
     address: nameServiceAddress,
@@ -137,12 +90,10 @@ const executeRegistrationUsername = async (
       InputData.signature_EVVM,
     ],
   })
-    .then((hash) => {
-      console.log("Registration transaction submitted:", hash);
+    .then(() => {
       return Promise.resolve();
     })
     .catch((error) => {
-      console.error("Registration transaction failed:", error);
       return Promise.reject(error);
     });
 };

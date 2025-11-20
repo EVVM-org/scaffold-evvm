@@ -101,7 +101,6 @@ export default function NameServicePage() {
         Username: formData.username,
         "Clow Number": formData.clowNumber,
         "NameService Nonce": formData.nonce,
-        "Priority Fee": formData.priorityFee_EVVM,
         "EVVM Nonce": formData.nonce_EVVM,
       });
 
@@ -135,50 +134,22 @@ export default function NameServicePage() {
           formData.priorityFlag_EVVM
         );
 
-      console.log("Signatures created:", {
-        paySignature,
-        actionSignature,
-        paySignatureType: typeof paySignature,
-        actionSignatureType: typeof actionSignature,
-        paySignatureLength: paySignature?.length,
-        actionSignatureLength: actionSignature?.length,
-        priorityFee: formData.priorityFee_EVVM,
-        note: "paySignature is optional (only present if priorityFee > 0)"
-      });
-
-      // actionSignature is always required
-      if (!actionSignature) {
-        throw new Error("Signature creation failed: actionSignature is undefined");
-      }
-
-      if (typeof actionSignature !== 'string' || !actionSignature.startsWith('0x')) {
-        throw new Error(`Invalid actionSignature format: ${actionSignature}`);
-      }
-
-      // paySignature is only required if priorityFee > 0
-      if (BigInt(formData.priorityFee_EVVM) > 0n) {
-        if (!paySignature) {
-          throw new Error("Signature creation failed: paySignature is undefined (required when priorityFee > 0)");
-        }
-        if (typeof paySignature !== 'string' || !paySignature.startsWith('0x')) {
-          throw new Error(`Invalid paySignature format: ${paySignature}`);
-        }
-      }
-
       const hashUsername = hashPreRegisteredUsername(
         formData.username,
         BigInt(formData.clowNumber)
       );
 
-      // Use zero signature if paySignature is undefined (when priorityFee = 0)
-      const ZERO_SIGNATURE = `0x${'00'.repeat(65)}` as `0x${string}`;
-      const finalPaySignature = paySignature || ZERO_SIGNATURE;
+      // When priorityFee = 0, paySignature will be undefined
+      // Use empty bytes "0x" as a valid placeholder
+      const EMPTY_SIGNATURE = "0x" as `0x${string}`;
+      const finalPaySignature = paySignature || EMPTY_SIGNATURE;
 
-      console.log("Final signatures for transaction:", {
+      console.log("Signature handling:", {
+        priorityFee: formData.priorityFee_EVVM,
+        paySignature: paySignature || "undefined",
+        finalPaySignature,
         actionSignature,
-        paySignature: finalPaySignature,
-        isZeroSignature: !paySignature,
-        priorityFee: formData.priorityFee_EVVM
+        usingEmptySignature: !paySignature,
       });
 
       setDataToGet({
@@ -188,7 +159,7 @@ export default function NameServicePage() {
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
           amount: BigInt(0),
-          priorityFee: BigInt(formData.priorityFee_EVVM),
+          priorityFee: BigInt(formData.priorityFee_EVVM || "0"),
           nonce: BigInt(formData.nonce_EVVM),
           priority: priority === "high",
           executor: deployment.nameService as `0x${string}`,
@@ -201,7 +172,7 @@ export default function NameServicePage() {
             hashUsername.toUpperCase().slice(2),
           nonce: BigInt(formData.nonce),
           signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
+          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM || "0"),
           nonce_EVVM: BigInt(formData.nonce_EVVM),
           priorityFlag_EVVM: formData.priorityFlag_EVVM,
           signature_EVVM: finalPaySignature,
@@ -237,7 +208,6 @@ export default function NameServicePage() {
         Username: formData.username,
         "Clow Number": formData.clowNumber,
         "NameService Nonce": formData.nonceNameService,
-        "Priority Fee": formData.priorityFee_EVVM,
         "EVVM Nonce": formData.nonceEVVM,
       });
 
