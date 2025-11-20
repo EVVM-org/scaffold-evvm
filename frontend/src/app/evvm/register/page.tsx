@@ -8,8 +8,7 @@ import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import { EvvmABI } from '@evvm/viem-signature-library';
 import styles from '@/styles/pages/Register.module.css';
 
-// EVVM Registry Contract on Ethereum Sepolia
-const REGISTRY_ADDRESS = '0x389dC8fb09211bbDA841D59f4a51160dA2377832';
+const REGISTRY_ADDRESS = '0x389dC8fb09211bbDA841D59f4a51160dA2377832' as const;
 const REGISTRY_ABI = [
   {
     inputs: [
@@ -85,13 +84,13 @@ export default function RegisterPage() {
     setTxHash(null);
 
     try {
-      // Register on Ethereum Sepolia registry
+      // Register on EVVM registry (Ethereum Sepolia)
       const hash = await writeContract(config, {
         abi: REGISTRY_ABI,
         address: REGISTRY_ADDRESS,
         functionName: 'registerEvvm',
         args: [BigInt(deployment.chainId), deployment.evvm as `0x${string}`],
-        chainId: 11155111, // Ethereum Sepolia
+        chainId: 11155111,
       });
 
       setTxHash(hash);
@@ -226,9 +225,9 @@ export default function RegisterPage() {
       )}
 
       <div className={styles.formCard}>
-        <h2>Step 1: Register on Ethereum Sepolia Registry</h2>
+        <h2>Step 1: Register on EVVM Registry</h2>
         <p className={styles.helper}>
-          This registers your EVVM instance on the official registry contract on Ethereum Sepolia.
+          This registers your EVVM instance on the official registry contract.
           You will receive an assigned EVVM ID (≥1000).
         </p>
 
