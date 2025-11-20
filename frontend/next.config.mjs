@@ -17,6 +17,9 @@ const nextConfig = {
   // Make root environment variables available to Next.js
   env: {
     NEXT_PUBLIC_PROJECT_ID: process.env.NEXT_PUBLIC_PROJECT_ID,
+    NEXT_PUBLIC_EVVM_ADDRESS: process.env.NEXT_PUBLIC_EVVM_ADDRESS,
+    NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID,
+    NEXT_PUBLIC_EVVM_ID: process.env.NEXT_PUBLIC_EVVM_ID,
   },
 
   // Suppress punycode deprecation warning

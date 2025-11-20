@@ -104,7 +104,12 @@ async function runWizard() {
     console.log(chalk.green('\n✓ Deployment wizard completed successfully!'));
 
     // Generate deployment summary for frontend
-    await generateDeploymentSummary(testnetContractsPath);
+    const deploymentSummary = await generateDeploymentSummary(testnetContractsPath);
+
+    // Automatically update .env file with deployment configuration
+    if (deploymentSummary) {
+      await updateEnvFile(deploymentSummary);
+    }
 
   } catch (error: any) {
     if (error.exitCode !== 0) {
@@ -124,7 +129,7 @@ async function runWizard() {
  *
  * NO hardcoded addresses or IDs - everything is read from deployment artifacts!
  */
-async function generateDeploymentSummary(testnetContractsPath: string) {
+async function generateDeploymentSummary(testnetContractsPath: string): Promise<any> {
   console.log(chalk.blue('\n📝 Generating deployment summary for frontend...'));
 
   const inputDir = path.join(testnetContractsPath, 'input');
@@ -231,8 +236,97 @@ async function generateDeploymentSummary(testnetContractsPath: string) {
     console.log(chalk.dim(`  EVVM ID: ${summary.evvmID}`));
     console.log(chalk.dim(`  EVVM Address: ${summary.evvm}\n`));
 
+    return summary;
+
   } catch (error: any) {
     console.error(chalk.yellow(`⚠️  Could not generate deployment summary: ${error.message}`));
+    return null;
+  }
+}
+
+/**
+ * Automatically update .env file with deployment configuration
+ * This eliminates manual configuration after deployment
+ */
+async function updateEnvFile(deploymentSummary: any) {
+  console.log(chalk.blue('\n🔧 Updating .env file with deployment configuration...'));
+
+  try {
+    const envPath = path.join(projectRoot, '.env');
+
+    // Check if .env exists
+    if (!fs.existsSync(envPath)) {
+      console.log(chalk.yellow('⚠️  .env file not found, skipping automatic update'));
+      console.log(chalk.dim(`   Please create ${envPath} from .env.example`));
+      return;
+    }
+
+    // Read current .env file
+    let envContent = fs.readFileSync(envPath, 'utf-8');
+
+    // Update NEXT_PUBLIC_EVVM_ADDRESS
+    envContent = updateEnvVariable(
+      envContent,
+      'NEXT_PUBLIC_EVVM_ADDRESS',
+      deploymentSummary.evvm
+    );
+
+    // Update NEXT_PUBLIC_CHAIN_ID
+    envContent = updateEnvVariable(
+      envContent,
+      'NEXT_PUBLIC_CHAIN_ID',
+      deploymentSummary.chainId.toString()
+    );
+
+    // Update NEXT_PUBLIC_EVVM_ID
+    envContent = updateEnvVariable(
+      envContent,
+      'NEXT_PUBLIC_EVVM_ID',
+      deploymentSummary.evvmID.toString()
+    );
+
+    // Write updated content back to .env
+    fs.writeFileSync(envPath, envContent);
+
+    console.log(chalk.green('✓ .env file updated successfully!'));
+    console.log(chalk.dim(`  NEXT_PUBLIC_EVVM_ADDRESS=${deploymentSummary.evvm}`));
+    console.log(chalk.dim(`  NEXT_PUBLIC_CHAIN_ID=${deploymentSummary.chainId}`));
+    console.log(chalk.dim(`  NEXT_PUBLIC_EVVM_ID=${deploymentSummary.evvmID}`));
+    console.log();
+    console.log(chalk.cyan('📌 Next Steps:'));
+    console.log(chalk.white('  1. Restart your frontend dev server (if running)'));
+    console.log(chalk.white(`  2. Connect wallet to ${deploymentSummary.networkName}`));
+    console.log(chalk.white('  3. Visit http://localhost:3000 to test your EVVM\n'));
+
+  } catch (error: any) {
+    console.error(chalk.yellow(`⚠️  Could not update .env file: ${error.message}`));
+    console.log(chalk.dim('   You may need to update it manually\n'));
+  }
+}
+
+/**
+ * Update or add an environment variable in .env file content
+ */
+function updateEnvVariable(envContent: string, varName: string, value: string): string {
+  const regex = new RegExp(`^${varName}=.*$`, 'm');
+
+  if (regex.test(envContent)) {
+    // Variable exists, update it
+    return envContent.replace(regex, `${varName}=${value}`);
+  } else {
+    // Variable doesn't exist, add it
+    // Find the section comment for deployment configuration
+    const deploymentSection = /# Deployed EVVM Contract Address/;
+    if (deploymentSection.test(envContent)) {
+      // Add after the deployment section comment
+      return envContent.replace(
+        deploymentSection,
+        `# Deployed EVVM Contract Address\n${varName}=${value}`
+      );
+    } else {
+      // Fallback: append to end of file
+      return envContent + `\n${varName}=${value}`;
+    }
   }
 }
 
