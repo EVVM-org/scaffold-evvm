@@ -1,0 +1,155 @@
+diff --git a/scripts/evvm-init.ts b/scripts/evvm-init.ts
+index 42ebf57..fe4c67f 100755
+--- a/scripts/evvm-init.ts
++++ b/scripts/evvm-init.ts
+@@ -308,66 +308,102 @@ const registerWithRegistry = async (
+     const privateKey = await getPrivateKeyFromWallet(walletName);
+     const account = privateKeyToAccount(privateKey);
+ 
+-    // Get RPC URL for Ethereum Sepolia
+-    const ethSepoliaRpc = process.env.RPC_URL_ETH_SEPOLIA;
+-    if (!ethSepoliaRpc) {
+-      throw new Error('RPC_URL_ETH_SEPOLIA not found in .env file');
+-    }
++    // Prepare RPC fallback list
++    const rpcEndpoints = [
++      process.env.RPC_URL_ETH_SEPOLIA, // Try .env RPC first
++      ...ETH_SEPOLIA_RPC_FALLBACKS      // Then try fallbacks
++    ].filter(Boolean) as string[];
++
++    console.log(chalk.gray(`   Trying ${rpcEndpoints.length} RPC endpoints...`));
++
++    let lastError: any = null;
++
++    // Try each RPC endpoint until one succeeds
++    for (let i = 0; i < rpcEndpoints.length; i++) {
++      const rpcUrl = rpcEndpoints[i];
++
++      try {
++        console.log(chalk.gray(`   Attempt ${i + 1}/${rpcEndpoints.length}: ${rpcUrl.slice(0, 30)}...`));
++
++        // Create clients with current RPC
++        const publicClient = createPublicClient({
++          chain: sepoliaChain,
++          transport: http(rpcUrl, {
++            timeout: 15000, // 15 second timeout
++            retryCount: 0   // No retries at transport level (we handle it here)
++          })
++        });
+ 
+-    // Create clients
+-    const publicClient = createPublicClient({
+-      chain: sepoliaChain,
+-      transport: http(ethSepoliaRpc)
+-    });
++        const walletClient = createWalletClient({
++          account,
++          chain: sepoliaChain,
++          transport: http(rpcUrl, {
++            timeout: 15000,
++            retryCount: 0
++          })
++        });
+ 
+-    const walletClient = createWalletClient({
+-      account,
+-      chain: sepoliaChain,
+-      transport: http(ethSepoliaRpc)
+-    });
++        // Simulate transaction first to get the return value
++        console.log(chalk.gray('   Simulating transaction...'));
++        const { request, result } = await publicClient.simulateContract({
++          address: REGISTRY_ADDRESS,
++          abi: REGISTRY_ABI,
++          functionName: 'registerEvvm',
++          args: [BigInt(chainId), evvmAddress],
++          account
++        });
+ 
+-    // Simulate transaction first to get the return value
+-    console.log(chalk.gray('   Simulating transaction...'));
+-    const { request, result } = await publicClient.simulateContract({
+-      address: REGISTRY_ADDRESS,
+-      abi: REGISTRY_ABI,
+-      functionName: 'registerEvvm',
+-      args: [BigInt(chainId), evvmAddress],
+-      account
+-    });
++        // The result contains the evvmID that will be returned
++        const evvmId = result as bigint;
++        console.log(chalk.gray(`   Predicted EVVM ID: ${evvmId}`));
+ 
+-    // The result contains the evvmID that will be returned
+-    const evvmId = result as bigint;
+-    console.log(chalk.gray(`   Predicted EVVM ID: ${evvmId}`));
++        // Execute transaction
++        console.log(chalk.gray('   Sending transaction...'));
++        const hash = await walletClient.writeContract(request);
++        console.log(chalk.gray(`   Transaction hash: ${hash}`));
+ 
+-    // Execute transaction
+-    console.log(chalk.gray('   Sending transaction...'));
+-    const hash = await walletClient.writeContract(request);
+-    console.log(chalk.gray(`   Transaction hash: ${hash}`));
++        // Wait for transaction receipt
++        console.log(chalk.gray('   Waiting for confirmation...'));
++        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+ 
+-    // Wait for transaction receipt
+-    console.log(chalk.gray('   Waiting for confirmation...'));
+-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
++        if (receipt.status !== 'success') {
++          throw new Error('Transaction failed');
++        }
+ 
+-    if (receipt.status !== 'success') {
+-      throw new Error('Transaction failed');
+-    }
++        console.log(chalk.green(`   ✓ Registration successful using RPC: ${rpcUrl.slice(0, 30)}...`));
++        console.log(chalk.blue(`   https://sepolia.etherscan.io/tx/${hash}`));
+ 
+-    console.log(chalk.green('   ✓ Registration transaction confirmed!'));
+-    console.log(chalk.blue(`   https://sepolia.etherscan.io/tx/${hash}`));
++        return evvmId;
+ 
+-    return evvmId;
++      } catch (error: any) {
++        lastError = error;
+ 
+-  } catch (error: any) {
+-    if (error.message?.includes('AlreadyRegistered')) {
+-      console.log(chalk.yellow('\n⚠ This EVVM instance is already registered'));
+-      return null;
+-    } else if (error.message?.includes('ChainIdNotRegistered')) {
+-      console.log(chalk.red('\n✖ Chain ID not whitelisted in Registry'));
+-      console.log(chalk.yellow('   Contact EVVM team to whitelist this chain'));
+-      return null;
++        // Check for contract-specific errors (don't retry these)
++        if (error.message?.includes('AlreadyRegistered')) {
++          console.log(chalk.yellow('\n⚠ This EVVM instance is already registered'));
++          return null;
++        } else if (error.message?.includes('ChainIdNotRegistered')) {
++          console.log(chalk.red('\n✖ Chain ID not whitelisted in Registry'));
++          console.log(chalk.yellow('   Contact EVVM team to whitelist this chain'));
++          return null;
++        }
++
++        // RPC error - try next endpoint
++        console.log(chalk.red(`   ✗ RPC failed: ${error.message?.slice(0, 80) || 'Unknown error'}`));
++
++        if (i < rpcEndpoints.length - 1) {
++          console.log(chalk.yellow(`   Trying next RPC endpoint...`));
++        }
++      }
+     }
+ 
++    // If we get here, all RPCs failed
++    console.log(chalk.red(`\n✖ Registration failed: All ${rpcEndpoints.length} RPC endpoints failed`));
++    console.log(chalk.yellow('   Last error:'), lastError?.message?.slice(0, 200) || 'Unknown error');
++    console.log(chalk.yellow('\n⚠ Please verify registration status manually'));
++    return null;
++
++  } catch (error: any) {
+     console.log(chalk.red(`\n✖ Registration failed: ${error.message}`));
+     return null;
+   }
