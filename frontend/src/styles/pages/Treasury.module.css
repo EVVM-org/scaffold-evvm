@@ -127,6 +127,8 @@
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
 }
 
 .buttonSecondary {
@@ -146,6 +148,12 @@
   border-color: var(--accent-color);
 }
 
+.buttonSecondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-secondary);
+}
+
 .buttonSmall {
   padding: 0.4rem 0.8rem;
   background: var(--bg-tertiary);
@@ -159,8 +167,14 @@
   white-space: nowrap;
 }
 
-.buttonSmall:hover {
+.buttonSmall:hover:not(:disabled) {
   background: var(--bg-secondary);
+}
+
+.buttonSmall:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-secondary);
 }
 
 .buttonGroup {

@@ -33,9 +33,16 @@
 
   /* Additional variables for components */
   --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
   --bg-hover: #f5f5f5;
-  --text-primary: #333;
-  --border-color: #e0e0e0;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  --accent-color: #4f46e5;
+  --success-color: #10b981;
+  --error-color: #ef4444;
+  --warning-color: #f59e0b;
 
   /* Balances component variables */
   --card-background: #ffffff;
@@ -63,9 +70,16 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 
   --bg-primary: #1a1a1a;
+  --bg-secondary: #111111;
+  --bg-tertiary: #2a2a2a;
   --bg-hover: #2a2a2a;
   --text-primary: #f0f0f0;
-  --border-color: #333;
+  --text-secondary: #aaaaaa;
+  --border-color: #333333;
+  --accent-color: #60a5fa;
+  --success-color: #10b981;
+  --error-color: #ef4444;
+  --warning-color: #f59e0b;
 
   /* Balances component dark mode variables */
   --card-background: #1f2937;
