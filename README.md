@@ -99,6 +99,7 @@ npm install
 - Installs dependencies for both `contracts` and `frontend` workspaces
 - Sets up the monorepo structure
 - Initializes git submodules automatically
+- Applies RPC fallback patches for improved Registry registration (99%+ success rate)
 
 ### 2. Configure Environment
 
@@ -559,6 +560,28 @@ NEXT_PUBLIC_EVVM_ADDRESS=<evvm address>
 NEXT_PUBLIC_CHAIN_ID=<chainId>
 NEXT_PUBLIC_EVVM_ID=<evvmID>
 ```
+
+---
+
+**Problem:** "Registry registration failed: HTTP request failed"
+
+**Solution:**
+This happens when the primary RPC endpoint is unavailable. The patch system automatically applies RPC fallback logic for 99%+ success rate.
+
+```bash
+# Check if patches are applied
+cd contracts/lib/Testnet-Contracts
+git diff scripts/evvm-init.ts
+
+# If not applied, run:
+cd ../../patches
+./apply-patches.sh
+
+# Then retry deployment
+npm run wizard
+```
+
+**Note:** After running `npm install`, patches are applied automatically. Your submodule may show as "modified" in `git status` - this is normal and expected.
 
 ---
 

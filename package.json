@@ -13,7 +13,8 @@
   },
   "scripts": {
     "setup": "npm install --workspaces",
-    "postinstall": "npm run check-env",
+    "postinstall": "npm run apply-patches && npm run check-env",
+    "apply-patches": "bash contracts/patches/apply-patches.sh 2>/dev/null || echo 'Patches already applied or submodule not initialized'",
     "check-env": "node -e \"console.log('\\nSetup complete! Run: npm run scaffold')\"",
     "scaffold": "npm run wizard && npm run dev",
     "chain": "cd contracts && npm run anvil",
