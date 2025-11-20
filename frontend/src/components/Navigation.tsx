@@ -15,6 +15,7 @@ export function Navigation() {
     { href: '/evvm/register', label: 'Register EVVM' },
     { href: '/evvm/status', label: 'Status' },
     { href: '/evvm/payments', label: 'Payments' },
+    { href: '/evvm/treasury', label: 'Treasury' },
     { href: '/evvm/staking', label: 'Staking' },
     { href: '/evvm/nameservice', label: 'Names' },
     { href: '/evvm/p2pswap', label: 'P2P Swap' },

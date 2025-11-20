@@ -1,23 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-export interface EvvmDeployment {
-  chainId: number;
-  networkName: string;
-  evvm: string;
-  nameService: string;
-  staking: string;
-  estimator: string;
-  treasury: string;
-  p2pSwap: string;
-  evvmID: number;
-  evvmName: string;
-  registry: string;
-  admin: string;
-  goldenFisher: string;
-  activator: string;
-}
+import type { EvvmDeployment } from '@/types/evvm';
 
 /**
  * Hook to load EVVM deployment information
