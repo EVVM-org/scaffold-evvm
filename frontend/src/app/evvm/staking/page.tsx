@@ -149,13 +149,13 @@ export default function StakingPage() {
       {/* Tab Content */}
       <div className={styles.tabContent}>
         {activeTab === "golden" && (
-          <GoldenStakingComponent evvmID={evvmID} stakingAddress={stakingAddress} />
+          <GoldenStakingComponent evvmID={evvmID} stakingAddress={stakingAddress} deployment={deployment} />
         )}
         {activeTab === "presale" && (
-          <PresaleStakingComponent evvmID={evvmID} stakingAddress={stakingAddress} />
+          <PresaleStakingComponent evvmID={evvmID} stakingAddress={stakingAddress} deployment={deployment} />
         )}
         {activeTab === "public" && (
-          <PublicStakingComponent evvmID={evvmID} stakingAddress={stakingAddress} />
+          <PublicStakingComponent evvmID={evvmID} stakingAddress={stakingAddress} deployment={deployment} />
         )}
       </div>
     </div>
@@ -166,9 +166,11 @@ export default function StakingPage() {
 function GoldenStakingComponent({
   evvmID,
   stakingAddress,
+  deployment,
 }: {
   evvmID: string;
   stakingAddress: `0x${string}`;
+  deployment: any;
 }) {
   const [isStaking, setIsStaking] = useState(true);
   const [priority, setPriority] = useState("low");
@@ -183,12 +185,9 @@ function GoldenStakingComponent({
     async function loadUserData() {
       try {
         const walletData = await getAccountWithRetry(config);
-        if (!walletData || !publicClient) return;
+        if (!walletData || !publicClient || !deployment) return;
 
         setAccount(walletData.address as `0x${string}`);
-
-        const { deployment } = await import("@/lib/evvmConfig").then(m => m.loadDeployments().then(d => ({ deployment: d[0] })));
-        if (!deployment) return;
 
         // Read EVVM balance (MATE token)
         const mateToken = "0x0000000000000000000000000000000000000001" as `0x${string}`;
@@ -218,7 +217,7 @@ function GoldenStakingComponent({
     }
 
     loadUserData();
-  }, [publicClient]);
+  }, [publicClient, deployment]);
 
   const makeSig = async () => {
     const walletData = await getAccountWithRetry(config);
@@ -401,9 +400,11 @@ function GoldenStakingComponent({
 function PresaleStakingComponent({
   evvmID,
   stakingAddress,
+  deployment,
 }: {
   evvmID: string;
   stakingAddress: `0x${string}`;
+  deployment: any;
 }) {
   const [isStaking, setIsStaking] = useState(true);
   const [priority, setPriority] = useState("low");
@@ -544,9 +545,11 @@ function PresaleStakingComponent({
 function PublicStakingComponent({
   evvmID,
   stakingAddress,
+  deployment,
 }: {
   evvmID: string;
   stakingAddress: `0x${string}`;
+  deployment: any;
 }) {
   const [isStaking, setIsStaking] = useState(true);
   const [priority, setPriority] = useState("low");

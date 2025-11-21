@@ -5,14 +5,14 @@ import { NetworkBadge } from '@/components/NetworkBadge';
 import { NetworkWarning } from '@/components/NetworkWarning';
 import { Balances } from '@/components/Balances';
 import { EvvmInfo } from '@/components/EvvmInfo';
-import { loadDeployments, getExplorerUrl } from '@/lib/evvmConfig';
-import type { EvvmDeployment } from '@/types/evvm';
+import { getExplorerUrl } from '@/lib/evvmConfig';
+import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import { getPublicClient, getCurrentChainId } from '@/lib/viemClients';
 import { readBalance, readNextNonce as readNonce, readStakedAmount, readIsStaker } from '@/lib/evvmExecutors';
 import styles from '@/styles/pages/Status.module.css';
 
 export default function StatusPage() {
-  const [deployment, setDeployment] = useState<EvvmDeployment | null>(null);
+  const { deployment, loading: deploymentLoading, error: deploymentError } = useEvvmDeployment();
   const [account, setAccount] = useState<`0x${string}` | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
@@ -22,20 +22,8 @@ export default function StatusPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadDeploymentData();
     checkWalletConnection();
   }, []);
-
-  async function loadDeploymentData() {
-    try {
-      const deployments = await loadDeployments();
-      if (deployments.length > 0) {
-        setDeployment(deployments[0]);
-      }
-    } catch (error) {
-      console.error('Failed to load deployment:', error);
-    }
-  }
 
   async function checkWalletConnection() {
     try {
@@ -81,12 +69,23 @@ export default function StatusPage() {
     }
   }
 
-  if (!deployment) {
+  if (deploymentLoading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h2>EVVM Status Dashboard</h2>
+        </div>
+        <p>Loading deployment configuration...</p>
+      </div>
+    );
+  }
+
+  if (deploymentError || !deployment) {
     return (
       <div className={styles.container}>
         <div className={styles.error}>
-          <p>No EVVM deployment found.</p>
-          <p>Please run the deployment wizard first.</p>
+          <p>No EVVM instance configured.</p>
+          <p>Please configure an EVVM instance via the <a href="/config">Configuration Page</a>.</p>
         </div>
       </div>
     );

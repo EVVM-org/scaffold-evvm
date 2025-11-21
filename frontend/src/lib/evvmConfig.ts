@@ -1,17 +1,56 @@
 import type { EvvmDeployment } from '@/types/evvm';
+import { loadEvvmConfig } from './evvmConfigStorage';
 
 /**
- * Load EVVM deployments from the API
+ * Load EVVM deployments
+ * Priority: localStorage config > environment variables
  */
 export async function loadDeployments(): Promise<EvvmDeployment[]> {
   try {
-    const response = await fetch('/api/deployments');
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to load deployments');
+    // 1. Check localStorage first
+    const storedConfig = loadEvvmConfig();
+    if (storedConfig) {
+      console.log('📦 Loading deployment from localStorage');
+      return [storedConfig];
     }
-    const data = await response.json();
-    return Array.isArray(data) ? data : [data];
+
+    // 2. Fallback: Try to read from environment variables and build config
+    const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS;
+    const chainIdStr = process.env.NEXT_PUBLIC_CHAIN_ID;
+    const evvmIDStr = process.env.NEXT_PUBLIC_EVVM_ID;
+
+    if (!evvmAddress || !chainIdStr) {
+      throw new Error(
+        'No EVVM configuration found. Please configure via /config page or set NEXT_PUBLIC_EVVM_ADDRESS and NEXT_PUBLIC_CHAIN_ID in .env'
+      );
+    }
+
+    const chainId = parseInt(chainIdStr);
+    const networkName = chainId === 11155111 ? 'Ethereum Sepolia' : chainId === 421614 ? 'Arbitrum Sepolia' : 'Unknown';
+
+    console.log('🔧 Loading deployment from environment variables');
+
+    // Return basic deployment from env vars
+    // Note: Contract discovery would require async calls, so we provide zero addresses
+    // Users should use the /config page for full automatic discovery
+    return [
+      {
+        chainId,
+        networkName,
+        evvm: evvmAddress as `0x${string}`,
+        nameService: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+        staking: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+        estimator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+        treasury: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+        p2pSwap: undefined,
+        evvmID: evvmIDStr ? parseInt(evvmIDStr) : 0,
+        evvmName: undefined,
+        registry: undefined,
+        admin: undefined,
+        goldenFisher: undefined,
+        activator: undefined,
+      },
+    ];
   } catch (error: any) {
     console.error('Failed to load deployments:', error);
     throw new Error(error.message || 'Failed to load EVVM deployments');
