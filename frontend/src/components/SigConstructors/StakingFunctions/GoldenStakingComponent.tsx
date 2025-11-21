@@ -15,7 +15,7 @@ import {
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 
 import {
-  EVVMSignatureBuilder,
+  StakingSignatureBuilder,
   GoldenStakingInputData,
   PayInputData,
 } from "@evvm/viem-signature-library";
@@ -37,8 +37,7 @@ export const GoldenStakingComponent = ({
   stakingAddress,
 }: GoldenStakingComponentProps) => {
   const [isStaking, setIsStaking] = React.useState(true);
-  // Golden staking ALWAYS uses sync (low priority) - contract enforced
-  const priority = "low";
+  const [priority, setPriority] = React.useState("low");
   const [dataToGet, setDataToGet] = React.useState<InfoData | null>(null);
 
   const makeSig = async () => {
@@ -63,26 +62,17 @@ export const GoldenStakingComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-
-      // CRITICAL FIX: Use EVVMSignatureBuilder.signPay directly
-      // StakingSignatureBuilder.signGoldenStaking is broken - always returns same signature
-      const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
+      const signatureBuilder = new (StakingSignatureBuilder as any)(
         walletClient,
         walletData
       );
 
-      console.log("🔧 Using EVVMSignatureBuilder.signPay instead of StakingSignatureBuilder.signGoldenStaking");
-      console.log("Priority: low (contract enforced) → priorityFlag: false");
-
-      const signaturePay = await evvmSignatureBuilder.signPay(
+      const signaturePay = await signatureBuilder.signGoldenStaking(
         BigInt(formData.evvmID),
         formData.stakingAddress as `0x${string}`,
-        "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amountOfToken,
-        BigInt(0), // priorityFee always 0 for golden staking
         BigInt(formData.nonce),
-        false, // Golden staking ALWAYS uses sync mode (priorityFlag: false)
-        formData.stakingAddress as `0x${string}`
+        priority === "high"
       );
       setDataToGet({
         PayInputData: {
@@ -93,7 +83,7 @@ export const GoldenStakingComponent = ({
           amount: amountOfToken,
           priorityFee: BigInt(0),
           nonce: BigInt(formData.nonce),
-          priority: false, // Golden staking ALWAYS uses sync mode
+          priority: priority === "high",
           executor: formData.stakingAddress as `0x${string}`,
           signature: signaturePay,
         },
@@ -147,36 +137,28 @@ export const GoldenStakingComponent = ({
         placeholder="Enter amount"
       />
 
-      {/* Info about golden staking always using sync */}
-      <div style={{
-        padding: "0.75rem",
-        marginBottom: "1rem",
-        backgroundColor: "#f0f9ff",
-        border: "1px solid #0284c7",
-        borderRadius: "0.5rem"
-      }}>
-        <p style={{ fontSize: "0.9rem", margin: 0, color: "#0c4a6e" }}>
-          ℹ️ <strong>Golden staking always uses synchronous (low priority) mode.</strong> This is enforced by the contract.
-        </p>
-      </div>
+      {/* Priority configuration */}
+      <PrioritySelector onPriorityChange={setPriority} />
 
-      {/* Nonce section - only sync nonces allowed, no random button */}
+      {/* Nonce section with automatic generator */}
+
       <NumberInputWithGenerator
-        label="Sync Nonce (required)"
+        label="Nonce"
         inputId="nonceInput_GoldenStaking"
-        placeholder="Enter sync nonce"
-        showRandomBtn={false}
+        placeholder="Enter nonce"
+        showRandomBtn={priority !== "low"}
       />
 
-      <HelperInfo label="How to find my sync nonce?">
-        <div>
-          You can retrieve your next sync nonce from the EVVM contract using
-          the <code>getNextCurrentSyncNonce</code> function with your address.
-          <br />
-          <br />
-          <strong>IMPORTANT:</strong> Golden staking ALWAYS uses sync nonces. The nonce MUST match your current nextSyncUsedNonce at execution time.
-        </div>
-      </HelperInfo>
+      <div>
+        {priority === "low" && (
+          <HelperInfo label="How to find my sync nonce?">
+            <div>
+              You can retrieve your next sync nonce from the EVVM contract using
+              the <code>getNextCurrentSyncNonce</code> function.
+            </div>
+          </HelperInfo>
+        )}
+      </div>
 
       {/* Create signature button */}
       <button
