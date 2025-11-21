@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPublicClient, http } from 'viem';
 import { arbitrumSepolia, sepolia, baseSepolia } from 'viem/chains';
 import { EvvmABI, StakingABI } from '@evvm/viem-signature-library';
+import { saveEvvmConfig, loadEvvmConfig, clearEvvmConfig, hasStoredConfig, formatConfigAge, getConfigAge } from '@/lib/evvmConfigStorage';
 import styles from '@/styles/pages/Config.module.css';
 
 // Supported chains for configuration
@@ -32,10 +33,34 @@ export default function ConfigPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [fetchedContracts, setFetchedContracts] = useState<FetchedContracts | null>(null);
+  const [hasConfig, setHasConfig] = useState(false);
+  const [configAge, setConfigAge] = useState<string | null>(null);
 
   // Optional contract addresses (can be filled manually)
   const [treasuryAddress, setTreasuryAddress] = useState('');
   const [p2pSwapAddress, setP2pSwapAddress] = useState('');
+
+  // Check for existing configuration on mount
+  useEffect(() => {
+    const stored = hasStoredConfig();
+    setHasConfig(stored);
+
+    if (stored) {
+      const age = getConfigAge();
+      if (age !== null) {
+        setConfigAge(formatConfigAge(age));
+      }
+
+      // Load existing config to show in form
+      const config = loadEvvmConfig();
+      if (config) {
+        setEvvmAddress(config.evvm);
+        setChainId(config.chainId.toString());
+        setTreasuryAddress(config.treasury || '');
+        setP2pSwapAddress(config.p2pSwap || '');
+      }
+    }
+  }, []);
 
   const handleFetchContracts = async () => {
     if (!evvmAddress || !chainId) {
@@ -141,7 +166,7 @@ export default function ConfigPage() {
     }
   };
 
-  const handleSaveConfiguration = async () => {
+  const handleSaveConfiguration = () => {
     if (!fetchedContracts) {
       setError('Please fetch contracts first');
       return;
@@ -153,37 +178,53 @@ export default function ConfigPage() {
       const deploymentConfig = {
         chainId: parseInt(chainId),
         networkName: selectedChain?.name || 'Unknown Network',
-        evvm: evvmAddress.toLowerCase(),
-        nameService: fetchedContracts.nameService.toLowerCase(),
-        staking: fetchedContracts.staking.toLowerCase(),
-        estimator: fetchedContracts.estimator.toLowerCase(),
-        treasury: treasuryAddress.toLowerCase() || '0x0000000000000000000000000000000000000000',
-        p2pSwap: p2pSwapAddress.toLowerCase() || '0x0000000000000000000000000000000000000000',
+        evvm: evvmAddress.toLowerCase() as `0x${string}`,
+        nameService: fetchedContracts.nameService.toLowerCase() as `0x${string}`,
+        staking: fetchedContracts.staking.toLowerCase() as `0x${string}`,
+        estimator: fetchedContracts.estimator.toLowerCase() as `0x${string}`,
+        treasury: (treasuryAddress.toLowerCase() || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+        p2pSwap: (p2pSwapAddress.toLowerCase() || '0x0000000000000000000000000000000000000000') as `0x${string}`,
         evvmID: Number(fetchedContracts.evvmID),
         evvmName: fetchedContracts.evvmName,
-        registry: '0x389dC8fb09211bbDA841D59f4a51160dA2377832', // Default registry
-        admin: fetchedContracts.admin.toLowerCase(),
-        goldenFisher: fetchedContracts.admin.toLowerCase(),
-        activator: fetchedContracts.admin.toLowerCase(),
+        registry: '0x389dC8fb09211bbDA841D59f4a51160dA2377832' as `0x${string}`,
+        admin: fetchedContracts.admin.toLowerCase() as `0x${string}`,
+        goldenFisher: fetchedContracts.admin.toLowerCase() as `0x${string}`,
+        activator: fetchedContracts.admin.toLowerCase() as `0x${string}`,
       };
 
-      // Save to API endpoint
-      const response = await fetch('/api/update-deployment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(deploymentConfig),
-      });
+      // Save to localStorage
+      saveEvvmConfig(deploymentConfig);
 
-      if (!response.ok) {
-        throw new Error('Failed to save configuration');
-      }
+      setSuccess('Configuration saved successfully! You can now use all EVVM features with this instance.');
+      setHasConfig(true);
+      setConfigAge('just now');
 
-      setSuccess('Configuration saved successfully! Please restart your development server.');
+      console.log('✅ Configuration saved:', deploymentConfig);
     } catch (err: any) {
       console.error('Error saving configuration:', err);
       setError(err.message || 'Failed to save configuration');
+    }
+  };
+
+  const handleClearConfiguration = () => {
+    try {
+      clearEvvmConfig();
+
+      // Reset form fields
+      setEvvmAddress('');
+      setChainId('421614');
+      setTreasuryAddress('');
+      setP2pSwapAddress('');
+      setFetchedContracts(null);
+      setHasConfig(false);
+      setConfigAge(null);
+      setSuccess('Configuration cleared! You can now configure a different EVVM instance.');
+      setError(null);
+
+      console.log('🗑️  Configuration cleared');
+    } catch (err: any) {
+      console.error('Error clearing configuration:', err);
+      setError(err.message || 'Failed to clear configuration');
     }
   };
 
@@ -193,6 +234,19 @@ export default function ConfigPage() {
         <h1>⚙️ EVVM Configuration</h1>
         <p>Connect to an existing EVVM deployment by providing the core contract address</p>
       </div>
+
+      {hasConfig && (
+        <div className={styles.infoCard}>
+          <h3>Current Configuration Status</h3>
+          <p>✅ You have a saved EVVM configuration (saved {configAge})</p>
+          <p className={styles.helper}>
+            You can clear this configuration to load a different EVVM instance without restarting the server.
+          </p>
+          <button onClick={handleClearConfiguration} className={styles.clearButton}>
+            🗑️ Clear Configuration
+          </button>
+        </div>
+      )}
 
       <div className={styles.formCard}>
         <h2>Input Configuration</h2>

@@ -5,10 +5,12 @@ import type { EvvmDeployment } from '@/types/evvm';
 import { createPublicClient, http } from 'viem';
 import { sepolia, arbitrumSepolia } from 'viem/chains';
 import { EvvmABI } from '@evvm/viem-signature-library';
+import { loadEvvmConfig } from '@/lib/evvmConfigStorage';
 
 /**
- * Hook to load EVVM configuration from environment variables
- * Automatically discovers contract addresses from EVVM core contract
+ * Hook to load EVVM configuration
+ * Priority: localStorage config > environment variables
+ * Automatically discovers contract addresses from EVVM core contract if using env vars
  */
 export function useEvvmDeployment() {
   const [deployment, setDeployment] = useState<EvvmDeployment | null>(null);
@@ -20,7 +22,18 @@ export function useEvvmDeployment() {
       try {
         setLoading(true);
 
-        // Read from environment variables
+        // 1. Check localStorage first
+        const storedConfig = loadEvvmConfig();
+        if (storedConfig) {
+          console.log('📦 Loading EVVM configuration from localStorage');
+          setDeployment(storedConfig);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fallback: Read from environment variables
+        console.log('🔧 Loading EVVM configuration from environment variables');
         const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
         const chainIdStr = process.env.NEXT_PUBLIC_CHAIN_ID;
         const evvmIDStr = process.env.NEXT_PUBLIC_EVVM_ID;
@@ -120,6 +133,21 @@ export function useEvvmDeployment() {
     }
 
     loadDeployment();
+
+    // Listen for configuration changes
+    const handleConfigChange = () => {
+      console.log('🔄 Configuration changed, reloading...');
+      loadDeployment();
+    };
+
+    // Listen for storage events (from other tabs) and custom events (same tab)
+    window.addEventListener('storage', handleConfigChange);
+    window.addEventListener('evvm-config-changed', handleConfigChange);
+
+    return () => {
+      window.removeEventListener('storage', handleConfigChange);
+      window.removeEventListener('evvm-config-changed', handleConfigChange);
+    };
   }, []);
 
   return { deployment, loading, error };
