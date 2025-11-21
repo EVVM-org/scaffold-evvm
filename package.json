@@ -1,10 +1,9 @@
 {
   "name": "scaffold-evvm",
-  "version": "1.0.0",
-  "description": "A complete testing & debugging framework for EVVM virtual blockchains",
+  "version": "2.0.0",
+  "description": "EVVM Signature Constructor Frontend - Build and execute EVVM signatures",
   "private": true,
   "workspaces": [
-    "contracts",
     "frontend"
   ],
   "overrides": {
@@ -12,28 +11,18 @@
     "react-dom": "18.3.1"
   },
   "scripts": {
-    "setup": "npm install --workspaces",
-    "postinstall": "npm run apply-patches && npm run check-env",
-    "apply-patches": "bash contracts/patches/apply-patches.sh 2>/dev/null || echo 'Patches already applied or submodule not initialized'",
-    "check-env": "node -e \"console.log('\\nSetup complete! Run: npm run scaffold')\"",
-    "scaffold": "npm run wizard && npm run dev",
-    "chain": "cd contracts && npm run anvil",
-    "wizard": "cd contracts && npm run wizard",
-    "deploy": "cd contracts && npm run deploy",
-    "deploy:local": "cd contracts && npm run deploy:local",
-    "deploy:eth": "cd contracts && npm run deploy:eth",
-    "deploy:arb": "cd contracts && npm run deploy:arb",
-    "dev": "cd frontend && npm run dev",
+    "dev": "npm run check-env && cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "start": "cd frontend && npm start",
-    "test": "cd contracts && npm test",
-    "compile": "cd contracts && npm run compile"
+    "check-env": "node scripts/check-env.js",
+    "lint": "cd frontend && npm run lint",
+    "type-check": "cd frontend && npm run type-check"
   },
   "keywords": [
     "evvm",
     "ethereum",
     "blockchain",
-    "foundry",
+    "signature-constructor",
     "nextjs",
     "viem"
   ],
