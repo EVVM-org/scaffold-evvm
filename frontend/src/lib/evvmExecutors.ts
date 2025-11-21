@@ -231,19 +231,22 @@ export async function readIsStaker(
 
 /**
  * Read golden fisher address
+ * Note: goldenFisher returns a struct with { actual, pending }
+ * We return the 'actual' field which is the current authorized golden fisher
  */
 export async function readGoldenFisher(
   publicClient: PublicClient,
   stakingAddress: `0x${string}`
 ): Promise<`0x${string}`> {
-  const goldenFisher = await publicClient.readContract({
+  const goldenFisherStruct = await publicClient.readContract({
     address: stakingAddress,
     abi: StakingABI,
     functionName: 'goldenFisher',
     args: [],
-  });
+  }) as { actual: `0x${string}`; pending: `0x${string}` };
 
-  return goldenFisher as `0x${string}`;
+  // Return the actual golden fisher address (the one with authority)
+  return goldenFisherStruct.actual;
 }
 
 /**

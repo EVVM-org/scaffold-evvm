@@ -1,7 +1,8 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import { config } from "@/config/index";
 import { getWalletClient } from "@wagmi/core";
+import { useAccount, useChainId } from "wagmi";
 
 import {
   NumberInputWithGenerator,
@@ -13,6 +14,8 @@ import {
 } from "@/components/SigConstructors/InputsAndModules";
 
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
+import { getPublicClient } from "@/lib/viemClients";
+import { readGoldenFisher } from "@/lib/evvmExecutors";
 
 import {
   StakingSignatureBuilder,
@@ -36,9 +39,48 @@ export const GoldenStakingComponent = ({
   evvmID,
   stakingAddress,
 }: GoldenStakingComponentProps) => {
+  const { address: connectedAddress } = useAccount();
+  const chainId = useChainId();
+
   const [isStaking, setIsStaking] = React.useState(true);
   const [priority, setPriority] = React.useState("low");
   const [dataToGet, setDataToGet] = React.useState<InfoData | null>(null);
+  const [goldenFisherAddress, setGoldenFisherAddress] = React.useState<`0x${string}` | null>(null);
+  const [isAuthorized, setIsAuthorized] = React.useState<boolean | null>(null);
+  const [authCheckLoading, setAuthCheckLoading] = React.useState(false);
+
+  // Check if connected user is the golden fisher
+  useEffect(() => {
+    async function checkAuthorization() {
+      if (!connectedAddress || !stakingAddress || !chainId) {
+        setIsAuthorized(null);
+        return;
+      }
+
+      setAuthCheckLoading(true);
+      try {
+        const publicClient = getPublicClient(chainId);
+        const goldenFisher = await readGoldenFisher(publicClient, stakingAddress as `0x${string}`);
+
+        setGoldenFisherAddress(goldenFisher);
+
+        // Compare addresses (case-insensitive)
+        const authorized = goldenFisher.toLowerCase() === connectedAddress.toLowerCase();
+        setIsAuthorized(authorized);
+
+        if (!authorized) {
+          console.warn(`⚠️ User ${connectedAddress} is not authorized for golden staking. Golden fisher: ${goldenFisher}`);
+        }
+      } catch (error) {
+        console.error("Failed to check golden fisher authorization:", error);
+        setIsAuthorized(null);
+      } finally {
+        setAuthCheckLoading(false);
+      }
+    }
+
+    checkAuthorization();
+  }, [connectedAddress, stakingAddress, chainId]);
 
   const makeSig = async () => {
     const walletData = await getAccountWithRetry(config);
@@ -119,6 +161,68 @@ export const GoldenStakingComponent = ({
       <h1>Golden staking</h1>
       <br />
 
+      {/* Authorization Check */}
+      {authCheckLoading && (
+        <div style={{
+          padding: "1rem",
+          marginBottom: "1rem",
+          backgroundColor: "#fef3c7",
+          border: "1px solid #f59e0b",
+          borderRadius: "0.375rem",
+          width: "100%",
+          maxWidth: "600px",
+        }}>
+          <p>Checking authorization...</p>
+        </div>
+      )}
+
+      {!authCheckLoading && isAuthorized === false && (
+        <div style={{
+          padding: "1rem",
+          marginBottom: "1rem",
+          backgroundColor: "#fee2e2",
+          border: "2px solid #dc2626",
+          borderRadius: "0.375rem",
+          width: "100%",
+          maxWidth: "600px",
+        }}>
+          <h3 style={{ color: "#dc2626", marginBottom: "0.5rem", fontWeight: "bold" }}>
+            ⚠️ Unauthorized Access
+          </h3>
+          <p style={{ marginBottom: "0.5rem" }}>
+            Golden staking is restricted to the designated golden fisher address only.
+          </p>
+          <p style={{ marginBottom: "0.5rem", fontSize: "0.875rem" }}>
+            <strong>Your address:</strong> {connectedAddress}
+          </p>
+          <p style={{ marginBottom: "0.5rem", fontSize: "0.875rem" }}>
+            <strong>Golden fisher:</strong> {goldenFisherAddress}
+          </p>
+          <p style={{ fontSize: "0.875rem", color: "#7f1d1d" }}>
+            If you attempt to execute golden staking, the transaction will fail with error: <code>SenderIsNotGoldenFisher()</code>
+          </p>
+          <p style={{ marginTop: "1rem", fontWeight: "bold" }}>
+            💡 Consider using <a href="/evvm/staking" style={{ color: "#2563eb", textDecoration: "underline" }}>Public Staking</a> instead.
+          </p>
+        </div>
+      )}
+
+      {!authCheckLoading && isAuthorized === true && (
+        <div style={{
+          padding: "1rem",
+          marginBottom: "1rem",
+          backgroundColor: "#d1fae5",
+          border: "1px solid #10b981",
+          borderRadius: "0.375rem",
+          width: "100%",
+          maxWidth: "600px",
+        }}>
+          <p style={{ color: "#065f46" }}>
+            ✅ Authorized: You are the golden fisher and can perform golden staking operations.
+          </p>
+        </div>
+      )}
+
       {/* EVVM ID is now passed as a prop */}
 
       {/* stakingAddress is now passed as a prop */}
@@ -163,12 +267,16 @@ export const GoldenStakingComponent = ({
       {/* Create signature button */}
       <button
         onClick={makeSig}
+        disabled={isAuthorized === false || authCheckLoading}
         style={{
           padding: "0.5rem",
           marginTop: "1rem",
+          opacity: (isAuthorized === false || authCheckLoading) ? 0.5 : 1,
+          cursor: (isAuthorized === false || authCheckLoading) ? "not-allowed" : "pointer",
         }}
+        title={isAuthorized === false ? "You must be the golden fisher to use this function" : ""}
       >
-        Create signature
+        {authCheckLoading ? "Checking authorization..." : "Create signature"}
       </button>
 
       {/* Results section */}
