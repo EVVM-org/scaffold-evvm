@@ -63,13 +63,13 @@ export const RegisterEvvmComponent = () => {
       // First, simulate the contract call to get the evvmID that would be returned
       const { result } = await simulateContract(config, {
         address: REGISTRY_ADDRESS,
-        abi: RegistryEvvmABI.abi,
+        abi: RegistryEvvmABI,
         functionName: "registerEvvm",
         args: [chainId, evvmAddress],
         chainId: sepolia.id,
       });
 
-      const evvmId = result as bigint;
+      const evvmId = result as unknown as bigint;
       
       // Display the evvmID that will be assigned
       setResultEvvmId(evvmId.toString());
@@ -77,7 +77,7 @@ export const RegisterEvvmComponent = () => {
       // Now execute the actual transaction
       const hash = await writeContract(config, {
         address: REGISTRY_ADDRESS,
-        abi: RegistryEvvmABI.abi,
+        abi: RegistryEvvmABI,
         functionName: "registerEvvm",
         args: [chainId, evvmAddress],
         chainId: sepolia.id,

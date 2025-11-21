@@ -243,7 +243,7 @@ export default function FaucetPage() {
           <div><strong>Network:</strong> {deployment.networkName}</div>
           <div><strong>EVVM:</strong> {deployment.evvmName}</div>
           <div><strong>EVVM ID:</strong> {deployment.evvmID}</div>
-          <div><strong>Admin:</strong> {deployment.admin}</div>
+          {deployment.admin && <div><strong>Admin:</strong> {deployment.admin}</div>}
         </div>
       </div>
 
@@ -253,7 +253,7 @@ export default function FaucetPage() {
         </div>
       )}
 
-      {isConnected && address?.toLowerCase() !== deployment.admin.toLowerCase() && (
+      {isConnected && deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase() && (
         <div className={styles.warning}>
           <p>⚠️ You are not the admin. Only the admin can use the faucet.</p>
           <p><strong>Admin:</strong> {deployment.admin}</p>
@@ -342,7 +342,7 @@ export default function FaucetPage() {
 
         <button
           onClick={handleClaimTokens}
-          disabled={!isConnected || isExecuting || address?.toLowerCase() !== deployment.admin.toLowerCase()}
+          disabled={!isConnected || isExecuting || (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase())}
           className={styles.claimButton}
         >
           {isExecuting ? '⏳ Claiming...' : '🚰 Claim Tokens'}

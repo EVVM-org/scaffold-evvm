@@ -1,978 +1,335 @@
-# ⚡ Scaffold-EVVM
+# 🏗️ Scaffold-EVVM
 
-> **A comprehensive development framework for EVVM virtual blockchains**
-> Deploy, test, and debug EVVM instances with automated configuration and hot reload.
+**A frontend development tool for building EVVM (Ethereum Virtual Machine Virtualization) signature constructors.**
 
-Built with **Next.js 15**, **TypeScript**, **viem**, **Foundry**, and **@evvm/viem-signature-library**.
-
----
-
-## 📖 What is EVVM?
-
-**EVVM (Ethereum Virtual Machine Virtualization)** is an innovative blockchain virtualization system that allows you to create virtual blockchains on top of existing Ethereum networks. Think of it as "blockchains within blockchains."
-
-### Key Concepts
-
-- **Virtual Blockchain Infrastructure** - Full blockchain logic as smart contracts
-- **Vertical Scalability** - Multiple EVVMs on one host chain
-- **Gasless Transactions** - Meta-transaction pattern with delegated execution
-- **EIP-191 Signatures** - All operations use signed messages
-- **Custom Tokens** - Each EVVM has its own principal token (MATE)
-
-**Resources:**
-- [EVVM Documentation](https://www.evvm.info/docs)
-- [EVVM Architecture](https://www.evvm.org/docs/SignatureStructures/)
-- [Testnet Contracts](https://github.com/EVVM-org/Testnet-Contracts)
+Scaffold-EVVM helps you create and execute EIP-191 signed transactions for EVVM operations. This is a pure frontend application - no deployment functionality, just signature construction and transaction execution.
 
 ---
 
-## 🎯 What is Scaffold-EVVM?
+## ✨ Features
 
-Scaffold-EVVM is a **complete development toolkit** for EVVM, similar to Scaffold-ETH 2 but tailored for virtual blockchain development.
-
-### What You Can Do
-
-✅ **Deploy** EVVM instances on testnets (Ethereum Sepolia, Arbitrum Sepolia) or locally (Anvil)
-✅ **Test** all EVVM features: payments, staking, name service, P2P swaps
-✅ **Build** EIP-191 signatures with type-safe builders
-✅ **Debug** transactions with real-time console and explorer links
-✅ **Develop** with hot reload and automatic configuration
-
----
-
-## ✨ Key Features
-
-### 🚀 **Automated Deployment & Configuration** (NEW!)
-- **One-command deployment** with interactive wizard
-- **Automatic .env updates** - No manual configuration needed
-- **Blockchain-verified IDs** - Reads EVVM ID directly from chain
-- **Zero copy-paste errors** - Everything configured automatically
-
-### 🎨 **Modern Developer Experience**
-- **Pure viem** - Direct blockchain interactions, no abstraction bloat
-- **TypeScript** - Full type safety with @evvm/viem-signature-library
-- **Hot Reload** - Contract changes reflect immediately in frontend
-- **Clean UI** - Plain CSS modules, no framework overhead
-
-### 🐛 **Advanced Debugging**
-- **Debug Console** - Real-time signature and transaction inspection
-- **EIP-191 Message Builder** - See exact message format before signing
-- **Transaction Tracking** - Direct links to block explorers
-- **Error Analysis** - Detailed error messages with context
-
-### 🏗️ **Complete EVVM Toolkit**
-- **Payments** - Single & batch (disperse) payments with signature constructors
-- **Staking** - Presale, public, and golden fisher staking (3 types)
-- **Name Service** - Username registration & marketplace (10 operations)
-- **P2P Swaps** - Peer-to-peer token exchange (4 operations)
-- **Treasury** - Deposit/withdrawal management
-- **Registry** - EVVM instance registration (2 operations)
-- **Faucet** - Testnet token distribution
-
-### 🎨 **23 Signature Constructor Components**
-Pre-built, reusable components for all EVVM operations:
-- **Payment Functions (2):** Pay, DispersePay
-- **Staking Functions (3):** Golden, Presale, Public
-- **NameService Functions (10):** Registration, Offers, Metadata, Renewal
-- **P2P Swap (4):** MakeOrder, CancelOrder, DispatchOrder (Fixed/Proportional)
-- **Registry (2):** RegisterEvvm, SetEvvmId
-- **Faucet (2):** FaucetFunctions, BalanceChecker
-
----
-
-## 📋 Prerequisites
-
-Before you begin, ensure you have:
-
-- **Node.js** v18+ ([download](https://nodejs.org/))
-- **Foundry** ([install](https://getfoundry.sh/))
-- **Git** ([install](https://git-scm.com/))
-- **Web3 Wallet** (MetaMask recommended)
-- **Testnet ETH** (from faucets below)
-
-**Testnet Faucets:**
-- [Ethereum Sepolia](https://sepoliafaucet.com/)
-- [Arbitrum Sepolia](https://faucet.quicknode.com/arbitrum/sepolia)
+- ✅ **23+ Signature Constructors** - For all EVVM operations (Payments, Staking, NameService, P2PSwap)
+- ✅ **Automatic Contract Discovery** - Discovers Staking, NameService, and Estimator addresses from EVVM core
+- ✅ **Meta-Transaction Pattern** - EIP-191 gasless signatures submitted by executors (fishers)
+- ✅ **Dual Nonce Support** - Sync and async nonce systems for different operation types
+- ✅ **Wallet Integration** - WalletConnect/Reown support for all major wallets
+- ✅ **Built-in Debug Console** - View message formats, signatures, and transaction parameters
+- ✅ **Block Explorer Integration** - Direct links to Etherscan/Arbiscan for transactions
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Clone & Install
+### Prerequisites
+
+- Node.js 18+ and npm
+- A WalletConnect Project ID ([Get one free](https://cloud.reown.com))
+- An existing EVVM contract address (deployed on testnet)
+
+### Installation
 
 ```bash
-git clone https://github.com/EVVM-org/Scaffold-EVVM.git
-cd Scaffold-EVVM
+# Clone the repository
+git clone <your-repo-url>
+cd scaffold-evvm
+
+# Install dependencies
 npm install
 ```
 
-**What this does:**
-- Installs dependencies for both `contracts` and `frontend` workspaces
-- Sets up the monorepo structure
-- Initializes git submodules automatically
-- Applies RPC fallback patches for improved Registry registration (99%+ success rate)
+### Configuration
 
-### 2. Configure Environment
+1. **Copy environment template:**
+   ```bash
+   cp .env.example .env
+   ```
 
-```bash
-# Copy environment template
-cp .env.example .env
+2. **Configure .env:**
+   ```bash
+   # Required: WalletConnect Project ID
+   NEXT_PUBLIC_PROJECT_ID=your_reown_project_id_here
 
-# Edit .env and add:
-# - NEXT_PUBLIC_PROJECT_ID (from cloud.reown.com)
-# - RPC_URL_ETH_SEPOLIA (free: https://0xrpc.io/sep)
-# - RPC_URL_ARB_SEPOLIA (free: https://sepolia-rollup.arbitrum.io/rpc)
-# - ETHERSCAN_API (from etherscan.io/myapikey)
-# - ARBISCAN_API (from arbiscan.io/myapikey)
+   # Required: Your EVVM contract address
+   NEXT_PUBLIC_EVVM_ADDRESS=0x...your_evvm_contract_address
+
+   # Required: Network chain ID
+   # 11155111 = Ethereum Sepolia
+   # 421614   = Arbitrum Sepolia
+   NEXT_PUBLIC_CHAIN_ID=11155111
+
+   # Optional: EVVM instance ID (if registered)
+   NEXT_PUBLIC_EVVM_ID=
+   ```
+
+3. **Start development server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Open your browser:**
+   ```
+   http://localhost:3000
+   ```
+
+---
+
+## 🎯 What This Tool Does
+
+### Contract Discovery Flow
+
+```
+User provides EVVM address (.env)
+          ↓
+App reads EVVM contract on-chain
+          ↓
+Discovers contract addresses automatically:
+  • Staking:     evvm.getStakingAddress()
+  • NameService: evvm.getNameServiceAddress()
+  • Estimator:   evvm.getEstimatorAddress()
+          ↓
+Ready to build signatures!
 ```
 
-**Get your Reown Project ID:**
-1. Visit [cloud.reown.com](https://cloud.reown.com)
-2. Create a free account
-3. Create a new project
-4. Copy the Project ID
-5. Add to `.env`: `NEXT_PUBLIC_PROJECT_ID=your_id_here`
+### Signature Constructor Flow
 
-### 3. Import Deployment Wallet
-
-```bash
-cd contracts
-cast wallet import defaultKey --interactive
-# Enter your private key (will be encrypted)
-# Create a password for encryption
-cd ..
+```
+1. User fills form → Component collects parameters
+2. Click "Sign" → Creates EIP-191 message
+3. Wallet prompts → User signs message off-chain
+4. Click "Execute" → Submits to EVVM contract
+5. Transaction confirmed → View on block explorer
 ```
 
-**Security Note:** Your private key is encrypted and stored locally in `~/.foundry/keystores/`. Never commit private keys to git!
+---
 
-### 4. Deploy EVVM (Automated!)
+## 📚 Available Signature Constructors
 
-#### Option A: Deploy to Testnet (Recommended)
+### Payment Operations (EVVM)
+- `signPay` - Single payment to address or username
+- `signDispersePay` - Multiple payments in one transaction
+- `signPayMultiple` - Batch payments (advanced)
 
-```bash
-npm run wizard
-```
+### Staking Operations
+- `signGoldenStaking` - Become a golden fisher (special privileges)
+- `signPresaleStaking` - Presale staking (1 MATE fixed)
+- `signPublicStaking` - Public staking (5083 MATE per sMATE)
+- `signPublicServiceStaking` - Staking for ecosystem services
 
-**The wizard will:**
-1. ✅ Ask for configuration (admin address, network, EVVM metadata)
-2. ✅ Deploy 6 contracts (Evvm, Staking, Treasury, NameService, Estimator, P2PSwap)
-3. ✅ Verify contracts on block explorer (Etherscan/Arbiscan)
-4. ✅ Register with Registry EVVM (on Ethereum Sepolia)
-5. ✅ Read EVVM ID from blockchain
-6. ✅ **Automatically update .env file** with deployment configuration
-7. ✅ Show you next steps
+### NameService Operations
+- `signPreRegistrationUsername` - Reserve a username
+- `signRegistrationUsername` - Register a username
+- `signMakeOffer` - Make an offer for a username
+- `signWithdrawOffer` - Withdraw your username offer
+- `signAcceptOffer` - Accept an offer for your username
+- `signRenewUsername` - Renew your username registration
+- `signAddCustomMetadata` - Add custom metadata to username
+- `signRemoveCustomMetadata` - Remove custom metadata
+- `signFlushCustomMetadata` - Remove all custom metadata
+- `signFlushUsername` - Delete username completely
 
-**Output example:**
-```
-✅ Deployment completed!
-✓ EVVM ID: 1057
-✓ Network: Arbitrum Sepolia (421614)
-
-🔧 Updating .env file with deployment configuration...
-✓ .env file updated successfully!
-  NEXT_PUBLIC_EVVM_ADDRESS=0x4815146a7bc82621d00a9b6c53e7388365692817
-  NEXT_PUBLIC_CHAIN_ID=421614
-  NEXT_PUBLIC_EVVM_ID=1057
-
-📌 Next Steps:
-  1. Restart your frontend dev server (if running)
-  2. Connect wallet to Arbitrum Sepolia
-  3. Visit http://localhost:3000 to test your EVVM
-```
-
-**No manual .env editing required!** Everything is configured automatically.
-
-#### Option B: Deploy to Local Anvil
-
-```bash
-# Terminal 1: Start local blockchain
-npm run chain
-
-# Terminal 2: Deploy EVVM
-cd contracts
-make deployLocalTestnet
-
-# Terminal 3: Start frontend
-cd ..
-npm run dev
-```
-
-### 5. Start Development
-
-```bash
-npm run dev
-# Opens http://localhost:3000
-```
-
-**What you'll see:**
-- 🏠 Home page with deployment summary
-- 📊 EVVM Status dashboard
-- 💸 Payment interface (single & batch)
-- 🥩 Staking operations (presale, public, golden)
-- 👤 Name Service (username registration)
-- 🔄 P2P Swap marketplace
-- 🚰 Faucet info
+### P2P Swap Operations
+- `signMakeOrder` - Create a P2P swap order
+- `signCancelOrder` - Cancel your swap order
+- `signDispatchOrderFillProportionalFee` - Fill order with proportional fee
+- `signDispatchOrderFillFixedFee` - Fill order with fixed fee
 
 ---
 
 ## 🏗️ Project Structure
 
 ```
-Scaffold-EVVM/
-├── .env                          # ← Environment config (AUTO-UPDATED by wizard!)
-├── package.json                  # Root workspace config
-│
-├── contracts/                    # Smart contracts workspace
+scaffold-evvm/
+├── src/
+│   ├── app/                          # Next.js 15 pages
+│   │   ├── page.tsx                  # Homepage with all constructors
+│   │   ├── evvm/                     # EVVM-specific pages
+│   │   └── faucet/                   # Testnet faucet
+│   ├── components/
+│   │   └── SigConstructors/          # 23 signature constructor components
+│   │       ├── Evvm/                 # Payment constructors
+│   │       ├── StakingFunctions/     # Staking constructors
+│   │       ├── NameService/          # NameService constructors
+│   │       └── P2PSwap/              # P2PSwap constructors
+│   ├── hooks/
+│   │   ├── useEvvmDeployment.ts      # Contract discovery hook
+│   │   └── ...other hooks
 │   ├── lib/
-│   │   └── Testnet-Contracts/   # EVVM contracts (git submodule)
-│   ├── scripts/
-│   │   ├── wizard.ts            # ← Deployment wizard (AUTO-CONFIG!)
-│   │   └── refresh-deployment.ts
-│   ├── input/
-│   │   └── evvmDeploymentSummary.json  # ← Generated deployment data
-│   ├── Makefile                 # Build & deploy commands
-│   ├── foundry.toml             # Foundry configuration
-│   └── package.json
-│
-├── frontend/                     # Next.js frontend workspace
-│   ├── src/
-│   │   ├── app/                 # Next.js 15 App Router
-│   │   │   ├── page.tsx        # Home page
-│   │   │   ├── layout.tsx      # Root layout
-│   │   │   ├── evvm/
-│   │   │   │   ├── status/     # EVVM dashboard
-│   │   │   │   ├── payments/   # Payment transactions
-│   │   │   │   ├── staking/    # Staking operations
-│   │   │   │   ├── nameservice/ # Username management
-│   │   │   │   ├── p2pswap/    # P2P marketplace
-│   │   │   │   └── register/   # Registry EVVM
-│   │   │   ├── faucet/         # Testnet faucet links
-│   │   │   └── api/
-│   │   │       └── deployments/ # Deployment data API
-│   │   ├── components/          # Reusable components
-│   │   │   ├── Navigation.tsx
-│   │   │   ├── NetworkBadge.tsx
-│   │   │   ├── EvvmInfo.tsx
-│   │   │   ├── SigConstructors/   # Signature constructor components (23)
-│   │   │   │   ├── PaymentFunctions/      # Pay, DispersePay (2)
-│   │   │   │   ├── StakingFunctions/      # Golden, Presale, Public (3)
-│   │   │   │   ├── NameServiceFunctions/  # 10 username operations
-│   │   │   │   ├── P2PSwap/               # 4 swap operations
-│   │   │   │   ├── EvvmRegistry/          # 2 registry operations
-│   │   │   │   ├── FaucetFunctions/       # 2 faucet operations
-│   │   │   │   ├── InputsAndModules/      # 13 reusable UI components
-│   │   │   │   └── index.ts               # Master export
-│   │   │   └── ...
-│   │   ├── hooks/               # Custom React hooks
-│   │   │   ├── useEvvmDeployment.ts
-│   │   │   ├── useNetworkValidation.ts
-│   │   │   └── ...
-│   │   ├── lib/                 # Core utilities
-│   │   │   ├── viemClients.ts  # viem client setup
-│   │   │   ├── evvmConfig.ts   # EVVM configuration
-│   │   │   └── evvmSignatures.ts # Centralized signature builders
-│   │   ├── config/              # Wagmi/network config
-│   │   │   └── index.ts
-│   │   ├── context/             # React context providers
-│   │   ├── utils/               # Utility functions
-│   │   │   ├── transactionExecuters/  # 4 executor modules
-│   │   │   │   ├── evvmExecuter.ts        # Payment execution
-│   │   │   │   ├── stakingExecuter.ts     # Staking execution
-│   │   │   │   ├── nameServiceExecuter.ts # NameService execution
-│   │   │   │   └── p2pSwapExecuter.ts     # P2P swap execution
-│   │   │   ├── getAccountWithRetry.ts
-│   │   │   ├── mersenneTwister.ts     # Random nonce generation
-│   │   │   └── ...
-│   │   ├── styles/              # CSS modules
-│   │   └── types/               # TypeScript types
-│   ├── next.config.mjs          # Next.js config (env exports)
-│   └── package.json
-│
-├── helping docs/                 # Extended documentation (gitignored)
-│   ├── QUICK_START.md           # TL;DR quick reference
-│   ├── WIZARD_WORKFLOW.md       # Automated deployment guide
-│   ├── DEPLOYMENT_GUIDE.md      # Current deployment info
-│   ├── CHANGES.md               # Recent changes & improvements
-│   └── ...                      # 40+ troubleshooting docs
-│
-├── DOUBLECHECK_AUDIT_REPORT.md  # Security audit report
-├── LICENSE                       # MIT License
-└── README.md                     # ← You are here
+│   │   ├── evvmSignatures.ts         # Centralized signature builders
+│   │   ├── evvmConfig.ts             # EVVM configuration utilities
+│   │   └── viemClients.ts            # Viem client setup
+│   ├── utils/
+│   │   └── transactionExecuters/     # Transaction execution functions
+│   │       ├── evvmExecuter.ts       # Payment executors
+│   │       ├── stakingExecuter.ts    # Staking executors
+│   │       ├── nameServiceExecuter.ts # NameService executors
+│   │       └── p2pSwapExecuter.ts    # P2PSwap executors
+│   └── types/
+│       └── evvm.ts                   # TypeScript type definitions
+├── .env                              # Your configuration (not committed)
+├── .env.example                      # Configuration template
+└── package.json
 ```
 
 ---
 
-## 💻 Development Commands
-
-### Root Commands (from project root)
+## 🔧 Development Commands
 
 ```bash
-# Full workflow (deploy + start frontend)
-npm run scaffold              # Run wizard then start dev server
-
-# Deployment
-npm run wizard                # Interactive deployment wizard
-npm run deploy:eth            # Deploy to Ethereum Sepolia
-npm run deploy:arb            # Deploy to Arbitrum Sepolia
-npm run deploy:local          # Deploy to local Anvil
-
-# Development
-npm run dev                   # Start frontend dev server
-npm run build                 # Build frontend for production
-npm run start                 # Start production server
-
-# Contracts
-npm run chain                 # Start local Anvil blockchain
-npm run compile               # Compile contracts
-npm test                      # Run Foundry tests
-```
-
-### Contracts Workspace
-
-```bash
-cd contracts
-
-# Deployment
-npm run wizard                # Interactive wizard
-npm run deploy:eth            # Deploy to Ethereum Sepolia
-npm run deploy:arb            # Deploy to Arbitrum Sepolia
-npm run deploy:local          # Deploy to local Anvil (requires anvil running)
-
-# Development
-npm run compile               # Compile contracts
-npm test                      # Run Foundry tests
-npm run anvil                 # Start local blockchain
-
-# Makefile commands (alternative)
-make compile                  # Compile contracts
-make test                     # Run tests
-make anvil                    # Start Anvil
-make deployTestnet NETWORK=eth   # Deploy to Ethereum Sepolia
-make deployTestnet NETWORK=arb   # Deploy to Arbitrum Sepolia
-make deployLocalTestnet       # Deploy to Anvil
-make seeSizes                 # Check contract sizes
-```
-
-### Frontend Workspace
-
-```bash
-cd frontend
-
-npm run dev                   # Start development server
-npm run build                 # Build for production
-npm run start                 # Start production server
-npm run lint                  # Run ESLint
-npm run type-check            # TypeScript type checking
-```
-
----
-
-## 🎯 Core Features Explained
-
-### 1. Automated Configuration 🆕
-
-**Before:**
-```bash
-npm run wizard
-# → Copy addresses from console
-# → Manually edit .env
-# → Restart frontend
-# → Hope you didn't typo anything
-```
-
-**Now:**
-```bash
-npm run wizard
-# → ✅ Everything configured automatically
+# Start development server (with env validation)
 npm run dev
-# → ✅ Works immediately
+
+# Build for production
+npm run build
+
+# Start production server
+npm run start
+
+# Type checking
+npm run type-check
+
+# Validate environment configuration
+npm run check-env
 ```
 
-**How it works:**
-1. Wizard deploys contracts to blockchain
-2. Reads contract addresses from Foundry broadcast files
-3. Calls `getEvvmID()` on deployed contract
-4. Automatically updates `.env` with:
-   - `NEXT_PUBLIC_EVVM_ADDRESS`
-   - `NEXT_PUBLIC_CHAIN_ID`
-   - `NEXT_PUBLIC_EVVM_ID`
-5. Shows you next steps
+---
 
-**See:** `helping docs/WIZARD_WORKFLOW.md` for details.
+## 🎓 How EVVM Works
 
-### 2. EIP-191 Signatures
+### Meta-Transaction Pattern
 
-All EVVM operations use **signed messages** instead of direct contract calls:
+EVVM uses **EIP-191 signed messages** instead of traditional contract calls:
 
-```typescript
-import { EVVMSignatureBuilder } from '@evvm/viem-signature-library';
+1. **User signs message off-chain** (no gas cost)
+2. **Executor (fisher) submits on-chain** (pays gas)
+3. **Contract verifies signature** and executes
+4. **User receives result** without paying gas
 
-// Create signature builder
-const builder = new EVVMSignatureBuilder(walletClient, account);
-
-// Sign a payment
-const signature = await builder.signPay(
-  evvmID,          // Your EVVM ID
-  toAddress,       // Recipient
-  tokenAddress,    // Token (0x0=ETH, 0x1=MATE)
-  amount,          // Amount in wei
-  priorityFee,     // Fee for executor
-  nonce,           // Transaction nonce
-  priorityFlag,    // true=async, false=sync
-  executor         // Who can execute (0x0=anyone)
-);
-
-// Submit to blockchain
-await evvmContract.write.pay([/* ... params ..., signature */]);
+**Message Format:**
 ```
-
-**Message format:**
+selector,evvmID,from,to,token,amount,priorityFee,nonce,priorityFlag,executor
 ```
-0x4faa1fa2,1057,0xFrom,0xTo,0x...001,1000000,0,0,false,0x0
-  ↑         ↑    ↑      ↑    ↑       ↑       ↑ ↑  ↑      ↑
-  selector  ID   from   to   token   amount  p n  async  exec
-```
-
-**See:** Frontend debug console for real-time message inspection.
-
-### 3. Payments
-
-**Single Payment:**
-- Send ETH or MATE to address or username
-- Sync or async nonces
-- Optional priority fees
-
-**Disperse Payment (Batch):**
-- Send to multiple recipients in one transaction
-- Lower gas cost per recipient
-- Useful for airdrops or payroll
-
-**Implementation:**
-```typescript
-// Single
-await builder.signPay(evvmID, to, token, amount, ...);
-
-// Batch
-const recipients = [addr1, addr2, addr3];
-const amounts = [100, 200, 300];
-await builder.signDispersePay(evvmID, from, recipients, amounts, ...);
-```
-
-### 4. Staking
-
-**Three Staking Types:**
-
-1. **Presale Staking** (Golden Fisher)
-   - Requires dual signature (EVVM + Staking)
-   - Discounted fees
-   - 24h cooldown (soon 1 min) before activation
-   - Special governance privileges
-
-2. **Public Staking**
-   - Single signature
-   - Standard rewards
-   - No cooldown
-   - Open to everyone
-
-3. **Unstaking**
-   - Withdraw staked MATE
-   - Retain staker status if balance > 0
-
-**Benefits:**
-- Earn base MATE rewards
-- Receive priority fees
-- Enhanced reward multipliers
-- Fisher eligibility (execution rewards)
-
-### 5. Name Service
-
-Register human-readable usernames for your address:
-
-**Workflow:**
-1. **Pre-register** - Reserve a username (24h lock)
-2. **Register** - Finalize ownership after lock period
-3. **Use** - Send payments to `@username` instead of `0x...`
 
 **Example:**
-```typescript
-// Register username
-await nameServiceBuilder.signRegisterUsername(
-  evvmID,
-  'alice',
-  nonce,
-  executor
-);
-
-// Pay to username
-await builder.signPay(
-  evvmID,
-  '@alice',  // ← Username instead of address!
-  token,
-  amount,
-  ...
-);
+```
+0x4faa1fa2,1057,0xAlice,0xBob,0x001,1000000,0,42,false,0x0
 ```
 
-### 6. P2P Swaps
+### Dual Nonce System
 
-Peer-to-peer token exchange without orderbook:
+- **Sync Nonces** (`priorityFlag: false`) - Sequential, for operations requiring order
+- **Async Nonces** (`priorityFlag: true`) - Parallel, for independent operations
 
-**Create Swap:**
-```typescript
-await p2pSwapBuilder.signCreateSwap(
-  evvmID,
-  tokenOffered,     // What you're giving
-  amountOffered,
-  tokenRequested,   // What you want
-  amountRequested,
-  nonce,
-  executor
-);
-```
+### Dual Signature Operations
 
-**Accept Swap:**
-```typescript
-await p2pSwapBuilder.signAcceptSwap(
-  evvmID,
-  swapId,
-  nonce,
-  executor
-);
-```
+Some operations require **two signatures**:
+1. **EVVM signature** - For payment/transfer
+2. **Module signature** - For specific module action
 
-**Use Cases:**
-- OTC trades
-- Token bootstrapping
-- Liquidity provision
-- Cross-token payments
+Examples: Staking, NameService, P2PSwap operations
+
+---
+
+## 🌐 Supported Networks
+
+- **Ethereum Sepolia** (Chain ID: `11155111`)
+- **Arbitrum Sepolia** (Chain ID: `421614`)
+- **Local Anvil** (Chain ID: `31337`)
+- Any EVM-compatible testnet
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Deployment Issues
+### "No EVVM address found"
+- Check `.env` has `NEXT_PUBLIC_EVVM_ADDRESS` set
+- Run `npm run check-env` to validate configuration
+- Ensure address format is valid (`0x...`)
 
-**Problem:** "Testnet-Contracts not found"
+### "Contract discovery failed"
+- Verify EVVM contract is deployed at the address
+- Check network connection (RPC endpoint working)
+- Ensure `NEXT_PUBLIC_CHAIN_ID` matches the actual network
+- Check browser console for detailed error messages
 
-**Solution:**
-```bash
-cd contracts
-git submodule update --init --recursive
-```
+### "Nonce too low" or "Nonce already used"
+- Always fetch current nonce from contract before signing
+- Use `getCurrentSyncNonce` for sync operations
+- Use `getNextRandomNonce` for async operations
+- Don't reuse old signatures
 
----
+### "Signature verification failed"
+- Verify EVVM ID matches the deployed instance
+- Check all parameters match between signing and execution
+- Ensure `priorityFlag` matches nonce type
+- Confirm wallet is connected to correct network
 
-**Problem:** "Missing required environment variables"
-
-**Solution:**
-```bash
-# Ensure .env has:
-NEXT_PUBLIC_PROJECT_ID=...
-RPC_URL_ETH_SEPOLIA=...
-ETHERSCAN_API=...
-
-# Check with:
-cat .env | grep -E "PROJECT_ID|RPC_URL|API"
-```
-
----
-
-**Problem:** "Deployment wizard auto-update failed"
-
-**Solution:**
-The wizard tried to update `.env` but failed. Update manually:
-```bash
-# Check deployment summary
-cat contracts/input/evvmDeploymentSummary.json
-
-# Update .env manually with:
-NEXT_PUBLIC_EVVM_ADDRESS=<evvm address>
-NEXT_PUBLIC_CHAIN_ID=<chainId>
-NEXT_PUBLIC_EVVM_ID=<evvmID>
-```
+### Golden Staking Issues
+- Must use **sync nonce** (`priorityFlag: false`)
+- Requires 24-hour cooldown between stakes
+- See critical fix in `evvmSignatures.ts:189-240`
 
 ---
 
-**Problem:** "Registry registration failed: HTTP request failed"
+## 📦 Dependencies
 
-**Solution:**
-This happens when the primary RPC endpoint is unavailable. The patch system automatically applies RPC fallback logic for 99%+ success rate.
-
-```bash
-# Check if patches are applied
-cd contracts/lib/Testnet-Contracts
-git diff scripts/evvm-init.ts
-
-# If not applied, run:
-cd ../../patches
-./apply-patches.sh
-
-# Then retry deployment
-npm run wizard
-```
-
-**Note:** After running `npm install`, patches are applied automatically. Your submodule may show as "modified" in `git status` - this is normal and expected.
+- **Next.js 15** - React framework with App Router
+- **viem** - Ethereum library for contract interactions
+- **wagmi** - React hooks for Ethereum
+- **@reown/appkit** - Wallet connection (WalletConnect)
+- **@evvm/viem-signature-library** - Official EVVM signature builders
 
 ---
 
-### Frontend Issues
+## 🔐 Security
 
-**Problem:** "Project ID Not Configured"
-
-**Solution:**
-```bash
-# Add to .env:
-NEXT_PUBLIC_PROJECT_ID=your_reown_project_id
-
-# Restart frontend:
-npm run dev
-```
+- ✅ Never commit `.env` file (in `.gitignore`)
+- ✅ All signing happens client-side in browser
+- ✅ No private keys stored or transmitted
+- ✅ WalletConnect for secure wallet connections
+- ⚠️  **Testnet only** - Not audited for mainnet
 
 ---
 
-**Problem:** "No EVVM deployment found"
+## 📖 Documentation
 
-**Solution:**
-```bash
-# 1. Check deployment file exists
-ls -la contracts/input/evvmDeploymentSummary.json
-
-# 2. If missing, run wizard
-npm run wizard
-
-# 3. Restart frontend
-npm run dev
-```
-
----
-
-**Problem:** "Wrong network - wallet shows different chain"
-
-**Solution:**
-1. Check deployment network:
-   ```bash
-   cat .env | grep NEXT_PUBLIC_CHAIN_ID
-   # 11155111 = Ethereum Sepolia
-   # 421614 = Arbitrum Sepolia
-   ```
-2. Switch wallet to matching network
-3. Frontend should show "Switch Network" button
-
----
-
-### Transaction Failures
-
-**Problem:** "Transaction reverts without error"
-
-**Solution:**
-1. Open browser console (F12)
-2. Check Debug Console in UI
-3. Verify:
-   - ✅ Sufficient MATE balance
-   - ✅ Sufficient ETH for gas
-   - ✅ Correct nonce (use Status page)
-   - ✅ Priority fee > 0 if using priority
-
----
-
-**Problem:** "Nonce too low" or "Nonce already used"
-
-**Solution:**
-```typescript
-// Always use current nonce from contract
-const currentNonce = await evvmContract.read.getCurrentSyncNonce([yourAddress]);
-// Use currentNonce + 1 for next transaction
-```
-
----
-
-**Problem:** "Signature verification failed"
-
-**Solution:**
-1. Ensure you're signing with the correct account
-2. Check EVVM ID matches deployed instance
-3. Verify all parameters match exactly
-4. Check Debug Console for message format
-
----
-
-### Common Errors
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Insufficient balance` | Not enough MATE | Get MATE from faucet or treasury |
-| `Not a staker` | Haven't staked yet | Stake tokens first |
-| `Username already taken` | Someone owns it | Choose different username |
-| `Invalid executor` | Wrong executor address | Use 0x0 for public execution |
-| `Nonce mismatch` | Using wrong nonce | Get current nonce from contract |
-
----
-
-## 📚 Documentation
-
-### In This Repo
-
-- **`README.md`** - You are here (overview & quick start)
-- **`DOUBLECHECK_AUDIT_REPORT.md`** - Security audit report
-- **`LICENSE`** - MIT License
-- **`helping docs/`** - Extended documentation (50+ guides)
-
-### Helping Docs (Extended Documentation)
-
-The `helping docs/` directory contains comprehensive guides:
-
-**Quick References:**
-- `QUICK_START.md` - Fastest way to get started (TL;DR)
-- `WIZARD_WORKFLOW.md` - Complete automated deployment guide
-- `DEPLOYMENT_GUIDE.md` - Current deployment information
-
-**Detailed Guides:**
-- `CHANGES.md` - Recent improvements & changelog
-- `ENV_SETUP.md` - Environment configuration
-- `DEPLOYMENT_DATA_FLOW.md` - How deployment data flows
-
-**Troubleshooting:**
-- `GOLDEN_STAKING_*.md` - Golden fisher staking guides (10+ docs)
-- `NAMESERVICE_*.md` - Name service debugging
-- `PRIORITY_FEE_*.md` - Priority fee issues
-- And 40+ more topic-specific guides
-
-**Note:** `helping docs/` is gitignored to keep the repo clean. These are development aids.
-
-### External Resources
-
-- **[EVVM Documentation](https://www.evvm.info/)** - Official EVVM docs
-- **[EVVM Signature Structures](https://www.evvm.org/docs/SignatureStructures/)** - EIP-191 message formats
-- **[Testnet Contracts](https://github.com/EVVM-org/Testnet-Contracts)** - Smart contract source
-- **[viem Documentation](https://viem.sh/)** - viem library docs
-- **[Foundry Book](https://book.getfoundry.sh/)** - Foundry guide
-- **[Next.js Docs](https://nextjs.org/docs)** - Next.js 15 documentation
-- **[Reown AppKit](https://docs.reown.com/)** - Wallet connection docs
-
----
-
-## 🔒 Security
-
-### Best Practices
-
-✅ **Never commit private keys** - Use `cast wallet import` for encrypted storage
-✅ **Use testnets only** - This toolkit is for development/testing
-✅ **Verify contracts** - Always verify on block explorers
-✅ **Audit signatures** - Use Debug Console before executing
-✅ **Separate wallets** - Different wallets for dev/test/prod
-✅ **Rotate keys** - If exposed, rotate immediately
-
-### Security Audit
-
-See `DOUBLECHECK_AUDIT_REPORT.md` for detailed security analysis.
-
-### Known Limitations
-
-- **Testnet only** - Not audited for mainnet production
-- **No formal verification** - Smart contracts not formally verified
-- **Experimental** - EVVM is an experimental technology
+- [EVVM Documentation](https://www.evvm.info/docs)
+- [EVVM Signature Structures](https://www.evvm.org/docs/SignatureStructures/)
+- [Testnet Contracts Repo](https://github.com/EVVM-org/Testnet-Contracts)
+- [viem Documentation](https://viem.sh/)
+- [@evvm/viem-signature-library](https://www.npmjs.com/package/@evvm/viem-signature-library)
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these guidelines:
-
-### Development Workflow
-
+Contributions welcome! Please:
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
+2. Create a feature branch
 3. Make your changes
-4. Add tests for new features
-5. Run tests: `npm test`
-6. Commit with conventional commits: `feat: add amazing feature`
-7. Push to your fork: `git push origin feature/amazing-feature`
-8. Open a Pull Request
-
-### Commit Message Convention
-
-We follow [conventional commits](https://github.com/joelparkerhenderson/git-commit-message):
-
-```
-type: subject line (max 50 chars)
-
-Body explaining what and why (wrapped at 72 chars)
-
-Why:
-- Reason for the change
-
-This change addresses the need by:
-- How it solves the problem
-
-Changes:
-- List of modifications
-```
-
-**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
-
-### Code Style
-
-- **TypeScript** - Use strict mode
-- **ESLint** - Run `npm run lint`
-- **Prettier** - Format before committing
-- **Comments** - Explain why, not what
+4. Submit a pull request
 
 ---
 
-## 🎓 Learning Resources
+## 📜 License
 
-### Recommended Order
-
-1. **Start here:** `helping docs/QUICK_START.md`
-2. **Deploy EVVM:** `helping docs/WIZARD_WORKFLOW.md`
-3. **Understand signatures:** [EVVM Signature Structures](https://www.evvm.org/docs/SignatureStructures/)
-4. **Read smart contracts:** `contracts/lib/Testnet-Contracts/src/contracts/`
-5. **Explore frontend:** `frontend/src/app/evvm/`
-
-### Key Concepts to Understand
-
-1. **Meta-transactions** - Users sign, executors submit
-2. **EIP-191** - Message signing standard
-3. **Nonce management** - Sync (sequential) vs Async (parallel)
-4. **Token abstraction** - 0x0=ETH, 0x1=MATE, custom=ERC20
-5. **Virtual blockchain** - EVVM runs as smart contracts
-
----
-
-## 📊 Stats & Metrics
-
-### Project Metrics
-
-- **Contracts:** 6 core contracts + libraries
-- **Frontend Pages:** 8 main pages
-- **Signature Constructors:** 23 pre-built components
-- **Components:** 40+ reusable components
-- **Input Modules:** 13 reusable UI components
-- **Transaction Executors:** 4 executor modules (27 functions)
-- **Hooks:** 10+ custom React hooks
-- **Documentation:** 50+ markdown files
-- **Tests:** Foundry test suite
-- **Lines of Code:** ~20,000+ (contracts + frontend + constructors)
-
-### Development Metrics
-
-- **Setup Time:** ~5 minutes
-- **Deployment Time:** ~3 minutes (testnet)
-- **Manual Configuration:** 0 steps (automated!)
-- **Hot Reload:** < 1 second
-
----
-
-## 📝 Changelog
-
-### v2.0.0 (Latest)
-
-**New Features:**
-- ✨ **23 Signature Constructor Components** - Pre-built UI for all EVVM operations
-- ✨ **Complete NameService Suite** - 10 operations (registration, offers, metadata)
-- ✨ **P2P Swap Constructors** - 4 operations (make, cancel, dispatch orders)
-- ✨ **Modular Architecture** - Reusable components with barrel exports
-- ✨ **13 Input Modules** - Address, number, date, priority, executor selectors
-- ✨ **4 Transaction Executors** - 27 total execution functions
-- ✨ Automated .env configuration after deployment
-- ✨ Blockchain-verified EVVM ID reading
-- ✨ One-command deployment with wizard
-- ✨ Automatic contract verification on explorers
-- ✨ Registry EVVM integration
-- ✨ Enhanced Debug Console
-- ✨ Network auto-switching
-
-**Improvements:**
-- 🚀 **100% feature parity** with EVVM-Signature-Constructor-Front
-- 🚀 **Centralized signature builders** in `lib/evvmSignatures.ts`
-- 🚀 **Type-safe executors** with @evvm/viem-signature-library types
-- 🚀 **Dual nonce system** - Sync (sequential) and Async (parallel)
-- 🚀 **Username resolution** - Pay to @username instead of addresses
-- 🚀 **Random nonce generation** - Mersenne Twister for security
-- 🚀 70% reduction in manual deployment steps (8 → 2)
-- 🚀 Zero configuration errors (all automated)
-- 🚀 Faster development workflow
-- 🚀 Better error messages
-
-**Breaking Changes:**
-- Executor imports moved from `@/utils/TransactionExecuter/*` to `@/utils/transactionExecuters/*`
-
-**See:** `helping docs/CHANGES.md` for detailed changelog.
+MIT License - see [LICENSE](LICENSE) file for details
 
 ---
 
 ## 🙏 Acknowledgments
 
-This project is built on the shoulders of giants:
-
-- **[EVVM](https://evvm.info)** - The virtual blockchain technology
-- **[Scaffold-ETH 2](https://scaffoldeth.io/)** - Inspiration and architecture
-- **[viem](https://viem.sh/)** - Type-safe Ethereum library
-- **[Foundry](https://getfoundry.sh/)** - Fast Solidity toolkit
-- **[Next.js](https://nextjs.org/)** - React framework
-- **[Reown](https://reown.com/)** - Wallet connection (formerly WalletConnect)
-
-Special thanks to the EVVM Organization for the innovative blockchain virtualization technology.
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](./LICENSE) file for details.
-
-```
-MIT License
-
-Copyright (c) 2024 EVVM Organization
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction...
-```
+- Built with [@evvm/viem-signature-library](https://www.npmjs.com/package/@evvm/viem-signature-library)
+- Powered by [EVVM](https://www.evvm.org/) - Ethereum Virtual Machine Virtualization
+- Uses [WalletConnect](https://walletconnect.com/) for wallet integration
 
 ---
 
 ## 📞 Support
 
-### Get Help
-
-- 📖 **Documentation:** Check `helping docs/` directory
-- 🐛 **Bug Reports:** [Open an issue](https://github.com/EVVM-org/Scaffold-EVVM/issues)
-- 💬 **Questions:** [GitHub Discussions](https://github.com/EVVM-org/Scaffold-EVVM/discussions)
-- 🌐 **EVVM Website:** [evvm.info](https://evvm.info)
-- 📧 **Email:** [Contact via GitHub](https://github.com/EVVM-org)
-
-### Community
-
-- Join the EVVM community
-- Follow development updates
-- Contribute to discussions
-- Share your EVVM projects
+- **Issues:** [GitHub Issues](https://github.com/EVVM-org/scaffold-evvm/issues)
+- **Documentation:** [EVVM Docs](https://www.evvm.info/docs)
+- **Community:** [EVVM Discord](https://discord.gg/evvm)
 
 ---
 
-## 🚀 What's Next?
-
-After successfully deploying your EVVM:
-
-1. **✅ Test all features** - Payments, staking, name service
-2. **✅ Read the docs** - Explore `helping docs/` for advanced topics
-3. **✅ Build your dApp** - Use EVVM as the backend
-4. **✅ Deploy to mainnet** - When ready for production
-5. **✅ Share your work** - Contribute back to the community
-
----
-
-<div align="center">
-
-**Happy Building with EVVM! ⚡**
-
-Built with ❤️ by the EVVM Organization
-
-[Documentation](https://evvm.info) • [GitHub](https://github.com/EVVM-org) • [Discord](#) • [Twitter](#)
-
----
-
-*Scaffold-EVVM - Deploy Virtual Blockchains in Minutes*
-
-</div>
+Made with ❤️ for the EVVM ecosystem

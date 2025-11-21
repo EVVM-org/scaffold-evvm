@@ -74,7 +74,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (address?.toLowerCase() !== deployment.admin.toLowerCase()) {
+    if (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase()) {
       setError('Only the admin can register the EVVM instance');
       return;
     }
@@ -123,7 +123,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (address?.toLowerCase() !== deployment.admin.toLowerCase()) {
+    if (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase()) {
       setError('Only the admin can set the EVVM ID');
       return;
     }
@@ -200,7 +200,7 @@ export default function RegisterPage() {
           <div><strong>EVVM Address:</strong> {deployment.evvm}</div>
           <div><strong>Chain ID:</strong> {deployment.chainId}</div>
           <div><strong>Current EVVM ID:</strong> {currentEvvmId || '0 (Not activated)'}</div>
-          <div><strong>Admin:</strong> {deployment.admin}</div>
+          {deployment.admin && <div><strong>Admin:</strong> {deployment.admin}</div>}
         </div>
       </div>
 
@@ -217,7 +217,7 @@ export default function RegisterPage() {
         </div>
       )}
 
-      {isConnected && address?.toLowerCase() !== deployment.admin.toLowerCase() && (
+      {isConnected && deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase() && (
         <div className={styles.warning}>
           <p>⚠️ You are not the admin. Only the admin can register and activate.</p>
           <p><strong>Admin:</strong> {deployment.admin}</p>
@@ -241,7 +241,7 @@ export default function RegisterPage() {
 
         <button
           onClick={handleRegister}
-          disabled={!isConnected || isRegistering || address?.toLowerCase() !== deployment.admin.toLowerCase() || !!isRegistered}
+          disabled={!isConnected || isRegistering || (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase()) || !!isRegistered}
           className={styles.registerButton}
         >
           {isRegistering ? '⏳ Registering...' : '📝 Register EVVM on Sepolia'}
@@ -299,7 +299,7 @@ export default function RegisterPage() {
 
         <button
           onClick={handleSetEvvmId}
-          disabled={!isConnected || isSettingId || !assignedId || address?.toLowerCase() !== deployment.admin.toLowerCase() || !!isRegistered}
+          disabled={!isConnected || isSettingId || !assignedId || (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase()) || !!isRegistered}
           className={styles.activateButton}
         >
           {isSettingId ? '⏳ Activating...' : '🚀 Activate EVVM ID'}
