@@ -21,6 +21,7 @@ interface FetchedContracts {
   nameService: string;
   estimator: string;
   admin: string;
+  goldenFisher: string;
   // Optional contracts
   treasury?: string;
   p2pSwap?: string;
@@ -139,6 +140,15 @@ export default function ConfigPage() {
         functionName: 'getEstimatorAddress',
       });
 
+      console.log('  Fetching golden fisher address from staking...');
+      const goldenFisherStruct = await publicClient.readContract({
+        address: stakingAddress as `0x${string}`,
+        abi: StakingABI,
+        functionName: 'goldenFisher',
+      }) as { actual: `0x${string}`; pending: `0x${string}` };
+
+      const goldenFisherAddress = goldenFisherStruct.actual;
+
       const contracts: FetchedContracts = {
         evvmID: evvmID as bigint,
         evvmName: (evvmMetadata as any)[0] as string,
@@ -146,6 +156,7 @@ export default function ConfigPage() {
         nameService: nameServiceAddress as string,
         estimator: estimatorAddress as string,
         admin: adminAddress as string,
+        goldenFisher: goldenFisherAddress as string,
       };
 
       console.log('✅ Successfully fetched contracts:');
@@ -155,6 +166,7 @@ export default function ConfigPage() {
       console.log('  NameService:', contracts.nameService);
       console.log('  Estimator:', contracts.estimator);
       console.log('  Admin:', contracts.admin);
+      console.log('  Golden Fisher:', contracts.goldenFisher);
 
       setFetchedContracts(contracts);
       setSuccess('Successfully fetched contract addresses!');
@@ -188,7 +200,7 @@ export default function ConfigPage() {
         evvmName: fetchedContracts.evvmName,
         registry: '0x389dC8fb09211bbDA841D59f4a51160dA2377832' as `0x${string}`,
         admin: fetchedContracts.admin.toLowerCase() as `0x${string}`,
-        goldenFisher: fetchedContracts.admin.toLowerCase() as `0x${string}`,
+        goldenFisher: fetchedContracts.goldenFisher.toLowerCase() as `0x${string}`,
         activator: fetchedContracts.admin.toLowerCase() as `0x${string}`,
       };
 
@@ -342,6 +354,11 @@ export default function ConfigPage() {
               <div className={styles.contractItem}>
                 <strong>Admin:</strong>
                 <code>{fetchedContracts.admin}</code>
+              </div>
+
+              <div className={styles.contractItem}>
+                <strong>Golden Fisher:</strong>
+                <code>{fetchedContracts.goldenFisher}</code>
               </div>
             </div>
           </div>
