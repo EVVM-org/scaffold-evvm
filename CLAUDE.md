@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Scaffold-EVVM is a development framework for EVVM (Ethereum Virtual Machine Virtualization) - a system that creates virtual blockchains as smart contracts on existing Ethereum networks. This is a monorepo with contracts and frontend workspaces.
+Scaffold-EVVM is a frontend development tool for building EVVM (Ethereum Virtual Machine Virtualization) signature constructors. This is a pure frontend application that helps developers create and submit signed transactions to EVVM networks.
+
+EVVM creates virtual blockchains as smart contracts on existing Ethereum networks. This tool focuses on building the cryptographic signatures needed for EVVM operations.
 
 ## Key Architecture Concepts
 
@@ -31,12 +33,12 @@ Many operations require TWO signatures:
 This is critical for Staking, NameService, and P2PSwap operations.
 
 ### Centralized Signature Building
-All signature construction logic is centralized in `frontend/src/lib/evvmSignatures.ts`. This file contains 23+ signature builder functions that use the official `@evvm/viem-signature-library`.
+All signature construction logic is centralized in `src/lib/evvmSignatures.ts`. This file contains 23+ signature builder functions that use the official `@evvm/viem-signature-library`.
 
 **Never duplicate signature logic** - always import from `evvmSignatures.ts`.
 
 ### Transaction Executors
-Contract write operations are organized into 4 executor modules in `frontend/src/utils/transactionExecuters/`:
+Contract write operations are organized into 4 executor modules in `src/utils/transactionExecuters/`:
 - `evvmExecuter.ts` - Payment operations (pay, dispersePay, etc.)
 - `stakingExecuter.ts` - Staking operations (golden, presale, public, unstaking)
 - `nameServiceExecuter.ts` - Name service operations (10 functions)
@@ -44,63 +46,60 @@ Contract write operations are organized into 4 executor modules in `frontend/src
 
 These executors use wagmi's `writeContract` to interact with smart contracts.
 
+## Contract Discovery
+
+This application uses a **contract discovery pattern** instead of deployment:
+
+1. **User provides**: EVVM core contract address in `.env`
+2. **App discovers**: Staking, NameService, Estimator addresses from EVVM contract
+3. **Optional**: Treasury and P2PSwap (user provides or skips)
+
+### Environment Configuration
+
+Required in `.env`:
+```bash
+NEXT_PUBLIC_PROJECT_ID=your_walletconnect_project_id
+NEXT_PUBLIC_EVVM_ADDRESS=0x... # EVVM core contract address
+NEXT_PUBLIC_CHAIN_ID=11155111  # Network chain ID
+```
+
+Chain IDs:
+- `11155111` - Ethereum Sepolia
+- `421614` - Arbitrum Sepolia
+- `31337` - Local Anvil
+
+The app automatically discovers:
+- Staking contract via `evvm.getStakingAddress()`
+- NameService contract via `evvm.getNameServiceAddress()`
+- Estimator contract via `evvm.getEstimatorAddress()`
+
 ## Development Commands
 
-### Root Commands (use from project root)
+### Setup
 ```bash
-npm install              # Install all dependencies (frontend + contracts)
-npm run wizard           # Deploy EVVM with interactive wizard (auto-configures .env)
-npm run dev              # Start frontend dev server
-npm run build            # Build frontend for production
-npm run chain            # Start local Anvil blockchain
-npm test                 # Run contract tests
-npm run compile          # Compile contracts
-```
-
-### Contract Deployment
-```bash
-# Interactive wizard (recommended) - auto-updates .env
-npm run wizard
-
-# Manual deployment
-npm run deploy:eth       # Deploy to Ethereum Sepolia
-npm run deploy:arb       # Deploy to Arbitrum Sepolia
-npm run deploy:local     # Deploy to local Anvil
-```
-
-### Contracts Workspace
-```bash
-cd contracts
-
-# Foundry commands
-forge build              # Compile contracts
-forge test -vv           # Run tests with verbose output
-make anvil               # Start local blockchain
-make compile             # Compile contracts
-make test                # Run tests
-make seeSizes            # Check contract sizes
-
-# Deployment
-make deployTestnet NETWORK=eth    # Deploy to Ethereum Sepolia
-make deployTestnet NETWORK=arb    # Deploy to Arbitrum Sepolia
-make deployLocalTestnet           # Deploy to Anvil
-```
-
-### Frontend Workspace
-```bash
-cd frontend
-npm run dev              # Start dev server (port 3000)
+npm install              # Install all dependencies
+npm run dev              # Start dev server (validates .env first)
 npm run build            # Build for production
 npm run start            # Start production server
 npm run type-check       # TypeScript type checking
 ```
+
+### Environment Validation
+```bash
+npm run check-env        # Validates .env configuration
+```
+
+The `check-env` script validates:
+- `NEXT_PUBLIC_PROJECT_ID` is set
+- `NEXT_PUBLIC_EVVM_ADDRESS` is a valid Ethereum address
+- `NEXT_PUBLIC_CHAIN_ID` is set
 
 ## Critical Implementation Details
 
 ### Golden Staking Bug Fix
 **IMPORTANT:** The `signGoldenStaking` function in `evvmSignatures.ts` has a critical fix. It uses `EVVMSignatureBuilder.signPay()` directly instead of `StakingSignatureBuilder.signGoldenStaking()` because the library's method doesn't correctly handle the `priorityFlag` parameter.
 
-Golden staking MUST use sync mode (`priorityFlag: false`) as the Staking contract calls `getNextCurrentSyncNonce(msg.sender)`. See lines 189-240 in `frontend/src/lib/evvmSignatures.ts`.
+Golden staking MUST use sync mode (`priorityFlag: false`) as the Staking contract calls `getNextCurrentSyncNonce(msg.sender)`. See lines 189-240 in `src/lib/evvmSignatures.ts`.
 
 ### Token Address Conventions
 - `0x0000000000000000000000000000000000000000` (0x0) = Native ETH
@@ -110,56 +109,29 @@ Golden staking MUST use sync mode (`priorityFlag: false`) as the Staking contrac
 ### Username Resolution
 The NameService allows paying to usernames instead of addresses. When a payment's `to` parameter starts with '@' or is a registered username, the NameService resolves it to the owner's address.
 
-### Environment Configuration
-**Single source of truth:** The root `.env` file is used by both frontend and contracts workspaces.
-
-After running `npm run wizard`, the wizard automatically updates these variables:
-- `NEXT_PUBLIC_EVVM_ADDRESS` - Deployed EVVM contract address
-- `NEXT_PUBLIC_CHAIN_ID` - Network chain ID (11155111=Sepolia, 421614=Arbitrum Sepolia)
-- `NEXT_PUBLIC_EVVM_ID` - EVVM instance ID read from blockchain
-
-No manual configuration needed after deployment.
-
-### Deployment Data Flow
-1. Wizard deploys contracts → generates `contracts/broadcast/` JSON files
-2. Wizard reads addresses from broadcast files
-3. Wizard calls `getEvvmID()` on deployed contract
-4. Wizard updates root `.env` file automatically
-5. Frontend reads from `contracts/input/evvmDeploymentSummary.json` via API route
-
 ## Testing
 
-### Running Tests
-```bash
-cd contracts
-forge test -vv           # Run all tests with verbose output
-forge test --match-test test_PayMessageFormat -vvvv  # Run specific test with traces
-```
-
-### Test Structure
-- Contract tests are in `contracts/test/`
-- Tests use Foundry's `forge-std/Test.sol`
-- Focus on signature message format verification (see `SignatureBuilders.t.sol`)
+This is a frontend-only application. For contract testing, see the [Testnet-Contracts repository](https://github.com/EVVM-org/Testnet-Contracts).
 
 ## Common Patterns
 
 ### Adding a New Signature Constructor Component
-1. Create signature builder function in `frontend/src/lib/evvmSignatures.ts`
-2. Create component in `frontend/src/components/SigConstructors/[Module]/`
+1. Create signature builder function in `src/lib/evvmSignatures.ts`
+2. Create component in `src/components/SigConstructors/[Module]/`
 3. Use reusable input modules from `InputsAndModules/`
 4. Import executor function from `transactionExecuters/`
 5. Export component from module's `index.ts`
 
 ### Reading Contract Data
-Use viem's `publicClient.readContract()` with contract ABI and address from deployment config.
+Use viem's `publicClient.readContract()` with contract ABI and discovered address.
 
 ```typescript
-import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
+import { useEvvmContracts } from '@/hooks/useEvvmContracts';
 import { publicClient } from '@/lib/viemClients';
 
-const { deployment } = useEvvmDeployment();
+const { contracts } = useEvvmContracts();
 const nonce = await publicClient.readContract({
-  address: deployment.evvmAddress,
+  address: contracts.evvmAddress,
   abi: evvmABI,
   functionName: 'getCurrentSyncNonce',
   args: [userAddress],
@@ -175,7 +147,7 @@ import { signPay } from '@/lib/evvmSignatures';
 
 // 1. Build signature
 const { signature, inputData } = await signPay({
-  evvmID: deployment.evvmID,
+  evvmID: contracts.evvmID,
   to: recipientAddress,
   tokenAddress: '0x1', // MATE
   amount: amountInWei,
@@ -186,48 +158,39 @@ const { signature, inputData } = await signPay({
 });
 
 // 2. Execute transaction
-await executePay(inputData, deployment.evvmAddress);
+await executePay(inputData, contracts.evvmAddress);
 ```
 
 ## Project Structure
 
 ```
 scaffold-evvm/
-├── .env                          # Single source of truth for env vars
-├── contracts/
-│   ├── lib/Testnet-Contracts/   # Git submodule with EVVM contracts
-│   ├── scripts/
-│   │   ├── wizard.ts            # Deployment wizard (auto-config)
-│   │   └── refresh-deployment.ts
-│   ├── input/
-│   │   └── evvmDeploymentSummary.json  # Generated deployment data
-│   ├── Makefile                 # Foundry build commands
-│   └── foundry.toml             # Foundry configuration
-├── frontend/
-│   ├── src/
-│   │   ├── app/                 # Next.js 15 App Router pages
-│   │   ├── components/
-│   │   │   └── SigConstructors/  # 23 signature constructor components
-│   │   ├── hooks/               # Custom React hooks
-│   │   ├── lib/
-│   │   │   ├── evvmSignatures.ts    # CENTRALIZED signature builders
-│   │   │   ├── evvmConfig.ts        # EVVM configuration
-│   │   │   └── viemClients.ts       # viem client setup
-│   │   ├── utils/
-│   │   │   └── transactionExecuters/  # 4 executor modules (27 functions)
-│   │   └── config/              # Wagmi/network config
-│   └── next.config.mjs
-└── package.json                 # Root workspace config
+├── .env                          # Environment configuration
+├── src/
+│   ├── app/                      # Next.js 15 App Router pages
+│   ├── components/
+│   │   └── SigConstructors/      # 23 signature constructor components
+│   ├── hooks/                    # Custom React hooks
+│   │   └── useEvvmContracts.ts   # Contract discovery hook
+│   ├── lib/
+│   │   ├── evvmSignatures.ts     # CENTRALIZED signature builders
+│   │   ├── evvmConfig.ts         # EVVM configuration
+│   │   └── viemClients.ts        # viem client setup
+│   ├── utils/
+│   │   └── transactionExecuters/ # 4 executor modules (27 functions)
+│   └── config/                   # Wagmi/network config
+├── scripts/
+│   └── check-env.js              # Environment validation
+└── package.json
 ```
 
 ## Important Files to Know
 
-- `frontend/src/lib/evvmSignatures.ts` - All signature construction (1400+ lines)
-- `frontend/src/utils/transactionExecuters/index.ts` - All transaction executors
-- `frontend/src/hooks/useEvvmDeployment.ts` - Access deployment configuration
-- `contracts/scripts/wizard.ts` - Deployment automation
-- `contracts/foundry.toml` - Contract remappings and RPC endpoints
-- `.env` - Environment configuration (auto-updated by wizard)
+- `src/lib/evvmSignatures.ts` - All signature construction (1400+ lines)
+- `src/utils/transactionExecuters/index.ts` - All transaction executors
+- `src/hooks/useEvvmContracts.ts` - Contract discovery and configuration
+- `scripts/check-env.js` - Environment validation
+- `.env` - Environment configuration
 
 ## Debugging
 
@@ -242,10 +205,15 @@ Access via the debug console component in each page.
 
 ### Common Issues
 
-**"No EVVM deployment found"**
-- Run `npm run wizard` to deploy
-- Check that `contracts/input/evvmDeploymentSummary.json` exists
-- Verify `.env` has `NEXT_PUBLIC_EVVM_ADDRESS` set
+**"No EVVM address found"**
+- Check `.env` has `NEXT_PUBLIC_EVVM_ADDRESS` set
+- Verify address is valid Ethereum address
+- Run `npm run check-env` to validate configuration
+
+**"Contract discovery failed"**
+- Verify EVVM contract is deployed at the address
+- Check that `NEXT_PUBLIC_CHAIN_ID` matches network
+- Ensure you're connected to the correct network in wallet
 
 **"Nonce too low" or "Nonce already used"**
 - Always fetch current nonce from contract before creating transaction
@@ -265,9 +233,9 @@ Access via the debug console component in each page.
 ## Security Notes
 
 - Never commit `.env` file (it's in `.gitignore`)
-- Use `cast wallet import` for encrypted private key storage (stored in `~/.foundry/keystores/`)
-- The wizard expects wallet alias `defaultKey` - this is hardcoded
-- All deployments auto-verify on block explorers (Etherscan/Arbiscan)
+- Use WalletConnect for secure wallet connections
+- Frontend-only - no private keys stored
+- All signatures created client-side in user's browser
 - Testnet only - not audited for mainnet production
 
 ## External Documentation
@@ -276,5 +244,4 @@ Access via the debug console component in each page.
 - [EVVM Signature Structures](https://www.evvm.org/docs/SignatureStructures/)
 - [Testnet Contracts Repo](https://github.com/EVVM-org/Testnet-Contracts)
 - [viem Documentation](https://viem.sh/)
-- [Foundry Book](https://book.getfoundry.sh/)
 - [@evvm/viem-signature-library](https://www.npmjs.com/package/@evvm/viem-signature-library)
