@@ -61,11 +61,22 @@ Scaffold-EVVM is a **complete development toolkit** for EVVM, similar to Scaffol
 - **Error Analysis** - Detailed error messages with context
 
 ### 🏗️ **Complete EVVM Toolkit**
-- **Payments** - Single & batch (disperse) payments
-- **Staking** - Presale, public, and golden fisher staking
-- **Name Service** - Username-based payments
-- **P2P Swaps** - Peer-to-peer token exchange
+- **Payments** - Single & batch (disperse) payments with signature constructors
+- **Staking** - Presale, public, and golden fisher staking (3 types)
+- **Name Service** - Username registration & marketplace (10 operations)
+- **P2P Swaps** - Peer-to-peer token exchange (4 operations)
 - **Treasury** - Deposit/withdrawal management
+- **Registry** - EVVM instance registration (2 operations)
+- **Faucet** - Testnet token distribution
+
+### 🎨 **23 Signature Constructor Components**
+Pre-built, reusable components for all EVVM operations:
+- **Payment Functions (2):** Pay, DispersePay
+- **Staking Functions (3):** Golden, Presale, Public
+- **NameService Functions (10):** Registration, Offers, Metadata, Renewal
+- **P2P Swap (4):** MakeOrder, CancelOrder, DispatchOrder (Fixed/Proportional)
+- **Registry (2):** RegisterEvvm, SetEvvmId
+- **Faucet (2):** FaucetFunctions, BalanceChecker
 
 ---
 
@@ -242,6 +253,15 @@ Scaffold-EVVM/
 │   │   │   ├── Navigation.tsx
 │   │   │   ├── NetworkBadge.tsx
 │   │   │   ├── EvvmInfo.tsx
+│   │   │   ├── SigConstructors/   # Signature constructor components (23)
+│   │   │   │   ├── PaymentFunctions/      # Pay, DispersePay (2)
+│   │   │   │   ├── StakingFunctions/      # Golden, Presale, Public (3)
+│   │   │   │   ├── NameServiceFunctions/  # 10 username operations
+│   │   │   │   ├── P2PSwap/               # 4 swap operations
+│   │   │   │   ├── EvvmRegistry/          # 2 registry operations
+│   │   │   │   ├── FaucetFunctions/       # 2 faucet operations
+│   │   │   │   ├── InputsAndModules/      # 13 reusable UI components
+│   │   │   │   └── index.ts               # Master export
 │   │   │   └── ...
 │   │   ├── hooks/               # Custom React hooks
 │   │   │   ├── useEvvmDeployment.ts
@@ -249,10 +269,20 @@ Scaffold-EVVM/
 │   │   │   └── ...
 │   │   ├── lib/                 # Core utilities
 │   │   │   ├── viemClients.ts  # viem client setup
-│   │   │   └── evvmConfig.ts   # EVVM configuration
+│   │   │   ├── evvmConfig.ts   # EVVM configuration
+│   │   │   └── evvmSignatures.ts # Centralized signature builders
 │   │   ├── config/              # Wagmi/network config
 │   │   │   └── index.ts
 │   │   ├── context/             # React context providers
+│   │   ├── utils/               # Utility functions
+│   │   │   ├── transactionExecuters/  # 4 executor modules
+│   │   │   │   ├── evvmExecuter.ts        # Payment execution
+│   │   │   │   ├── stakingExecuter.ts     # Staking execution
+│   │   │   │   ├── nameServiceExecuter.ts # NameService execution
+│   │   │   │   └── p2pSwapExecuter.ts     # P2P swap execution
+│   │   │   ├── getAccountWithRetry.ts
+│   │   │   ├── mersenneTwister.ts     # Random nonce generation
+│   │   │   └── ...
 │   │   ├── styles/              # CSS modules
 │   │   └── types/               # TypeScript types
 │   ├── next.config.mjs          # Next.js config (env exports)
@@ -815,11 +845,14 @@ Changes:
 
 - **Contracts:** 6 core contracts + libraries
 - **Frontend Pages:** 8 main pages
-- **Components:** 20+ reusable components
+- **Signature Constructors:** 23 pre-built components
+- **Components:** 40+ reusable components
+- **Input Modules:** 13 reusable UI components
+- **Transaction Executors:** 4 executor modules (27 functions)
 - **Hooks:** 10+ custom React hooks
 - **Documentation:** 50+ markdown files
 - **Tests:** Foundry test suite
-- **Lines of Code:** ~15,000+ (contracts + frontend)
+- **Lines of Code:** ~20,000+ (contracts + frontend + constructors)
 
 ### Development Metrics
 
@@ -832,23 +865,37 @@ Changes:
 
 ## 📝 Changelog
 
-### v1.0.0 (Latest)
+### v2.0.0 (Latest)
 
 **New Features:**
+- ✨ **23 Signature Constructor Components** - Pre-built UI for all EVVM operations
+- ✨ **Complete NameService Suite** - 10 operations (registration, offers, metadata)
+- ✨ **P2P Swap Constructors** - 4 operations (make, cancel, dispatch orders)
+- ✨ **Modular Architecture** - Reusable components with barrel exports
+- ✨ **13 Input Modules** - Address, number, date, priority, executor selectors
+- ✨ **4 Transaction Executors** - 27 total execution functions
 - ✨ Automated .env configuration after deployment
 - ✨ Blockchain-verified EVVM ID reading
 - ✨ One-command deployment with wizard
 - ✨ Automatic contract verification on explorers
 - ✨ Registry EVVM integration
-- ✨ Complete P2P Swap interface
 - ✨ Enhanced Debug Console
 - ✨ Network auto-switching
 
 **Improvements:**
+- 🚀 **100% feature parity** with EVVM-Signature-Constructor-Front
+- 🚀 **Centralized signature builders** in `lib/evvmSignatures.ts`
+- 🚀 **Type-safe executors** with @evvm/viem-signature-library types
+- 🚀 **Dual nonce system** - Sync (sequential) and Async (parallel)
+- 🚀 **Username resolution** - Pay to @username instead of addresses
+- 🚀 **Random nonce generation** - Mersenne Twister for security
 - 🚀 70% reduction in manual deployment steps (8 → 2)
 - 🚀 Zero configuration errors (all automated)
 - 🚀 Faster development workflow
 - 🚀 Better error messages
+
+**Breaking Changes:**
+- Executor imports moved from `@/utils/TransactionExecuter/*` to `@/utils/transactionExecuters/*`
 
 **See:** `helping docs/CHANGES.md` for detailed changelog.
 

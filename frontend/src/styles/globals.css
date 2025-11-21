@@ -116,6 +116,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
   color: var(--color-text);
   background: var(--color-bg-secondary);
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 code,
@@ -127,6 +134,8 @@ pre {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  position: relative;
 }
 
 .app-header {
@@ -159,6 +168,8 @@ pre {
   width: 100%;
   margin: 0 auto;
   padding: var(--spacing-xl);
+  overflow-y: visible;
+  position: relative;
 }
 
 .app-footer {
@@ -252,4 +263,12 @@ a:hover {
 
 .mt-2 {
   margin-top: var(--spacing-lg);
+}
+
+/* Hide automatically injected AppKit wallet buttons to avoid duplicates */
+w3m-button,
+appkit-button,
+w3m-modal,
+w3m-network-button {
+  display: none !important;
 }

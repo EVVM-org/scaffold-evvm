@@ -1,8 +1,9 @@
 import { cookieStorage, createStorage } from 'wagmi'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
+import { http } from 'viem'
 import {
-  sepolia,
-  arbitrumSepolia,
+  sepolia as defaultSepolia,
+  arbitrumSepolia as defaultArbitrumSepolia,
 } from '@reown/appkit/networks'
 import type { AppKitNetwork } from '@reown/appkit/networks'
 
@@ -12,6 +13,43 @@ export const projectId =
 
 if (!projectId) {
   throw new Error('Project ID is not defined')
+}
+
+// Custom Ethereum Sepolia configuration with multiple fast fallback RPCs
+// Based on performance testing: Tenderly (0.209s), DRPC (0.259s), Nodies (0.274s)
+const sepolia: AppKitNetwork = {
+  ...defaultSepolia,
+  rpcUrls: {
+    default: {
+      http: [
+        'https://gateway.tenderly.co/public/sepolia',      // Fastest (0.209s)
+        'https://sepolia.drpc.org',                         // Fast (0.259s)
+        'https://ethereum-sepolia-public.nodies.app',       // Fast (0.274s)
+        'https://0xrpc.io/sep',                             // Fast (0.288s)
+        'https://rpc.sepolia.ethpandaops.io',               // Official fallback
+        'https://ethereum-sepolia.gateway.tatum.io',        // Additional fallback
+        'https://1rpc.io/sepolia',                          // Final fallback
+      ],
+    },
+  },
+}
+
+// Custom Arbitrum Sepolia configuration with multiple fast fallback RPCs
+// Based on performance testing: Tenderly (0.170s), Official (0.217s)
+const arbitrumSepolia: AppKitNetwork = {
+  ...defaultArbitrumSepolia,
+  rpcUrls: {
+    default: {
+      http: [
+        'https://arbitrum-sepolia.gateway.tenderly.co',     // Fastest (0.170s)
+        'https://sepolia-rollup.arbitrum.io/rpc',           // Official (0.217s)
+        'https://arbitrum-sepolia.drpc.org',                // Fast fallback
+        'https://arbitrum-sepolia.api.onfinality.io/public', // Reliable fallback
+        'https://api.zan.top/arb-sepolia',                  // Additional fallback
+        'https://public.stackup.sh/api/v1/node/arbitrum-sepolia', // Final fallback
+      ],
+    },
+  },
 }
 
 export const networks = [
@@ -27,6 +65,16 @@ export const wagmiAdapter = new WagmiAdapter({
   ssr: true,
   projectId,
   networks,
+  transports: {
+    [sepolia.id]: http(undefined, {
+      retryCount: 5,
+      retryDelay: 1000,
+    }),
+    [arbitrumSepolia.id]: http(undefined, {
+      retryCount: 5,
+      retryDelay: 1000,
+    }),
+  },
 })
 
 export const config = wagmiAdapter.wagmiConfig

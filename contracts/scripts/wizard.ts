@@ -163,9 +163,27 @@ async function generateDeploymentSummary(testnetContractsPath: string): Promise<
     let networkName = 'Local Anvil';
 
     if (fs.existsSync(broadcastDir)) {
-      const chainDirs = fs.readdirSync(broadcastDir);
+      const chainDirs = fs.readdirSync(broadcastDir)
+        .filter(dir => !isNaN(parseInt(dir)))  // Only get chain ID directories
+        .sort((a, b) => parseInt(b) - parseInt(a));  // Sort by most recent
+
       if (chainDirs.length > 0) {
-        const latestChainDir = chainDirs[chainDirs.length - 1];
+        // Get the MOST RECENT chain directory (by timestamp in run-latest.json)
+        let latestChainDir = chainDirs[0];
+        let latestTimestamp = 0;
+
+        // Find the chain with the most recent deployment
+        for (const dir of chainDirs) {
+          const runLatestPath = path.join(broadcastDir, dir, 'run-latest.json');
+          if (fs.existsSync(runLatestPath)) {
+            const stat = fs.statSync(runLatestPath);
+            if (stat.mtimeMs > latestTimestamp) {
+              latestTimestamp = stat.mtimeMs;
+              latestChainDir = dir;
+            }
+          }
+        }
+
         chainId = parseInt(latestChainDir);
 
         // Map chain ID to network name

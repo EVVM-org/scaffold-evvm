@@ -6,6 +6,7 @@ import { usePublicClient } from "wagmi";
 import { getWalletClient } from "@wagmi/core";
 import { config } from "@/config";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
+import { getExplorerTxUrl } from "@/lib/evvmConfig";
 import { WalletConnect } from "@/components/WalletConnect";
 import { NetworkWarning } from "@/components/NetworkWarning";
 import {
@@ -475,17 +476,17 @@ export default function PaymentsPage() {
       )}
 
       {/* Transaction Hash Display */}
-      {txHash && (
+      {txHash && deployment && (
         <div style={{ padding: "1rem", background: "#d1fae5", borderRadius: "8px", marginBottom: "1rem" }}>
           <strong>Transaction submitted!</strong>
           <br />
           <a
-            href={`https://sepolia.etherscan.io/tx/${txHash}`}
+            href={getExplorerTxUrl(deployment.chainId, txHash)}
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "#059669", textDecoration: "underline" }}
           >
-            View on Etherscan
+            View on Explorer
           </a>
         </div>
       )}

@@ -16,35 +16,30 @@ import {
   PublicStakingInputData,
 } from "@evvm/viem-signature-library";
 
-/**
- * Executes golden staking transaction.
- * @param InputData GoldenStakingInputData containing staking details
- * @param stakingAddress Staking contract address
- * @returns Promise<void>
- */
 const executeGoldenStaking = async (
   InputData: GoldenStakingInputData,
   stakingAddress: `0x${string}`
-): Promise<void> => {
+) => {
   if (!InputData) {
-    throw new Error("No data to execute golden staking");
+    return Promise.reject("No data to execute payment");
   }
 
-  try {
-    await writeContract(config, {
-      abi: StakingABI,
-      address: stakingAddress,
-      functionName: "goldenStaking",
-      args: [
-        InputData.isStaking,
-        InputData.amountOfStaking,
-        InputData.signature_EVVM,
-      ],
+  writeContract(config, {
+    abi: StakingABI,
+    address: stakingAddress,
+    functionName: "goldenStaking",
+    args: [
+      InputData.isStaking,
+      InputData.amountOfStaking,
+      InputData.signature_EVVM,
+    ],
+  })
+    .then(() => {
+      return Promise.resolve();
+    })
+    .catch((error) => {
+      return Promise.reject(error);
     });
-  } catch (error) {
-    console.error("Golden staking execution failed:", error);
-    throw error;
-  }
 };
 
 /**

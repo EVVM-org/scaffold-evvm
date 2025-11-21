@@ -34,8 +34,8 @@ import {
   FlushUsernameInputData,
   MakeOrderInputData,
   CancelOrderInputData,
-  DispatchOrderFillProportionalFeeInputData,
-  DispatchOrderFillFixedFeeInputData,
+  // DispatchOrderFillProportionalFeeInputData, // Not exported in current library version
+  // DispatchOrderFillFixedFeeInputData, // Not exported in current library version
   hashPreRegisteredUsername,
 } from '@evvm/viem-signature-library';
 
@@ -179,7 +179,13 @@ export interface SignGoldenStakingParams {
 
 /**
  * Sign golden staking transaction
- * EXACT pattern from GoldenStakingComponent.tsx
+ *
+ * CRITICAL FIX: Uses EVVMSignatureBuilder.signPay() directly instead of
+ * StakingSignatureBuilder.signGoldenStaking() because the library's
+ * signGoldenStaking doesn't correctly handle the priorityFlag parameter.
+ *
+ * Golden staking ALWAYS uses sync mode (priorityFlag: false), as enforced
+ * by the Staking contract which calls getNextCurrentSyncNonce(msg.sender).
  */
 export async function signGoldenStaking(params: SignGoldenStakingParams): Promise<{
   goldenStakingData: GoldenStakingInputData;
@@ -194,17 +200,23 @@ export async function signGoldenStaking(params: SignGoldenStakingParams): Promis
     BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
   const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (StakingSignatureBuilder as any)(
+
+  // CRITICAL: Use EVVMSignatureBuilder directly, not StakingSignatureBuilder
+  const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
     walletClient,
     walletData
   );
 
-  const signaturePay = await signatureBuilder.signGoldenStaking(
-    BigInt(params.evvmID),
-    params.stakingAddress,
-    amountOfToken,
-    BigInt(params.nonce),
-    params.priority
+  // Create signature using signPay with explicit priorityFlag: false
+  const signaturePay = await evvmSignatureBuilder.signPay(
+    BigInt(params.evvmID),                     // evvmID
+    params.stakingAddress,                      // to (staking contract)
+    '0x0000000000000000000000000000000000000001' as `0x${string}`, // token (MATE)
+    amountOfToken,                             // amount
+    BigInt(0),                                 // priorityFee (always 0)
+    BigInt(params.nonce),                      // nonce (sync nonce)
+    false,                                     // priorityFlag (MUST be false)
+    params.stakingAddress                      // executor (staking contract)
   );
 
   return {
@@ -221,7 +233,7 @@ export async function signGoldenStaking(params: SignGoldenStakingParams): Promis
       amount: amountOfToken,
       priorityFee: BigInt(0),
       nonce: BigInt(params.nonce),
-      priority: params.priority,
+      priority: false, // Golden staking ALWAYS uses sync mode
       executor: params.stakingAddress,
       signature: signaturePay,
     },
@@ -574,7 +586,7 @@ export async function signMakeOffer(params: SignMakeOfferParams): Promise<{
     makeOfferData: {
       username: params.username,
       expireDate: BigInt(params.expireDate),
-      buyer: walletData.address as `0x${string}`,
+      // buyer: walletData.address as `0x${string}`, // Removed - not in library type definition
       amount: BigInt(params.amount),
       nonce: BigInt(params.nonceNameService),
       signature: actionSignature,
@@ -1224,6 +1236,12 @@ export async function signCancelOrder(
   };
 }
 
+/*
+ * COMMENTED OUT: These functions use types not exported in current @evvm/viem-signature-library version
+ * Uncomment when library is updated to export DispatchOrderFillProportionalFeeInputData and DispatchOrderFillFixedFeeInputData
+ */
+
+/*
 export interface SignDispatchOrderFillProportionalFeeParams {
   evvmID: string | number;
   p2pSwapAddress: `0x${string}`;
@@ -1399,3 +1417,4 @@ export async function signDispatchOrderFillFixedFee(
     },
   };
 }
+*/

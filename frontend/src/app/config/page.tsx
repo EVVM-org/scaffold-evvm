@@ -1,0 +1,352 @@
+'use client';
+
+import { useState } from 'react';
+import { createPublicClient, http } from 'viem';
+import { arbitrumSepolia, sepolia, baseSepolia } from 'viem/chains';
+import { EvvmABI, StakingABI } from '@evvm/viem-signature-library';
+import styles from '@/styles/pages/Config.module.css';
+
+// Supported chains for configuration
+const SUPPORTED_CHAINS = [
+  { id: 421614, name: 'Arbitrum Sepolia', chain: arbitrumSepolia },
+  { id: 11155111, name: 'Ethereum Sepolia', chain: sepolia },
+  { id: 84532, name: 'Base Sepolia', chain: baseSepolia },
+];
+
+interface FetchedContracts {
+  evvmID: bigint;
+  evvmName: string;
+  staking: string;
+  nameService: string;
+  estimator: string;
+  admin: string;
+  // Optional contracts
+  treasury?: string;
+  p2pSwap?: string;
+}
+
+export default function ConfigPage() {
+  const [evvmAddress, setEvvmAddress] = useState('');
+  const [chainId, setChainId] = useState('421614');
+  const [isFetching, setIsFetching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [fetchedContracts, setFetchedContracts] = useState<FetchedContracts | null>(null);
+
+  // Optional contract addresses (can be filled manually)
+  const [treasuryAddress, setTreasuryAddress] = useState('');
+  const [p2pSwapAddress, setP2pSwapAddress] = useState('');
+
+  const handleFetchContracts = async () => {
+    if (!evvmAddress || !chainId) {
+      setError('Please provide both EVVM address and chain ID');
+      return;
+    }
+
+    // Validate address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(evvmAddress)) {
+      setError('Invalid EVVM address format');
+      return;
+    }
+
+    setIsFetching(true);
+    setError(null);
+    setSuccess(null);
+    setFetchedContracts(null);
+
+    try {
+      // Find the chain configuration
+      const selectedChain = SUPPORTED_CHAINS.find((c) => c.id === parseInt(chainId));
+      if (!selectedChain) {
+        throw new Error(`Unsupported chain ID: ${chainId}`);
+      }
+
+      console.log('🔍 Fetching contracts for EVVM:', evvmAddress);
+      console.log('  Chain:', selectedChain.name, `(${chainId})`);
+
+      // Create public client for the selected chain
+      const publicClient = createPublicClient({
+        chain: selectedChain.chain,
+        transport: http(),
+      });
+
+      // Fetch from EVVM contract
+      console.log('  Fetching EVVM ID...');
+      const evvmID = await publicClient.readContract({
+        address: evvmAddress as `0x${string}`,
+        abi: EvvmABI,
+        functionName: 'getEvvmID',
+      });
+
+      console.log('  Fetching EVVM metadata...');
+      const evvmMetadata = await publicClient.readContract({
+        address: evvmAddress as `0x${string}`,
+        abi: EvvmABI,
+        functionName: 'getEvvmMetadata',
+      });
+
+      console.log('  Fetching staking address...');
+      const stakingAddress = await publicClient.readContract({
+        address: evvmAddress as `0x${string}`,
+        abi: EvvmABI,
+        functionName: 'getStakingContractAddress',
+      });
+
+      console.log('  Fetching name service address...');
+      const nameServiceAddress = await publicClient.readContract({
+        address: evvmAddress as `0x${string}`,
+        abi: EvvmABI,
+        functionName: 'getNameServiceAddress',
+      });
+
+      console.log('  Fetching current admin...');
+      const adminAddress = await publicClient.readContract({
+        address: evvmAddress as `0x${string}`,
+        abi: EvvmABI,
+        functionName: 'getCurrentAdmin',
+      });
+
+      // Fetch from Staking contract
+      console.log('  Fetching estimator address from staking...');
+      const estimatorAddress = await publicClient.readContract({
+        address: stakingAddress as `0x${string}`,
+        abi: StakingABI,
+        functionName: 'getEstimatorAddress',
+      });
+
+      const contracts: FetchedContracts = {
+        evvmID: evvmID as bigint,
+        evvmName: (evvmMetadata as any)[0] as string,
+        staking: stakingAddress as string,
+        nameService: nameServiceAddress as string,
+        estimator: estimatorAddress as string,
+        admin: adminAddress as string,
+      };
+
+      console.log('✅ Successfully fetched contracts:');
+      console.log('  EVVM ID:', contracts.evvmID.toString());
+      console.log('  EVVM Name:', contracts.evvmName);
+      console.log('  Staking:', contracts.staking);
+      console.log('  NameService:', contracts.nameService);
+      console.log('  Estimator:', contracts.estimator);
+      console.log('  Admin:', contracts.admin);
+
+      setFetchedContracts(contracts);
+      setSuccess('Successfully fetched contract addresses!');
+    } catch (err: any) {
+      console.error('Error fetching contracts:', err);
+      setError(err.message || 'Failed to fetch contracts');
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const handleSaveConfiguration = async () => {
+    if (!fetchedContracts) {
+      setError('Please fetch contracts first');
+      return;
+    }
+
+    try {
+      const selectedChain = SUPPORTED_CHAINS.find((c) => c.id === parseInt(chainId));
+
+      const deploymentConfig = {
+        chainId: parseInt(chainId),
+        networkName: selectedChain?.name || 'Unknown Network',
+        evvm: evvmAddress.toLowerCase(),
+        nameService: fetchedContracts.nameService.toLowerCase(),
+        staking: fetchedContracts.staking.toLowerCase(),
+        estimator: fetchedContracts.estimator.toLowerCase(),
+        treasury: treasuryAddress.toLowerCase() || '0x0000000000000000000000000000000000000000',
+        p2pSwap: p2pSwapAddress.toLowerCase() || '0x0000000000000000000000000000000000000000',
+        evvmID: Number(fetchedContracts.evvmID),
+        evvmName: fetchedContracts.evvmName,
+        registry: '0x389dC8fb09211bbDA841D59f4a51160dA2377832', // Default registry
+        admin: fetchedContracts.admin.toLowerCase(),
+        goldenFisher: fetchedContracts.admin.toLowerCase(),
+        activator: fetchedContracts.admin.toLowerCase(),
+      };
+
+      // Save to API endpoint
+      const response = await fetch('/api/update-deployment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(deploymentConfig),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save configuration');
+      }
+
+      setSuccess('Configuration saved successfully! Please restart your development server.');
+    } catch (err: any) {
+      console.error('Error saving configuration:', err);
+      setError(err.message || 'Failed to save configuration');
+    }
+  };
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1>⚙️ EVVM Configuration</h1>
+        <p>Connect to an existing EVVM deployment by providing the core contract address</p>
+      </div>
+
+      <div className={styles.formCard}>
+        <h2>Input Configuration</h2>
+
+        <div className={styles.formGroup}>
+          <label htmlFor="evvmAddress">EVVM Core Contract Address</label>
+          <input
+            id="evvmAddress"
+            type="text"
+            placeholder="0x..."
+            value={evvmAddress}
+            onChange={(e) => setEvvmAddress(e.target.value)}
+            className={styles.input}
+          />
+          <div className={styles.helper}>
+            <small>The main EVVM contract address on the target chain</small>
+          </div>
+        </div>
+
+        <div className={styles.formGroup}>
+          <label htmlFor="chainId">Chain ID</label>
+          <select
+            id="chainId"
+            value={chainId}
+            onChange={(e) => setChainId(e.target.value)}
+            className={styles.select}
+          >
+            {SUPPORTED_CHAINS.map((chain) => (
+              <option key={chain.id} value={chain.id}>
+                {chain.name} ({chain.id})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          onClick={handleFetchContracts}
+          disabled={isFetching || !evvmAddress}
+          className={styles.fetchButton}
+        >
+          {isFetching ? '⏳ Fetching...' : '🔍 Fetch Contracts'}
+        </button>
+
+        {error && (
+          <div className={styles.error}>
+            <p>❌ {error}</p>
+          </div>
+        )}
+
+        {success && (
+          <div className={styles.success}>
+            <p>✅ {success}</p>
+          </div>
+        )}
+      </div>
+
+      {fetchedContracts && (
+        <>
+          <div className={styles.resultsCard}>
+            <h2>Fetched Contracts</h2>
+
+            <div className={styles.contractsList}>
+              <div className={styles.contractItem}>
+                <strong>EVVM ID:</strong>
+                <code>{fetchedContracts.evvmID.toString()}</code>
+              </div>
+
+              <div className={styles.contractItem}>
+                <strong>EVVM Name:</strong>
+                <code>{fetchedContracts.evvmName}</code>
+              </div>
+
+              <div className={styles.contractItem}>
+                <strong>Core (EVVM):</strong>
+                <code>{evvmAddress}</code>
+              </div>
+
+              <div className={styles.contractItem}>
+                <strong>Staking:</strong>
+                <code>{fetchedContracts.staking}</code>
+              </div>
+
+              <div className={styles.contractItem}>
+                <strong>Name Service:</strong>
+                <code>{fetchedContracts.nameService}</code>
+              </div>
+
+              <div className={styles.contractItem}>
+                <strong>Estimator:</strong>
+                <code>{fetchedContracts.estimator}</code>
+              </div>
+
+              <div className={styles.contractItem}>
+                <strong>Admin:</strong>
+                <code>{fetchedContracts.admin}</code>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.formCard}>
+            <h2>Optional Contracts</h2>
+            <p className={styles.helper}>
+              Treasury and P2P Swap addresses cannot be fetched automatically. Provide them manually if needed.
+            </p>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="treasury">Treasury Address (Optional)</label>
+              <input
+                id="treasury"
+                type="text"
+                placeholder="0x... (optional)"
+                value={treasuryAddress}
+                onChange={(e) => setTreasuryAddress(e.target.value)}
+                className={styles.input}
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="p2pSwap">P2P Swap Address (Optional)</label>
+              <input
+                id="p2pSwap"
+                type="text"
+                placeholder="0x... (optional)"
+                value={p2pSwapAddress}
+                onChange={(e) => setP2pSwapAddress(e.target.value)}
+                className={styles.input}
+              />
+            </div>
+
+            <button onClick={handleSaveConfiguration} className={styles.saveButton}>
+              💾 Save Configuration
+            </button>
+          </div>
+        </>
+      )}
+
+      <div className={styles.infoCard}>
+        <h3>ℹ️ How It Works</h3>
+        <ul>
+          <li>
+            <strong>Automatic Fetching:</strong> The tool queries the EVVM and Staking contracts to fetch related
+            addresses
+          </li>
+          <li>
+            <strong>No Deployment Needed:</strong> Connect to existing deployments without running deployment scripts
+          </li>
+          <li>
+            <strong>Chain Support:</strong> Works with Arbitrum Sepolia, Ethereum Sepolia, and Base Sepolia
+          </li>
+          <li>
+            <strong>Optional Contracts:</strong> Treasury and P2P Swap must be provided manually if needed
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
+}

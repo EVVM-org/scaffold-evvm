@@ -6,11 +6,97 @@ import { writeContract, waitForTransactionReceipt } from '@wagmi/core';
 import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import { EvvmABI } from '@evvm/viem-signature-library';
+import { getExplorerTxUrl } from '@/lib/evvmConfig';
 import styles from '@/styles/pages/Faucet.module.css';
 
 // Common token addresses in EVVM
 const MATE_TOKEN = '0x0000000000000000000000000000000000000001';
 const ETH_TOKEN = '0x0000000000000000000000000000000000000000';
+
+/**
+ * Converts a token amount string to BigInt with specified decimals
+ * Avoids floating-point precision issues by using string manipulation
+ *
+ * @param amount - The amount as a string (e.g., "1000", "1000.5", "0.123")
+ * @param decimals - Number of decimals (usually 18 for ERC20)
+ * @returns BigInt representation in wei
+ * @throws Error if amount is invalid
+ *
+ * @example
+ * parseTokenAmount("1000", 18)  // Returns: 1000000000000000000000n
+ * parseTokenAmount("5083", 18)  // Returns: 5083000000000000000000n (1 Golden Fisher)
+ * parseTokenAmount("0.5", 18)   // Returns: 500000000000000000n
+ * parseTokenAmount("1000.123456789012345678", 18) // Returns: 1000123456789012345678n
+ */
+function parseTokenAmount(amount: string, decimals: number): bigint {
+  // Remove any whitespace and commas
+  const cleanAmount = amount.trim().replace(/,/g, '');
+
+  // Validate input
+  if (!cleanAmount || cleanAmount === '.' || !/^[0-9.]+$/.test(cleanAmount)) {
+    throw new Error('Invalid amount format');
+  }
+
+  // Split on decimal point
+  const parts = cleanAmount.split('.');
+
+  // Ensure only one decimal point
+  if (parts.length > 2) {
+    throw new Error('Invalid amount: multiple decimal points');
+  }
+
+  const [whole = '0', fraction = ''] = parts;
+
+  // Handle empty whole part (e.g., ".5" -> "0.5")
+  const wholePart = whole || '0';
+
+  // Pad or truncate the fractional part to match decimals
+  const paddedFraction = fraction.padEnd(decimals, '0').slice(0, decimals);
+
+  // Combine whole and fractional parts
+  const combined = wholePart + paddedFraction;
+
+  // Remove leading zeros (except if the number is just "0")
+  const trimmed = combined.replace(/^0+/, '') || '0';
+
+  // Convert to BigInt
+  return BigInt(trimmed);
+}
+
+// Self-test function to verify parseTokenAmount is working correctly
+// Run this in development to ensure accuracy
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  const testCases = [
+    { input: '1000', expected: '1000000000000000000000' },
+    { input: '5083', expected: '5083000000000000000000' },
+    { input: '0.5', expected: '500000000000000000' },
+    { input: '0.000000000000000001', expected: '1' },
+    { input: '10000.123', expected: '10000123000000000000000' },
+  ];
+
+  console.log('🧪 Testing parseTokenAmount function...');
+  let allPassed = true;
+  testCases.forEach(({ input, expected }) => {
+    try {
+      const result = parseTokenAmount(input, 18);
+      const passed = result.toString() === expected;
+      if (!passed) {
+        console.error(`❌ FAILED: ${input} -> Expected ${expected}, got ${result.toString()}`);
+        allPassed = false;
+      } else {
+        console.log(`✅ PASSED: ${input} -> ${result.toString()}`);
+      }
+    } catch (e: any) {
+      console.error(`❌ ERROR: ${input} -> ${e.message}`);
+      allPassed = false;
+    }
+  });
+  if (allPassed) {
+    console.log('✅ All parseTokenAmount tests passed!');
+  } else {
+    console.error('❌ Some parseTokenAmount tests failed!');
+  }
+}
 
 export default function FaucetPage() {
   const { deployment, loading: deploymentLoading, error: deploymentError } = useEvvmDeployment();
@@ -36,7 +122,20 @@ export default function FaucetPage() {
     }
 
     if (!amount || parseFloat(amount) <= 0) {
-      setError('Please enter a valid amount');
+      setError('Please enter a valid amount greater than 0');
+      return;
+    }
+
+    // Validate amount is a valid number
+    if (isNaN(parseFloat(amount))) {
+      setError('Please enter a valid number');
+      return;
+    }
+
+    // Validate amount doesn't have too many decimals
+    const decimalPart = amount.split('.')[1];
+    if (decimalPart && decimalPart.length > 18) {
+      setError('Maximum 18 decimal places allowed');
       return;
     }
 
@@ -46,8 +145,35 @@ export default function FaucetPage() {
     setTxHash(null);
 
     try {
-      // Convert amount to BigInt (assuming 18 decimals)
-      const amountInWei = BigInt(parseFloat(amount) * 10 ** 18);
+      // Convert amount to BigInt properly (avoiding floating-point precision issues)
+      let amountInWei: bigint;
+      try {
+        amountInWei = parseTokenAmount(amount, 18);
+      } catch (conversionError: any) {
+        setError(`Invalid amount: ${conversionError.message}`);
+        setIsExecuting(false);
+        return;
+      }
+
+      // Verify the conversion is correct (for safety)
+      const verificationAmount = Number(amountInWei) / 1e18;
+      const expectedAmount = parseFloat(amount);
+      if (Math.abs(verificationAmount - expectedAmount) > 0.000001) {
+        console.warn('⚠️ Amount conversion mismatch detected');
+        console.warn('  Expected:', expectedAmount);
+        console.warn('  Got:', verificationAmount);
+        setError('Amount conversion error detected. Please check your input.');
+        setIsExecuting(false);
+        return;
+      }
+
+      console.log('🚰 Faucet Claim Details:');
+      console.log('  Recipient:', recipient);
+      console.log('  Token:', tokenAddress === MATE_TOKEN ? 'MATE' : 'ETH');
+      console.log('  Amount (input):', amount);
+      console.log('  Amount (wei):', amountInWei.toString());
+      console.log('  Amount (verified):', verificationAmount.toLocaleString(), 'tokens');
+      console.log('  ✅ Conversion verified successfully');
 
       // Call addBalance function on EVVM contract
       const hash = await writeContract(config, {
@@ -58,11 +184,14 @@ export default function FaucetPage() {
       });
 
       setTxHash(hash);
+      console.log('  Transaction Hash:', hash);
 
       // Wait for confirmation
       await waitForTransactionReceipt(config, { hash });
 
-      setSuccess(`Successfully sent ${amount} tokens to ${recipient}`);
+      const tokenName = tokenAddress === MATE_TOKEN ? 'MATE' : 'ETH';
+      const formattedAmount = parseFloat(amount).toLocaleString();
+      setSuccess(`Successfully sent ${formattedAmount} ${tokenName} to ${recipient.substring(0, 6)}...${recipient.substring(38)}`);
       // Reset form
       setRecipient('');
       setAmount('1000');
@@ -124,7 +253,7 @@ export default function FaucetPage() {
         </div>
       )}
 
-      {isConnected && address !== deployment.admin && (
+      {isConnected && address?.toLowerCase() !== deployment.admin.toLowerCase() && (
         <div className={styles.warning}>
           <p>⚠️ You are not the admin. Only the admin can use the faucet.</p>
           <p><strong>Admin:</strong> {deployment.admin}</p>
@@ -188,18 +317,32 @@ export default function FaucetPage() {
             onChange={(e) => setAmount(e.target.value)}
             className={styles.input}
             step="0.01"
+            min="0"
           />
           <div className={styles.quickAmounts}>
-            <button onClick={() => setAmount('100')}>100</button>
             <button onClick={() => setAmount('1000')}>1,000</button>
+            <button onClick={() => setAmount('5083')}>5,083 (1 Fisher)</button>
             <button onClick={() => setAmount('10000')}>10,000</button>
-            <button onClick={() => setAmount('100000')}>100,000</button>
+            <button onClick={() => setAmount('50000')}>50,000</button>
+          </div>
+          {amount && parseFloat(amount) > 0 && !isNaN(parseFloat(amount)) && (
+            <div className={styles.helper}>
+              <small>
+                📊 <strong>Will claim:</strong> {parseFloat(amount).toLocaleString()} {tokenAddress === MATE_TOKEN ? 'MATE' : 'ETH'} tokens
+                {parseFloat(amount) >= 5083 && tokenAddress === MATE_TOKEN && (
+                  <span> ({Math.floor(parseFloat(amount) / 5083)} Golden Fisher{Math.floor(parseFloat(amount) / 5083) > 1 ? 's' : ''})</span>
+                )}
+              </small>
+            </div>
+          )}
+          <div className={styles.helper}>
+            <small>💡 Tip: 5,083 MATE = 1 Golden Fisher staking requirement</small>
           </div>
         </div>
 
         <button
           onClick={handleClaimTokens}
-          disabled={!isConnected || isExecuting || address !== deployment.admin}
+          disabled={!isConnected || isExecuting || address?.toLowerCase() !== deployment.admin.toLowerCase()}
           className={styles.claimButton}
         >
           {isExecuting ? '⏳ Claiming...' : '🚰 Claim Tokens'}
@@ -214,10 +357,10 @@ export default function FaucetPage() {
         {success && (
           <div className={styles.success}>
             <p>✅ {success}</p>
-            {txHash && (
+            {txHash && deployment && (
               <p>
                 <a
-                  href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                  href={getExplorerTxUrl(deployment.chainId, txHash)}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

@@ -166,11 +166,13 @@ export function EvvmInfo() {
               address={deployment.evvm}
               chainId={deployment.chainId}
             />
-            <AddressDisplay
-              label="Registry"
-              address={deployment.registry}
-              chainId={deployment.chainId}
-            />
+            {deployment.registry && (
+              <AddressDisplay
+                label="Registry"
+                address={deployment.registry}
+                chainId={deployment.chainId}
+              />
+            )}
             <AddressDisplay
               label="Name Service"
               address={deployment.nameService}
@@ -181,11 +183,13 @@ export function EvvmInfo() {
               address={deployment.staking}
               chainId={deployment.chainId}
             />
-            <AddressDisplay
-              label="P2P Swap"
-              address={deployment.p2pSwap}
-              chainId={deployment.chainId}
-            />
+            {deployment.p2pSwap && (
+              <AddressDisplay
+                label="P2P Swap"
+                address={deployment.p2pSwap}
+                chainId={deployment.chainId}
+              />
+            )}
           </div>
         </div>
 
@@ -207,26 +211,34 @@ export function EvvmInfo() {
         </div>
 
         {/* Administrative Addresses */}
-        <div className={styles.section}>
-          <h3 className={styles.sectionTitle}>Administrative</h3>
-          <div className={styles.addressList}>
-            <AddressDisplay
-              label="Admin"
-              address={deployment.admin}
-              chainId={deployment.chainId}
-            />
-            <AddressDisplay
-              label="Golden Fisher"
-              address={deployment.goldenFisher}
-              chainId={deployment.chainId}
-            />
-            <AddressDisplay
-              label="Activator"
-              address={deployment.activator}
-              chainId={deployment.chainId}
-            />
+        {(deployment.admin || deployment.goldenFisher || deployment.activator) && (
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle}>Administrative</h3>
+            <div className={styles.addressList}>
+              {deployment.admin && (
+                <AddressDisplay
+                  label="Admin"
+                  address={deployment.admin}
+                  chainId={deployment.chainId}
+                />
+              )}
+              {deployment.goldenFisher && (
+                <AddressDisplay
+                  label="Golden Fisher"
+                  address={deployment.goldenFisher}
+                  chainId={deployment.chainId}
+                />
+              )}
+              {deployment.activator && (
+                <AddressDisplay
+                  label="Activator"
+                  address={deployment.activator}
+                  chainId={deployment.chainId}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

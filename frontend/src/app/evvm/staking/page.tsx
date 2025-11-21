@@ -7,11 +7,11 @@ import { usePublicClient } from "wagmi";
 import {
   TitleAndLink,
   NumberInputWithGenerator,
-  PrioritySelector,
   DataDisplayWithClear,
   HelperInfo,
   NumberInputField,
   StakingActionSelector,
+  PrioritySelector,
 } from "@/components/SigConstructors/InputsAndModules";
 import {
   executeGoldenStaking,
@@ -171,7 +171,7 @@ function GoldenStakingComponent({
   stakingAddress: `0x${string}`;
 }) {
   const [isStaking, setIsStaking] = useState(true);
-  const [priority, setPriority] = useState("low"); // User can choose sync or async!
+  const [priority, setPriority] = useState("low");
   const [dataToGet, setDataToGet] = useState<GoldenStakingData | null>(null);
   const [evvmBalance, setEvvmBalance] = useState<string | null>(null);
   const [currentNonce, setCurrentNonce] = useState<string | null>(null);
@@ -193,7 +193,21 @@ function GoldenStakingComponent({
         // Read EVVM balance (MATE token)
         const mateToken = "0x0000000000000000000000000000000000000001" as `0x${string}`;
         const balance = await readBalance(publicClient, deployment.evvm as `0x${string}`, walletData.address as `0x${string}`, mateToken);
-        setEvvmBalance((Number(balance) / 1e18).toFixed(2));
+
+        console.log("📊 Balance Debug Info:");
+        console.log("  Raw balance (wei):", balance.toString());
+        console.log("  Balance > MAX_SAFE_INTEGER?", balance > BigInt(Number.MAX_SAFE_INTEGER));
+
+        // Convert BigInt to string safely without Number overflow
+        // Divide by 10^18 using BigInt arithmetic
+        const balanceInMate = balance / BigInt(10 ** 18);
+        const remainder = balance % BigInt(10 ** 18);
+        const decimals = remainder.toString().padStart(18, '0').slice(0, 2);
+        const formattedBalance = `${balanceInMate}.${decimals}`;
+
+        console.log("  Formatted balance:", formattedBalance, "MATE");
+
+        setEvvmBalance(formattedBalance);
 
         // Read next nonce
         const nonce = await readNextNonce(publicClient, deployment.evvm as `0x${string}`, walletData.address as `0x${string}`);
@@ -229,38 +243,11 @@ function GoldenStakingComponent({
     }
 
     const amountOfToken = BigInt(formData.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
-    const requiredMate = Number(amountOfToken) / 1e18;
 
-    // Check EVVM balance
-    if (evvmBalance && Number(evvmBalance) < requiredMate) {
-      const shortage = requiredMate - Number(evvmBalance);
-      alert(
-        `❌ Insufficient EVVM Balance!\n\n` +
-        `You need ${requiredMate.toLocaleString()} MATE tokens to stake ${formData.amountOfStaking} Golden Fisher(s).\n\n` +
-        `Your current EVVM balance: ${Number(evvmBalance).toLocaleString()} MATE\n` +
-        `Shortage: ${shortage.toLocaleString()} MATE\n\n` +
-        `Please deposit more MATE to your EVVM account first.`
-      );
-      return;
-    }
-
+    // Sign and set data
     try {
       const walletClient = await getWalletClient(config);
       const signatureBuilder = new (StakingSignatureBuilder as any)(walletClient, walletData);
-
-      console.log("=".repeat(60));
-      console.log("🔍 GOLDEN STAKING SIGNATURE CREATION");
-      console.log("=".repeat(60));
-      console.log("  EVVM ID:", formData.evvmID);
-      console.log("  Staking Address:", formData.stakingAddress);
-      console.log("  Amount of Fishers:", formData.amountOfStaking);
-      console.log("  Amount of MATE:", amountOfToken.toString(), "wei =", requiredMate.toLocaleString(), "MATE");
-      console.log("  Nonce (auto-fetched):", formData.nonce);
-      console.log("  Priority:", priority, "→ priorityFlag:", priority === "high");
-      console.log("");
-      console.log("📝 Signature Message Format:");
-      console.log(`  ${formData.evvmID},pay,${formData.stakingAddress.toLowerCase()},0x0000000000000000000000000000000000000001,${amountOfToken.toString()},0,${formData.nonce},${priority === "high" ? "true" : "false"},${formData.stakingAddress.toLowerCase()}`);
-      console.log("");
 
       const signaturePay = await signatureBuilder.signGoldenStaking(
         BigInt(formData.evvmID),
@@ -269,13 +256,6 @@ function GoldenStakingComponent({
         BigInt(formData.nonce),
         priority === "high"
       );
-
-      console.log("✅ Signature created:", signaturePay);
-      console.log("=".repeat(60));
-      console.log("");
-      console.log("⏭️  NEXT STEP: Click 'Execute' button");
-      console.log("💡 TIP: Async nonces don't require immediate execution");
-      console.log("");
 
       setDataToGet({
         PayInputData: {
@@ -295,7 +275,7 @@ function GoldenStakingComponent({
           amountOfStaking: BigInt(formData.amountOfStaking),
           signature_EVVM: signaturePay,
         },
-      });
+      } as GoldenStakingData);
     } catch (error) {
       console.error("Error creating signature:", error);
     }
@@ -303,107 +283,18 @@ function GoldenStakingComponent({
 
   const execute = async () => {
     if (!dataToGet) {
-      alert("No data to execute. Please create a signature first.");
+      console.error("No data to execute payment");
       return;
     }
-
-    const numberOfFishers = dataToGet.GoldenStakingInputData.amountOfStaking;
-    const totalMate = dataToGet.PayInputData.amount / BigInt(10) ** BigInt(18);
-
-    // Only verify nonce for SYNC transactions
-    if (dataToGet.PayInputData.priority === false) {
-      console.log("🔍 Verifying sync nonce hasn't changed...");
-      try {
-        if (!publicClient) {
-          alert("Public client not available. Please refresh the page.");
-          return;
-        }
-        const { deployment } = await import("@/lib/evvmConfig").then(m => m.loadDeployments().then(d => ({ deployment: d[0] })));
-        if (!deployment || !account) {
-          alert("Deployment or account not found.");
-          return;
-        }
-        const currentNonceNow = await readNextNonce(publicClient, deployment.evvm as `0x${string}`, account);
-        const nonceInSignature = dataToGet.PayInputData.nonce;
-
-        console.log("  Nonce used in signature:", nonceInSignature.toString());
-        console.log("  Current sync nonce from contract:", currentNonceNow.toString());
-
-        if (currentNonceNow !== nonceInSignature) {
-          console.error("❌ NONCE MISMATCH! Signature is now INVALID!");
-          const proceed = confirm(
-            `⚠️ WARNING: Nonce Mismatch!\n\n` +
-            `Signature nonce: ${nonceInSignature.toString()}\n` +
-            `Current nonce: ${currentNonceNow.toString()}\n\n` +
-            `This signature may fail. Do you want to proceed anyway?`
-          );
-          if (!proceed) return;
-        } else {
-          console.log("  ✅ Sync nonce verification passed!");
-        }
-      } catch (error) {
-        console.error("Failed to verify nonce:", error);
-      }
-    } else {
-      console.log("🔄 Using ASYNC nonce - no verification needed");
-    }
-
-    // CRITICAL: Final EVVM balance check before execution
-    console.log("🔍 Final pre-flight checks...");
-    if (evvmBalance) {
-      const currentBalance = Number(evvmBalance);
-      const requiredMate = Number(totalMate);
-      console.log("  Current EVVM balance:", currentBalance, "MATE");
-      console.log("  Required for transaction:", requiredMate, "MATE");
-
-      if (currentBalance < requiredMate) {
-        const shortage = requiredMate - currentBalance;
-        alert(
-          `❌ CRITICAL: Insufficient EVVM Balance!\n\n` +
-          `This transaction WILL FAIL because you don't have enough MATE in your EVVM account.\n\n` +
-          `Required: ${requiredMate.toLocaleString()} MATE\n` +
-          `Your EVVM balance: ${currentBalance.toLocaleString()} MATE\n` +
-          `Shortage: ${shortage.toLocaleString()} MATE\n\n` +
-          `ACTION NEEDED:\n` +
-          `1. Go to the Payments page\n` +
-          `2. Send ${shortage.toLocaleString()} MATE to yourself to deposit into EVVM\n` +
-          `3. Then return here to stake\n\n` +
-          `Note: Your wallet balance and EVVM balance are DIFFERENT!\n` +
-          `You must deposit MATE to EVVM before staking.`
-        );
-        console.error("❌ Execution blocked: Insufficient EVVM balance");
-        return;
-      }
-      console.log("  ✅ EVVM balance sufficient");
-    }
-
-    const confirmation = confirm(
-      `You are about to ${isStaking ? "stake" : "unstake"} ${numberOfFishers} Golden Fisher(s).\n\n` +
-      `Total MATE tokens: ${totalMate.toLocaleString()}\n` +
-      `Your EVVM balance: ${evvmBalance ? Number(evvmBalance).toLocaleString() : "Unknown"} MATE\n\n` +
-      `Are you sure you want to proceed?`
-    );
-
-    if (!confirmation) {
-      console.log("Golden staking cancelled by user");
-      return;
-    }
-
     const stakingAddress = dataToGet.PayInputData.to_address;
 
-    try {
-      console.log("🚀 Executing golden staking transaction...");
-      await executeGoldenStaking(dataToGet.GoldenStakingInputData, stakingAddress);
-      console.log("✅ Golden staking executed successfully!");
-      alert(`✅ Golden staking ${isStaking ? "stake" : "unstake"} successful!`);
-      setDataToGet(null);
-      // Clear form
-      const input = document.getElementById("amountOfStakingInput_GoldenStaking") as HTMLInputElement;
-      if (input) input.value = "";
-    } catch (error: any) {
-      console.error("❌ Error executing golden staking:", error);
-      alert(`❌ Golden staking failed: ${error.message || "Unknown error"}\n\nCheck console for details.`);
-    }
+    executeGoldenStaking(dataToGet.GoldenStakingInputData, stakingAddress)
+      .then(() => {
+        console.log("Golden staking executed successfully");
+      })
+      .catch((error) => {
+        console.error("Error executing golden staking:", error);
+      });
   };
 
   return (
@@ -445,10 +336,10 @@ function GoldenStakingComponent({
               <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "0.25rem" }}>
                 EVVM Balance (MATE)
               </div>
-              <div style={{ fontSize: "1.25rem", fontWeight: "700", color: evvmBalance && Number(evvmBalance) < 5083 ? "#ef4444" : "#10b981" }}>
-                {evvmBalance ? Number(evvmBalance).toLocaleString() : "Loading..."}
+              <div style={{ fontSize: "1.25rem", fontWeight: "700", color: evvmBalance && parseFloat(evvmBalance) < 5083 ? "#ef4444" : "#10b981" }}>
+                {evvmBalance ? parseFloat(evvmBalance).toLocaleString() : "Loading..."}
               </div>
-              {evvmBalance && Number(evvmBalance) < 5083 && (
+              {evvmBalance && parseFloat(evvmBalance) < 5083 && (
                 <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "0.25rem" }}>
                   ⚠️ Insufficient for 1 fisher
                 </div>
@@ -472,53 +363,30 @@ function GoldenStakingComponent({
       <StakingActionSelector onChange={setIsStaking} />
 
       <NumberInputField
-        label={isStaking ? "Number of Golden Fishers to Stake" : "Number of Golden Fishers to Unstake"}
+        label={isStaking ? "Amount of MATE to stake" : "Amount of MATE to unstake (sMATE)"}
         inputId="amountOfStakingInput_GoldenStaking"
-        placeholder="Enter number of fishers (e.g., 1)"
+        placeholder="Enter amount"
       />
 
-      <p style={{
-        margin: "0.5rem 0 1rem 0",
-        fontSize: "0.85rem",
-        color: "var(--color-text-secondary)"
-      }}>
-        💡 If you enter <strong>1</strong>, you will stake <strong>5,083 MATE</strong>.
-        If you enter <strong>2</strong>, you will stake <strong>10,166 MATE</strong>.
-      </p>
-
-      {/* Priority Selector */}
       <PrioritySelector onPriorityChange={setPriority} />
 
-      {/* Nonce Input */}
       <NumberInputWithGenerator
-        label={priority === "low" ? "Sync Nonce" : "Async Nonce"}
+        label="Nonce"
         inputId="nonceInput_GoldenStaking"
-        placeholder={priority === "low" ? `Use current: ${currentNonce || "..."}` : "Enter any unused nonce"}
+        placeholder="Enter nonce"
         showRandomBtn={priority !== "low"}
       />
 
-      <HelperInfo label="How to choose nonces?">
-        <div>
-          <strong>Sync Nonces (Low Priority):</strong>
-          <br />
-          - Must use the EXACT current sync nonce: <strong>{currentNonce || "..."}</strong>
-          <br />
-          - Execute IMMEDIATELY after signing
-          <br />
-          - Do NOT make other transactions in between
-          <br />
-          <br />
-          <strong>Async Nonces (High Priority):</strong>
-          <br />
-          - Can use ANY unused random number
-          <br />
-          - No rush to execute
-          <br />
-          - Multiple signatures can be created in parallel
-          <br />
-          - Use the "Generate Random" button for a safe random nonce
-        </div>
-      </HelperInfo>
+      <div>
+        {priority === "low" && (
+          <HelperInfo label="How to find my sync nonce?">
+            <div>
+              You can retrieve your next sync nonce from the EVVM contract using
+              the <code>getNextCurrentSyncNonce</code> function.
+            </div>
+          </HelperInfo>
+        )}
+      </div>
 
       <button onClick={makeSig} className={styles.submitButton} style={{ marginTop: "1rem" }}>
         Create signature

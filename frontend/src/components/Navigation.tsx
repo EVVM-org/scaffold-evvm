@@ -11,6 +11,7 @@ export function Navigation() {
 
   const navItems = [
     { href: '/', label: 'Home' },
+    { href: '/config', label: 'Config' },
     { href: '/faucet', label: 'Faucet' },
     { href: '/evvm/register', label: 'Register EVVM' },
     { href: '/evvm/status', label: 'Status' },

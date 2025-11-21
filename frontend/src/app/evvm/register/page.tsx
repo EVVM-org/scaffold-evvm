@@ -6,6 +6,7 @@ import { writeContract, waitForTransactionReceipt, readContract } from '@wagmi/c
 import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import { EvvmABI } from '@evvm/viem-signature-library';
+import { getExplorerTxUrl } from '@/lib/evvmConfig';
 import styles from '@/styles/pages/Register.module.css';
 
 const REGISTRY_ADDRESS = '0x389dC8fb09211bbDA841D59f4a51160dA2377832' as const;
@@ -73,7 +74,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (address !== deployment.admin) {
+    if (address?.toLowerCase() !== deployment.admin.toLowerCase()) {
       setError('Only the admin can register the EVVM instance');
       return;
     }
@@ -122,7 +123,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (address !== deployment.admin) {
+    if (address?.toLowerCase() !== deployment.admin.toLowerCase()) {
       setError('Only the admin can set the EVVM ID');
       return;
     }
@@ -216,7 +217,7 @@ export default function RegisterPage() {
         </div>
       )}
 
-      {isConnected && address !== deployment.admin && (
+      {isConnected && address?.toLowerCase() !== deployment.admin.toLowerCase() && (
         <div className={styles.warning}>
           <p>⚠️ You are not the admin. Only the admin can register and activate.</p>
           <p><strong>Admin:</strong> {deployment.admin}</p>
@@ -240,7 +241,7 @@ export default function RegisterPage() {
 
         <button
           onClick={handleRegister}
-          disabled={!isConnected || isRegistering || address !== deployment.admin || !!isRegistered}
+          disabled={!isConnected || isRegistering || address?.toLowerCase() !== deployment.admin.toLowerCase() || !!isRegistered}
           className={styles.registerButton}
         >
           {isRegistering ? '⏳ Registering...' : '📝 Register EVVM on Sepolia'}
@@ -255,19 +256,19 @@ export default function RegisterPage() {
         {success && !isSettingId && (
           <div className={styles.success}>
             <p>✅ {success}</p>
-            {txHash && (
+            {txHash && deployment && (
               <p>
                 <a
-                  href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                  href={getExplorerTxUrl(deployment.chainId, txHash)}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  View on Etherscan →
+                  View on Explorer →
                 </a>
               </p>
             )}
             <p className={styles.helper}>
-              Check the transaction on Etherscan to find your assigned EVVM ID in the logs/events.
+              Check the transaction on the block explorer to find your assigned EVVM ID in the logs/events.
             </p>
           </div>
         )}
@@ -298,7 +299,7 @@ export default function RegisterPage() {
 
         <button
           onClick={handleSetEvvmId}
-          disabled={!isConnected || isSettingId || !assignedId || address !== deployment.admin || !!isRegistered}
+          disabled={!isConnected || isSettingId || !assignedId || address?.toLowerCase() !== deployment.admin.toLowerCase() || !!isRegistered}
           className={styles.activateButton}
         >
           {isSettingId ? '⏳ Activating...' : '🚀 Activate EVVM ID'}
@@ -307,10 +308,10 @@ export default function RegisterPage() {
         {success && isSettingId && (
           <div className={styles.success}>
             <p>✅ {success}</p>
-            {txHash && (
+            {txHash && deployment && (
               <p>
                 <a
-                  href={`https://${deployment.networkName.toLowerCase().includes('sepolia') ? 'sepolia.' : ''}etherscan.io/tx/${txHash}`}
+                  href={getExplorerTxUrl(deployment.chainId, txHash)}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

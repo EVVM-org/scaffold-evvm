@@ -29,7 +29,9 @@ export const modal = createAppKit({
   },
   themeVariables: {
     '--w3m-accent': '#000000',
-  }
+  },
+  // Disable default wallet button to avoid duplicates
+  enableWalletGuide: false
 })
 
 function ContextProvider({ children, cookies }: { children: ReactNode; cookies: string | null }) {
