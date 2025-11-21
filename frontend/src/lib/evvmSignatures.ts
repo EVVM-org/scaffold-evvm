@@ -1257,10 +1257,8 @@ export interface SignDispatchOrderFillProportionalFeeParams {
   priorityFlag_EVVM: boolean;
 }
 
-/**
- * Sign dispatch order fill with proportional fee for P2P swap (dual signature)
- * EXACT pattern from DispatchOrderPropotionalComponent.tsx
- */
+// Sign dispatch order fill with proportional fee for P2P swap (dual signature)
+// EXACT pattern from DispatchOrderPropotionalComponent.tsx
 export async function signDispatchOrderFillProportionalFee(
   params: SignDispatchOrderFillProportionalFeeParams
 ): Promise<{
@@ -1344,10 +1342,8 @@ export interface SignDispatchOrderFillFixedFeeParams {
   priorityFlag_EVVM: boolean;
 }
 
-/**
- * Sign dispatch order fill with fixed fee for P2P swap (dual signature)
- * EXACT pattern from DispatchOrderFixedComponent.tsx
- */
+// Sign dispatch order fill with fixed fee for P2P swap (dual signature)
+// EXACT pattern from DispatchOrderFixedComponent.tsx
 export async function signDispatchOrderFillFixedFee(
   params: SignDispatchOrderFillFixedFeeParams
 ): Promise<{
