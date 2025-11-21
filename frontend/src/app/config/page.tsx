@@ -141,13 +141,11 @@ export default function ConfigPage() {
       });
 
       console.log('  Fetching golden fisher address from staking...');
-      const goldenFisherStruct = await publicClient.readContract({
+      const goldenFisherAddress = await publicClient.readContract({
         address: stakingAddress as `0x${string}`,
         abi: StakingABI,
-        functionName: 'goldenFisher',
-      }) as { actual: `0x${string}`; pending: `0x${string}` };
-
-      const goldenFisherAddress = goldenFisherStruct.actual;
+        functionName: 'getGoldenFisher',
+      });
 
       const contracts: FetchedContracts = {
         evvmID: evvmID as bigint,
