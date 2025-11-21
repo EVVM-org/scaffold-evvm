@@ -9,7 +9,9 @@ import {
   NumberInputField,
 } from "@/components/SigConstructors/InputsAndModules";
 
-import RegistryEvvmABI from "@/abi/RegistryEvvm.json";
+// TODO: RegistryEvvm.json not included - this component requires registry ABI
+// import RegistryEvvmABI from "@/abi/RegistryEvvm.json";
+const RegistryEvvmABI: any[] = []; // Placeholder - component will not function without proper ABI
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 
 const REGISTRY_ADDRESS = "0x389dC8fb09211bbDA841D59f4a51160dA2377832" as const;

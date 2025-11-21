@@ -18,7 +18,7 @@ import {
   CancelOrderInputData,
   P2PSwapSignatureBuilder,
 } from '@evvm/viem-signature-library'
-import { executeCancelOrder } from '@/utils/TransactionExecuter'
+import { executeCancelOrder } from '@/utils/transactionExecuters'
 import { MATE_TOKEN_ADDRESS } from '@/utils/constants'
 
 interface CancelOrderComponentProps {
@@ -123,7 +123,7 @@ export const CancelOrderComponent = ({
       .then(() => {
         console.log('Order cancelled successfully')
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('Error executing transaction:', error)
       })
   }

@@ -584,9 +584,9 @@ export async function signMakeOffer(params: SignMakeOfferParams): Promise<{
 
   return {
     makeOfferData: {
+      user: walletData.address as `0x${string}`,
       username: params.username,
       expireDate: BigInt(params.expireDate),
-      // buyer: walletData.address as `0x${string}`, // Removed - not in library type definition
       amount: BigInt(params.amount),
       nonce: BigInt(params.nonceNameService),
       signature: actionSignature,
@@ -654,8 +654,9 @@ export async function signWithdrawOffer(
 
   return {
     withdrawOfferData: {
+      user: walletData.address as `0x${string}`,
       username: params.username,
-      buyer: walletData.address as `0x${string}`,
+      offerID: BigInt(0), // TODO: Add offerID to SignWithdrawOfferParams
       nonce: BigInt(params.nonceNameService),
       signature: actionSignature,
       priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
@@ -720,8 +721,10 @@ export async function signAcceptOffer(params: SignAcceptOfferParams): Promise<{
 
   return {
     acceptOfferData: {
+      user: walletData.address as `0x${string}`,
       username: params.username,
-      nonce: BigInt(params.nonceNameService),
+      offerID: BigInt(0), // TODO: Add offerID to SignAcceptOfferParams
+      nonce: String(params.nonceNameService),
       signature: actionSignature,
       priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
       nonce_EVVM: BigInt(params.nonceEVVM),
@@ -787,6 +790,7 @@ export async function signRenewUsername(
 
   return {
     renewUsernameData: {
+      user: walletData.address as `0x${string}`,
       username: params.username,
       nonce: BigInt(params.nonceNameService),
       signature: actionSignature,
@@ -858,8 +862,8 @@ export async function signAddCustomMetadata(
 
   return {
     addCustomMetadataData: {
-      username: params.username,
-      key: params.key,
+      user: walletData.address as `0x${string}`,
+      identity: params.username,
       value: params.value,
       nonce: BigInt(params.nonceNameService),
       signature: actionSignature,
@@ -929,8 +933,9 @@ export async function signRemoveCustomMetadata(
 
   return {
     removeCustomMetadataData: {
-      username: params.username,
-      key: params.key,
+      user: walletData.address as `0x${string}`,
+      identity: params.username,
+      key: BigInt(params.key),
       nonce: BigInt(params.nonceNameService),
       signature: actionSignature,
       priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
@@ -997,7 +1002,8 @@ export async function signFlushCustomMetadata(
 
   return {
     flushCustomMetadataData: {
-      username: params.username,
+      user: walletData.address as `0x${string}`,
+      identity: params.username,
       nonce: BigInt(params.nonceNameService),
       signature: actionSignature,
       priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
@@ -1064,6 +1070,7 @@ export async function signFlushUsername(
 
   return {
     flushUsernameData: {
+      user: walletData.address as `0x${string}`,
       username: params.username,
       nonce: BigInt(params.nonceNameService),
       signature: actionSignature,
@@ -1226,9 +1233,14 @@ export async function signCancelOrder(
   return {
     cancelOrderData: {
       user: walletData.address as `0x${string}`,
-      nonce: BigInt(params.nonce),
-      signature: signatureP2P,
-      priorityFee_EVVM: BigInt(0),
+      metadata: {
+        nonce: BigInt(params.nonce),
+        tokenA: '0x0000000000000000000000000000000000000000' as `0x${string}`, // TODO: Add to params
+        tokenB: '0x0000000000000000000000000000000000000000' as `0x${string}`, // TODO: Add to params
+        orderId: BigInt(0), // TODO: Add to params
+        signature: signatureP2P,
+      },
+      priorityFee: BigInt(0),
       nonce_EVVM: BigInt(0),
       priorityFlag_EVVM: false,
       signature_EVVM: signatureEVVM,

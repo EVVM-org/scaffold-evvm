@@ -18,7 +18,7 @@ import {
   DispatchOrderFillPropotionalFeeInputData,
   P2PSwapSignatureBuilder,
 } from '@evvm/viem-signature-library'
-import { executeDispatchOrderFillPropotionalFee } from '@/utils/TransactionExecuter'
+import { executeDispatchOrderFillProportionalFee } from '@/utils/transactionExecuters'
 
 interface DispatchOrderFillPropotionalFeeComponentProps {
   evvmID: string
@@ -136,14 +136,14 @@ export const DispatchOrderFillPropotionalFeeComponent = ({
       return
     }
 
-    executeDispatchOrderFillPropotionalFee(
+    executeDispatchOrderFillProportionalFee(
       dataToGet,
       p2pSwapAddress as `0x${string}`
     )
       .then(() => {
         console.log('Order dispatched successfully')
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('Error executing transaction:', error)
       })
   }

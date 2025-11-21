@@ -18,7 +18,7 @@ import {
   MakeOrderInputData,
   P2PSwapSignatureBuilder,
 } from '@evvm/viem-signature-library'
-import { executeMakeOrder } from '@/utils/TransactionExecuter'
+import { executeMakeOrder } from '@/utils/transactionExecuters'
 
 interface MakeOrderComponentProps {
   evvmID: string
@@ -125,7 +125,7 @@ export const MakeOrderComponent = ({
       .then(() => {
         console.log('Order created successfully')
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('Error executing order:', error)
       })
   }

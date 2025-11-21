@@ -18,7 +18,7 @@ import {
   DispatchOrderFillFixedFeeInputData,
   P2PSwapSignatureBuilder,
 } from '@evvm/viem-signature-library'
-import { executeDispatchOrderFillFixedFee } from '@/utils/TransactionExecuter'
+import { executeDispatchOrderFillFixedFee } from '@/utils/transactionExecuters'
 
 interface DispatchOrderFillFixedFeeComponentProps {
   evvmID: string
@@ -141,7 +141,7 @@ export const DispatchOrderFillFixedFeeComponent = ({
       .then(() => {
         console.log('Order dispatched successfully')
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('Error executing transaction:', error)
       })
   }
