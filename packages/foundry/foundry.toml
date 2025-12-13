@@ -1,0 +1,54 @@
+[profile.default]
+src = "contracts"
+out = "out"
+libs = ["lib", "node_modules"]
+remappings = [
+    # OpenZeppelin
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+    # EVVM self-referential imports (Testnet-Contracts style)
+    "@evvm/testnet-contracts/=contracts/",
+    "@evvm/playground-contracts/=contracts/",
+    # EVVM self-referential imports (Playground-Contracts style)
+    "@EVVM/playground/=contracts/",
+    # Solady utilities
+    "@solady/=lib/solady/src/",
+    # Forge standard library
+    "forge-std/=lib/forge-std/src/",
+    # Solidity bytes utils
+    "solidity-bytes-utils/=lib/solidity-bytes-utils/",
+    # Cross-chain: Hyperlane (from node_modules or lib)
+    "@hyperlane-xyz/core/=node_modules/@hyperlane-xyz/core/",
+    # Cross-chain: LayerZero v2
+    "@layerzerolabs/oapp-evm/=lib/devtools/packages/oapp-evm/",
+    "@layerzerolabs/lz-evm-protocol-v2/contracts=lib/LayerZero-v2/packages/layerzero-v2/evm/protocol/contracts",
+    "@layerzerolabs/lz-evm-messagelib-v2/contracts=lib/LayerZero-v2/packages/layerzero-v2/evm/messagelib/contracts",
+    # Cross-chain: Axelar
+    "@axelar-network/axelar-gmp-sdk-solidity/contracts=lib/axelar-gmp-sdk-solidity/contracts",
+]
+optimizer_runs = 300
+via_ir = true
+solc_version = "0.8.30"
+evm_version = "cancun"
+fs_permissions = [
+    { access = "read", path = "./input" },
+    { access = "read", path = "../input" },
+    { access = "read", path = "../../input" }
+]
+
+[fmt]
+line_length = 120
+tab_width = 4
+quote_style = "double"
+bracket_spacing = false
+int_types = "long"
+
+[fuzz]
+runs = 100
+seed = "0xdeadbeef"
+
+[invariant]
+runs = 64
+depth = 15
+
+# See more config options https://book.getfoundry.sh/reference/config/

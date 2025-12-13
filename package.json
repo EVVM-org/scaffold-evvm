@@ -1,30 +1,53 @@
 {
   "name": "scaffold-evvm",
-  "version": "2.0.0",
-  "description": "EVVM Signature Constructor Frontend - Build and execute EVVM signatures",
+  "version": "3.0.0",
+  "description": "The complete EVVM development environment - Deploy, interact, and build services on EVVM",
   "private": true,
+  "type": "module",
   "workspaces": [
-    "frontend"
+    "packages/*"
   ],
   "overrides": {
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
   "scripts": {
-    "dev": "npm run check-env && cd frontend && npm run dev",
-    "build": "cd frontend && npm run build",
-    "start": "cd frontend && npm start",
+    "wizard": "tsx cli/index.ts",
+    "start:full": "tsx cli/index.ts start",
+    "cli": "tsx cli/index.ts",
+    "init": "tsx cli/index.ts init",
+    "deploy": "tsx cli/index.ts deploy",
+    "chain": "tsx cli/index.ts chain",
+    "config": "tsx cli/index.ts config",
+    "dev": "npm run -w @scaffold-evvm/nextjs dev",
+    "build": "npm run -w @scaffold-evvm/nextjs build",
+    "start": "npm run -w @scaffold-evvm/nextjs start",
     "check-env": "node scripts/check-env.js",
-    "lint": "cd frontend && npm run lint",
-    "type-check": "cd frontend && npm run type-check"
+    "lint": "npm run -w @scaffold-evvm/nextjs lint",
+    "type-check": "npm run -w @scaffold-evvm/nextjs type-check",
+    "foundry:chain": "npm run -w @scaffold-evvm/foundry chain",
+    "foundry:compile": "npm run -w @scaffold-evvm/foundry compile",
+    "foundry:test": "npm run -w @scaffold-evvm/foundry test",
+    "foundry:deploy": "npm run -w @scaffold-evvm/foundry deploy",
+    "hardhat:chain": "npm run -w @scaffold-evvm/hardhat chain",
+    "hardhat:compile": "npm run -w @scaffold-evvm/hardhat compile",
+    "hardhat:test": "npm run -w @scaffold-evvm/hardhat test",
+    "hardhat:deploy": "npm run -w @scaffold-evvm/hardhat deploy",
+    "sync-contracts": "tsx scripts/sync-contracts.ts",
+    "generate-abis": "tsx scripts/generate-abis.ts",
+    "postinstall": "node scripts/postinstall.js || true"
   },
   "keywords": [
     "evvm",
     "ethereum",
     "blockchain",
-    "signature-constructor",
+    "smart-contracts",
+    "foundry",
+    "hardhat",
     "nextjs",
-    "viem"
+    "viem",
+    "scaffold",
+    "deployment"
   ],
   "author": "EVVM Organization",
   "license": "MIT",
@@ -32,5 +55,17 @@
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
   },
-  "devDependencies": {}
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "dotenv": "^16.4.5",
+    "execa": "^8.0.1",
+    "prompts": "^2.4.2",
+    "viem": "^2.39.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/prompts": "^2.4.9",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
 }
