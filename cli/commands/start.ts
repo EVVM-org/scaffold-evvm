@@ -590,6 +590,17 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
       sectionHeader('Starting Frontend');
 
       info('Starting Next.js development server...');
+
+      // Clear Next.js cache to ensure new env vars are loaded
+      // This is necessary because Next.js caches env vars at build/start time
+      const frontendDir = join(PROJECT_ROOT, 'packages', 'nextjs');
+      const nextCacheDir = join(frontendDir, '.next');
+      if (existsSync(nextCacheDir)) {
+        info('Clearing Next.js cache to load new configuration...');
+        rmSync(nextCacheDir, { recursive: true, force: true });
+        success('Cache cleared');
+      }
+
       console.log(chalk.gray('\nThe frontend will open at http://localhost:3000\n'));
 
       if (config.network === 'localhost') {
@@ -598,7 +609,6 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
       }
 
       // Start frontend
-      const frontendDir = join(PROJECT_ROOT, 'packages', 'nextjs');
       await execa('npm', ['run', 'dev'], {
         cwd: frontendDir,
         stdio: 'inherit'

@@ -5,7 +5,7 @@
  * using either Foundry or Hardhat based on project configuration.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import prompts from 'prompts';
 import chalk from 'chalk';
@@ -617,7 +617,17 @@ async function displayDeploymentResult(result: DeploymentResult, network: string
   }
 
   writeFileSync(envPath, envContent);
+
+  // Clear Next.js cache so new env vars are loaded on next dev server start
+  // This is necessary because Next.js caches env vars at build/start time
+  const nextCacheDir = join(projectRoot, 'packages', 'nextjs', '.next');
+  if (existsSync(nextCacheDir)) {
+    info('Clearing Next.js cache to load new configuration...');
+    rmSync(nextCacheDir, { recursive: true, force: true });
+  }
+
   success('Frontend .env updated with deployed addresses');
+  info('Run "npm run dev" in packages/nextjs to start the frontend with new config');
 }
 
 /**
