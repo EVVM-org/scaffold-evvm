@@ -28,6 +28,30 @@ const EXPLORER_URLS: Record<string, string> = {
   'arb-sepolia': 'https://sepolia.arbiscan.io/address/'
 };
 
+// RPC Fallback endpoints for Ethereum Sepolia (ordered by latency/reliability)
+const ETH_SEPOLIA_RPC_FALLBACKS = [
+  'https://eth-sepolia.api.onfinality.io/public',         // OnFinality (0.060s)
+  'https://1rpc.io/sepolia',                              // 1RPC (0.109s)
+  'https://ethereum-sepolia.rpc.subquery.network/public', // SubQuery (0.110s)
+  'https://ethereum-sepolia-rpc.publicnode.com',          // PublicNode (0.172s)
+  'https://sepolia.gateway.tenderly.co',                  // Tenderly (0.172s)
+  'https://gateway.tenderly.co/public/sepolia',           // Tenderly Alt (0.172s)
+  'https://sepolia.drpc.org',                             // dRPC (0.216s)
+  'https://ethereum-sepolia-public.nodies.app',           // Nodies (0.229s)
+  'https://0xrpc.io/sep',                                 // 0xRPC (0.250s)
+];
+
+// RPC Fallback endpoints for Arbitrum Sepolia (ordered by latency/reliability)
+const ARB_SEPOLIA_RPC_FALLBACKS = [
+  'https://sepolia-rollup.arbitrum.io/rpc',               // Official Arbitrum (0.134s)
+  'https://arbitrum-sepolia.gateway.tenderly.co',         // Tenderly (0.161s)
+  'https://arbitrum-sepolia-testnet.api.pocket.network',  // Pocket (0.174s)
+  'https://arbitrum-sepolia-rpc.publicnode.com',          // PublicNode (0.236s)
+  'https://endpoints.omniatech.io/v1/arbitrum/sepolia/public', // Omnia (0.243s)
+  'https://api.zan.top/arb-sepolia',                      // ZAN (0.281s)
+  'https://arbitrum-sepolia.drpc.org',                    // dRPC (0.382s)
+];
+
 // Registry for EVVM registration
 const REGISTRY_ADDRESS = '0x389dC8fb09211bbDA841D59f4a51160dA2377832' as Address;
 
@@ -385,19 +409,67 @@ async function deployWithHardhat(
 }
 
 /**
- * Get RPC URL for network
+ * Get RPC URL for network with fallback support
  */
 function getRpcUrl(network: string): string {
   switch (network) {
     case 'localhost':
       return 'http://localhost:8545';
     case 'eth-sepolia':
-      return process.env.RPC_URL_ETH_SEPOLIA || 'https://1rpc.io/sepolia';
+      return process.env.RPC_URL_ETH_SEPOLIA || ETH_SEPOLIA_RPC_FALLBACKS[0];
     case 'arb-sepolia':
-      return process.env.RPC_URL_ARB_SEPOLIA || 'https://sepolia-rollup.arbitrum.io/rpc';
+      return process.env.RPC_URL_ARB_SEPOLIA || ARB_SEPOLIA_RPC_FALLBACKS[0];
     default:
       return 'http://localhost:8545';
   }
+}
+
+/**
+ * Get working RPC endpoint with fallback support
+ */
+async function getWorkingRpc(network: 'eth-sepolia' | 'arb-sepolia'): Promise<string> {
+  const fallbacks = network === 'eth-sepolia' ? ETH_SEPOLIA_RPC_FALLBACKS : ARB_SEPOLIA_RPC_FALLBACKS;
+  const envVar = network === 'eth-sepolia' ? 'RPC_URL_ETH_SEPOLIA' : 'RPC_URL_ARB_SEPOLIA';
+
+  // Try env variable first
+  const envRpc = process.env[envVar];
+  if (envRpc) {
+    try {
+      const response = await fetch(envRpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (response.ok) {
+        return envRpc;
+      }
+    } catch {
+      dim(`   Primary RPC from .env failed, trying fallbacks...`);
+    }
+  }
+
+  // Try fallback RPCs
+  for (const rpc of fallbacks) {
+    try {
+      const response = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (response.ok) {
+        dim(`   Using RPC: ${rpc}`);
+        return rpc;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // Return default if all fail
+  warning(`No working RPC found, using default`);
+  return fallbacks[0];
 }
 
 /**
@@ -482,39 +554,70 @@ function parseHardhatArtifacts(packageDir: string, network: string): DeploymentR
 }
 
 /**
- * Display deployment result
+ * Display deployment result and update .env
  */
 async function displayDeploymentResult(result: DeploymentResult, network: string): Promise<void> {
-  divider();
-  console.log(chalk.cyan('                 DEPLOYED CONTRACTS'));
-  divider();
-
   const networkName = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.name || 'Custom Network';
   const explorerUrl = EXPLORER_URLS[network] || '';
+
+  console.log(evvmGreen('\n═══════════════════════════════════════════════════════════'));
+  console.log(evvmGreen('                 DEPLOYED CONTRACTS SUMMARY'));
+  console.log(evvmGreen('═══════════════════════════════════════════════════════════\n'));
 
   console.log(chalk.white(`Network: ${chalk.green(networkName)} (Chain ID: ${result.chainId})\n`));
 
   console.log(chalk.yellow('Core Contracts:'));
-  console.log(`  EVVM:        ${chalk.green(result.evvmAddress)}`);
+  console.log(chalk.white(`  EVVM:        ${chalk.green(result.evvmAddress)}`));
   if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.evvmAddress}`));
 
-  console.log(`  Treasury:    ${chalk.green(result.treasuryAddress)}`);
+  console.log(chalk.white(`  Treasury:    ${chalk.green(result.treasuryAddress)}`));
   if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.treasuryAddress}`));
 
   console.log(chalk.yellow('\nSupporting Contracts:'));
-  console.log(`  Staking:     ${chalk.green(result.stakingAddress)}`);
-  console.log(`  Estimator:   ${chalk.green(result.estimatorAddress)}`);
-  console.log(`  NameService: ${chalk.green(result.nameServiceAddress)}`);
+  console.log(chalk.white(`  Staking:     ${chalk.green(result.stakingAddress)}`));
+  if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.stakingAddress}`));
+  console.log(chalk.white(`  Estimator:   ${chalk.green(result.estimatorAddress)}`));
+  if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.estimatorAddress}`));
+  console.log(chalk.white(`  NameService: ${chalk.green(result.nameServiceAddress)}`));
+  if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.nameServiceAddress}`));
   if (result.p2pSwapAddress) {
-    console.log(`  P2PSwap:     ${chalk.green(result.p2pSwapAddress)}`);
+    console.log(chalk.white(`  P2PSwap:     ${chalk.green(result.p2pSwapAddress)}`));
+    if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.p2pSwapAddress}`));
   }
 
-  divider();
+  console.log(evvmGreen('\n═══════════════════════════════════════════════════════════\n'));
 
-  // Update .env with deployed addresses
-  info('Update your .env file with:');
-  console.log(chalk.gray(`  NEXT_PUBLIC_EVVM_ADDRESS=${result.evvmAddress}`));
-  console.log(chalk.gray(`  NEXT_PUBLIC_CHAIN_ID=${result.chainId}\n`));
+  // Auto-update .env with deployed addresses
+  const projectRoot = process.cwd();
+  const envPath = join(projectRoot, '.env');
+  let envContent = '';
+  try {
+    envContent = readFileSync(envPath, 'utf-8');
+  } catch {
+    // No existing .env
+  }
+
+  const updateEnvVar = (content: string, key: string, value: string): string => {
+    const regex = new RegExp(`^${key}=.*$`, 'm');
+    if (regex.test(content)) {
+      return content.replace(regex, `${key}=${value}`);
+    }
+    return content.trim() + `\n${key}=${value}\n`;
+  };
+
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ADDRESS', result.evvmAddress);
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CHAIN_ID', String(result.chainId));
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CONFIG_VERSION', String(Date.now()));
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_STAKING_ADDRESS', result.stakingAddress);
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_ESTIMATOR_ADDRESS', result.estimatorAddress);
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_NAMESERVICE_ADDRESS', result.nameServiceAddress);
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_TREASURY_ADDRESS', result.treasuryAddress);
+  if (result.p2pSwapAddress) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_P2PSWAP_ADDRESS', result.p2pSwapAddress);
+  }
+
+  writeFileSync(envPath, envContent);
+  success('Frontend .env updated with deployed addresses');
 }
 
 /**
@@ -699,6 +802,7 @@ async function offerRegistration(
       };
 
       envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ID', evvmId);
+      envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CONFIG_VERSION', String(Date.now()));
       writeFileSync(envPath, envContent);
 
       divider();

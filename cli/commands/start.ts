@@ -31,6 +31,44 @@ const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '..', '..');
 const TESTNET_PATH = resolve(PROJECT_ROOT, '..', 'Testnet-Contracts');
 const PLAYGROUND_PATH = resolve(PROJECT_ROOT, '..', 'Playground-Contracts');
+const DEPLOYMENTS_DIR = join(PROJECT_ROOT, 'deployments');
+
+// RPC Fallback endpoints for Ethereum Sepolia (ordered by latency/reliability)
+const ETH_SEPOLIA_RPC_FALLBACKS = [
+  'https://eth-sepolia.api.onfinality.io/public',         // OnFinality (0.060s)
+  'https://1rpc.io/sepolia',                              // 1RPC (0.109s)
+  'https://ethereum-sepolia.rpc.subquery.network/public', // SubQuery (0.110s)
+  'https://ethereum-sepolia-rpc.publicnode.com',          // PublicNode (0.172s)
+  'https://sepolia.gateway.tenderly.co',                  // Tenderly (0.172s)
+  'https://gateway.tenderly.co/public/sepolia',           // Tenderly Alt (0.172s)
+  'https://sepolia.drpc.org',                             // dRPC (0.216s)
+  'https://ethereum-sepolia-public.nodies.app',           // Nodies (0.229s)
+  'https://0xrpc.io/sep',                                 // 0xRPC (0.250s)
+];
+
+// RPC Fallback endpoints for Arbitrum Sepolia (ordered by latency/reliability)
+const ARB_SEPOLIA_RPC_FALLBACKS = [
+  'https://sepolia-rollup.arbitrum.io/rpc',               // Official Arbitrum (0.134s)
+  'https://arbitrum-sepolia.gateway.tenderly.co',         // Tenderly (0.161s)
+  'https://arbitrum-sepolia-testnet.api.pocket.network',  // Pocket (0.174s)
+  'https://arbitrum-sepolia-rpc.publicnode.com',          // PublicNode (0.236s)
+  'https://endpoints.omniatech.io/v1/arbitrum/sepolia/public', // Omnia (0.243s)
+  'https://api.zan.top/arb-sepolia',                      // ZAN (0.281s)
+  'https://arbitrum-sepolia.drpc.org',                    // dRPC (0.382s)
+];
+
+// Explorer URLs
+const EXPLORER_ADDRESS_URLS: Record<string, string> = {
+  'eth-sepolia': 'https://sepolia.etherscan.io/address/',
+  'arb-sepolia': 'https://sepolia.arbiscan.io/address/',
+  'localhost': ''
+};
+
+const EXPLORER_TX_URLS: Record<string, string> = {
+  'eth-sepolia': 'https://sepolia.etherscan.io/tx/',
+  'arb-sepolia': 'https://sepolia.arbiscan.io/tx/',
+  'localhost': ''
+};
 
 interface FullStartConfig {
   framework: 'foundry' | 'hardhat';
@@ -529,29 +567,23 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     if (deployedAddresses) {
       success('Contracts deployed!');
 
-      // Display deployed addresses with explorer links for testnets
-      console.log('');
-      const explorerUrl = config.network === 'eth-sepolia' ? 'https://sepolia.etherscan.io/address/'
-        : config.network === 'arb-sepolia' ? 'https://sepolia.arbiscan.io/address/'
-        : null;
+      // Display comprehensive deployment summary
+      displayDeploymentSummary(deployedAddresses, config.network);
 
-      console.log(chalk.yellow('Deployed Addresses:'));
-      console.log(`  EVVM:        ${chalk.green(deployedAddresses.evvm)}`);
-      if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${deployedAddresses.evvm}`));
-      console.log(`  Staking:     ${chalk.green(deployedAddresses.staking)}`);
-      console.log(`  Estimator:   ${chalk.green(deployedAddresses.estimator)}`);
-      console.log(`  NameService: ${chalk.green(deployedAddresses.nameService)}`);
-      console.log(`  Treasury:    ${chalk.green(deployedAddresses.treasury)}`);
-
-      // Offer EVVM Registry registration for testnet deployments
-      if (config.network !== 'localhost') {
-        await offerEvvmRegistration(deployedAddresses, config, explorerUrl);
+      // For localhost, save deployment summary immediately (no registry)
+      let registeredEvvmId: string | undefined;
+      if (config.network === 'localhost') {
+        await saveDeploymentSummary(deployedAddresses, config.network);
+      } else {
+        // Offer EVVM Registry registration for testnet deployments
+        const explorerUrl = EXPLORER_ADDRESS_URLS[config.network] || null;
+        registeredEvvmId = await offerEvvmRegistration(deployedAddresses, config, explorerUrl);
       }
 
       // Step 6: Update frontend .env
       sectionHeader('Updating Frontend Configuration');
 
-      await updateFrontendEnv(deployedAddresses, config.network);
+      await updateFrontendEnv(deployedAddresses, config.network, registeredEvvmId);
       success('Frontend .env updated');
 
       // Step 7: Start frontend
@@ -852,9 +884,157 @@ function parseHardhatArtifacts(packageDir: string, network: string): DeployedAdd
 }
 
 /**
+ * Get working RPC endpoint with fallback support
+ */
+async function getWorkingRpc(network: 'eth-sepolia' | 'arb-sepolia'): Promise<string> {
+  const fallbacks = network === 'eth-sepolia' ? ETH_SEPOLIA_RPC_FALLBACKS : ARB_SEPOLIA_RPC_FALLBACKS;
+  const envVar = network === 'eth-sepolia' ? 'RPC_URL_ETH_SEPOLIA' : 'RPC_URL_ARB_SEPOLIA';
+
+  // Try env variable first
+  const envRpc = process.env[envVar];
+  if (envRpc) {
+    try {
+      const response = await fetch(envRpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (response.ok) {
+        return envRpc;
+      }
+    } catch {
+      dim(`   Primary RPC from .env failed, trying fallbacks...`);
+    }
+  }
+
+  // Try fallback RPCs
+  for (const rpc of fallbacks) {
+    try {
+      const response = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (response.ok) {
+        dim(`   Using RPC: ${rpc}`);
+        return rpc;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // Return default if all fail
+  warning(`No working RPC found, using default`);
+  return fallbacks[0];
+}
+
+/**
+ * Save deployment summary to JSON file
+ */
+async function saveDeploymentSummary(
+  addresses: DeployedAddresses,
+  network: string,
+  evvmId?: string
+): Promise<void> {
+  // Create deployments directory if it doesn't exist
+  if (!existsSync(DEPLOYMENTS_DIR)) {
+    mkdirSync(DEPLOYMENTS_DIR, { recursive: true });
+  }
+
+  const networkName = network === 'eth-sepolia' ? 'Ethereum Sepolia'
+    : network === 'arb-sepolia' ? 'Arbitrum Sepolia'
+    : network === 'localhost' ? 'Local Chain'
+    : 'Unknown';
+
+  const summary = {
+    network: {
+      name: networkName,
+      chainId: addresses.chainId,
+      network: network
+    },
+    evvm: {
+      id: evvmId ? parseInt(evvmId) : null,
+      address: addresses.evvm,
+      explorer: EXPLORER_ADDRESS_URLS[network] ? `${EXPLORER_ADDRESS_URLS[network]}${addresses.evvm}` : null
+    },
+    contracts: {
+      evvm: addresses.evvm,
+      staking: addresses.staking,
+      estimator: addresses.estimator,
+      nameService: addresses.nameService,
+      treasury: addresses.treasury,
+      p2pSwap: addresses.p2pSwap || null
+    },
+    deployment: {
+      timestamp: new Date().toISOString(),
+      timestampUnix: Date.now()
+    }
+  };
+
+  // Save with network-specific filename
+  const filename = `deployment-${network}-${addresses.chainId}.json`;
+  const filepath = join(DEPLOYMENTS_DIR, filename);
+  writeFileSync(filepath, JSON.stringify(summary, null, 2));
+
+  // Also save as latest
+  const latestPath = join(DEPLOYMENTS_DIR, 'latest.json');
+  writeFileSync(latestPath, JSON.stringify(summary, null, 2));
+
+  info(`Deployment summary saved to ${filename}`);
+}
+
+/**
+ * Display comprehensive deployment summary (like Testnet-Contracts)
+ */
+function displayDeploymentSummary(addresses: DeployedAddresses, network: string, evvmId?: string): void {
+  const networkName = network === 'eth-sepolia' ? 'Ethereum Sepolia'
+    : network === 'arb-sepolia' ? 'Arbitrum Sepolia'
+    : network === 'localhost' ? 'Local Chain'
+    : 'Unknown';
+
+  const explorerBase = EXPLORER_ADDRESS_URLS[network] || '';
+
+  console.log(evvmGreen('\n═══════════════════════════════════════════════════════════'));
+  console.log(evvmGreen('                 DEPLOYED CONTRACTS SUMMARY'));
+  console.log(evvmGreen('═══════════════════════════════════════════════════════════\n'));
+
+  console.log(chalk.white(`Network: ${chalk.green(networkName)} (Chain ID: ${addresses.chainId})\n`));
+
+  if (evvmId) {
+    console.log(chalk.yellow('EVVM Instance:'));
+    console.log(chalk.white(`  EVVM ID:     ${chalk.green(evvmId)}`));
+    console.log('');
+  }
+
+  console.log(chalk.yellow('Core Contracts:'));
+  console.log(chalk.white(`  EVVM:        ${chalk.green(addresses.evvm)}`));
+  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.evvm}`));
+  console.log(chalk.white(`  Treasury:    ${chalk.green(addresses.treasury)}`));
+  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.treasury}`));
+  console.log('');
+
+  console.log(chalk.yellow('Supporting Contracts:'));
+  console.log(chalk.white(`  Staking:     ${chalk.green(addresses.staking)}`));
+  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.staking}`));
+  console.log(chalk.white(`  Estimator:   ${chalk.green(addresses.estimator)}`));
+  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.estimator}`));
+  console.log(chalk.white(`  NameService: ${chalk.green(addresses.nameService)}`));
+  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.nameService}`));
+  if (addresses.p2pSwap) {
+    console.log(chalk.white(`  P2PSwap:     ${chalk.green(addresses.p2pSwap)}`));
+    if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.p2pSwap}`));
+  }
+
+  console.log(evvmGreen('\n═══════════════════════════════════════════════════════════\n'));
+}
+
+/**
  * Update frontend .env with deployed addresses
  */
-async function updateFrontendEnv(addresses: DeployedAddresses, network: string): Promise<void> {
+async function updateFrontendEnv(addresses: DeployedAddresses, network: string, evvmId?: string): Promise<void> {
   const envPath = join(PROJECT_ROOT, '.env');
 
   let envContent = '';
@@ -866,6 +1046,24 @@ async function updateFrontendEnv(addresses: DeployedAddresses, network: string):
   // Update or add EVVM address
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ADDRESS', addresses.evvm);
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CHAIN_ID', String(addresses.chainId));
+
+  // Add EVVM ID if provided
+  if (evvmId) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ID', evvmId);
+  }
+
+  // Add config version timestamp to force frontend to reload from env
+  // This invalidates any stale localStorage cache
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CONFIG_VERSION', String(Date.now()));
+
+  // Add all contract addresses for frontend discovery
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_STAKING_ADDRESS', addresses.staking);
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_ESTIMATOR_ADDRESS', addresses.estimator);
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_NAMESERVICE_ADDRESS', addresses.nameService);
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_TREASURY_ADDRESS', addresses.treasury);
+  if (addresses.p2pSwap) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_P2PSWAP_ADDRESS', addresses.p2pSwap);
+  }
 
   writeFileSync(envPath, envContent);
 }
@@ -889,12 +1087,13 @@ const REGISTRY_CHAIN = 'eth-sepolia';
 
 /**
  * Offer EVVM Registry registration after testnet deployment
+ * Returns the EVVM ID if registration succeeds, undefined otherwise
  */
 async function offerEvvmRegistration(
   addresses: DeployedAddresses,
   config: FullStartConfig,
   explorerUrl: string | null
-): Promise<void> {
+): Promise<string | undefined> {
   divider();
   console.log(chalk.cyan('                 EVVM REGISTRY REGISTRATION'));
   divider();
@@ -923,7 +1122,7 @@ async function offerEvvmRegistration(
     dim('  npm run cli registry');
     console.log('');
     dim('Or register manually at https://www.evvm.info/registry');
-    return;
+    return undefined;
   }
 
   // Check if we have Sepolia RPC
@@ -944,7 +1143,7 @@ async function offerEvvmRegistration(
     if (!config.wallet) {
       error('No wallet available for registration.');
       dim('Import a wallet: cast wallet import deployer --interactive');
-      return;
+      return undefined;
     }
 
     // Use cast to call registerEvvm(chainId, evvmAddress)
@@ -969,7 +1168,7 @@ async function offerEvvmRegistration(
 
     if (!registerResult) {
       info('You can register manually at https://www.evvm.info/registry');
-      return;
+      return undefined;
     }
 
     success('Registered with EVVM Registry!');
@@ -994,7 +1193,7 @@ async function offerEvvmRegistration(
     const idsMatch = idsString.match(/\[([^\]]+)\]/);
     if (!idsMatch) {
       error('Failed to parse EVVM IDs from registry');
-      return;
+      return undefined;
     }
 
     const ids = idsMatch[1].split(',').map(s => s.trim());
@@ -1031,7 +1230,7 @@ async function offerEvvmRegistration(
     if (!evvmId) {
       error('Could not find EVVM ID in registry');
       info('Registration may have succeeded. Check manually at https://www.evvm.info/registry');
-      return;
+      return undefined;
     }
     success(`Assigned EVVM ID: ${chalk.green(evvmId)}`);
 
@@ -1065,11 +1264,15 @@ async function offerEvvmRegistration(
     if (setIdResult) {
       success('EVVM ID set successfully!');
 
-      // Update .env with EVVM ID
+      // Update .env with EVVM ID and config version to invalidate frontend cache
       const envPath = join(PROJECT_ROOT, '.env');
       let envContent = existsSync(envPath) ? readFileSync(envPath, 'utf-8') : '';
       envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ID', evvmId);
+      envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CONFIG_VERSION', String(Date.now()));
       writeFileSync(envPath, envContent);
+
+      // Save deployment summary
+      await saveDeploymentSummary(addresses, config.network, evvmId);
 
       divider();
       console.log(chalk.green('Registration Complete!'));
@@ -1082,9 +1285,15 @@ async function offerEvvmRegistration(
         console.log(`  Explorer:     ${chalk.gray(explorerUrl + addresses.evvm)}`);
       }
       divider();
+
+      return evvmId;
     }
+
+    // setEvvmID failed but registration succeeded
+    return evvmId;
   } catch (err: any) {
     error(`Registration failed: ${err.message}`);
     info('You can register manually at https://www.evvm.info/registry');
+    return undefined;
   }
 }
