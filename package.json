@@ -19,6 +19,8 @@
     "deploy": "tsx cli/index.ts deploy",
     "chain": "tsx cli/index.ts chain",
     "config": "tsx cli/index.ts config",
+    "flush": "tsx cli/index.ts flush",
+    "frontend": "npm run -w @scaffold-evvm/nextjs dev",
     "dev": "npm run -w @scaffold-evvm/nextjs dev",
     "build": "npm run -w @scaffold-evvm/nextjs build",
     "start": "npm run -w @scaffold-evvm/nextjs start",

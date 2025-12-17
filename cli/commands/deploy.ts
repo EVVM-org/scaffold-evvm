@@ -628,6 +628,7 @@ async function displayDeploymentResult(result: DeploymentResult, network: string
 
   success('Frontend .env updated with deployed addresses');
   info('Run "npm run dev" in packages/nextjs to start the frontend with new config');
+  warning('IMPORTANT: If a dev server is already running, you MUST restart it for changes to take effect.');
 }
 
 /**

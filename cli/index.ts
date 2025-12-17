@@ -19,6 +19,7 @@ import { deployContracts } from './commands/deploy.js';
 import { startChain } from './commands/chain.js';
 import { configureProject } from './commands/config.js';
 import { fullStart } from './commands/start.js';
+import { flush } from './commands/flush.js';
 
 // Load environment variables
 config();
@@ -64,6 +65,11 @@ async function interactiveWizard(): Promise<void> {
         description: 'Update EVVM configuration (addresses, metadata)'
       },
       {
+        title: evvmGreen('Flush caches'),
+        value: 'flush',
+        description: 'Clear all caches and stop running servers'
+      },
+      {
         title: 'Exit',
         value: 'exit',
         description: 'Exit the wizard'
@@ -91,6 +97,9 @@ async function interactiveWizard(): Promise<void> {
       break;
     case 'config':
       await configureProject();
+      break;
+    case 'flush':
+      await flush();
       break;
   }
 }
@@ -131,6 +140,9 @@ async function main(): Promise<void> {
     case 'config':
       await configureProject();
       break;
+    case 'flush':
+      await flush();
+      break;
     case 'help':
       showHelp();
       break;
@@ -158,6 +170,7 @@ ${chalk.yellow('Commands:')}
   deploy        Deploy EVVM contracts to a network
   chain         Start a local blockchain (Anvil or Hardhat)
   config        Configure EVVM parameters (addresses, metadata)
+  flush         Clear all caches and stop running servers
   help          Show this help message
 
 ${chalk.yellow('Quick Start:')}
@@ -182,12 +195,14 @@ ${chalk.yellow('Frontend Commands:')}
 ${chalk.yellow('Utility Commands:')}
   npm run sync-contracts      Sync contracts from Testnet/Playground
   npm run generate-abis       Generate ABIs for frontend
+  npm run flush               Clear all caches and stop frontend server
+  npm run frontend            Start frontend server (after deployment)
 
 ${chalk.yellow('Examples:')}
   npm run start:full          # Complete setup in one command
   npm run wizard              # Interactive setup wizard
-  npm run cli init            # Initialize project only
   npm run cli deploy          # Deploy contracts only
+  npm run flush && npm run frontend  # Fresh restart of frontend
 
 ${chalk.yellow('Documentation:')}
   EVVM Docs: https://www.evvm.info/docs

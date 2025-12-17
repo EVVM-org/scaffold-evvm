@@ -77,7 +77,7 @@ The wizard guides you through:
 ```
 scaffold-evvm/
 ├── cli/                    # Interactive CLI wizard
-│   ├── commands/           # CLI commands (init, deploy, chain, config, start)
+│   ├── commands/           # CLI commands (init, deploy, chain, config, start, flush)
 │   └── utils/              # CLI utilities and display helpers
 ├── deployments/            # Deployment summaries (JSON)
 │   ├── latest.json         # Most recent deployment
@@ -111,10 +111,27 @@ scaffold-evvm/
 npm run wizard          # Interactive setup wizard
 npm run start:full      # Full setup + deploy + frontend in one command
 npm run cli init        # Initialize project
-npm run cli deploy      # Deploy contracts
+npm run cli deploy      # Deploy contracts only
 npm run cli chain       # Start local chain
 npm run cli config      # Update configuration
+npm run cli flush       # Clear all caches and stop servers
 ```
+
+### Separate Deploy & Frontend (Recommended for Development)
+
+```bash
+# Terminal 1: Deploy contracts
+npm run cli deploy      # Deploy and register with EVVM Registry
+
+# Terminal 2: Start frontend (after deployment)
+npm run flush           # Clear caches (if needed)
+npm run frontend        # Start Next.js dev server
+```
+
+This workflow allows you to:
+- Keep the deployment terminal open for logs
+- Restart the frontend independently after config changes
+- Clear caches without redeploying
 
 ### Framework Commands
 
@@ -145,6 +162,8 @@ npm run start           # Start production server
 ```bash
 npm run sync-contracts  # Sync from Testnet/Playground
 npm run generate-abis   # Generate ABIs for frontend
+npm run flush           # Clear all caches and stop frontend server
+npm run frontend        # Start frontend server (alias for npm run dev)
 ```
 
 ---

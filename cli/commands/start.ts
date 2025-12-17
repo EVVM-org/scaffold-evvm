@@ -591,9 +591,32 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
 
       info('Starting Next.js development server...');
 
+      // Kill any existing Next.js dev server on port 3000
+      // This is necessary because Next.js bakes env vars into the bundle at server start time
+      const frontendDir = join(PROJECT_ROOT, 'packages', 'nextjs');
+
+      info('Checking for existing frontend server...');
+      try {
+        // Find and kill any process on port 3000
+        const { stdout } = await execa('lsof', ['-t', '-i:3000'], { stdio: 'pipe' }).catch(() => ({ stdout: '' }));
+        if (stdout.trim()) {
+          const pids = stdout.trim().split('\n');
+          for (const pid of pids) {
+            if (pid) {
+              info(`Killing existing process on port 3000 (PID: ${pid})...`);
+              await execa('kill', ['-9', pid], { stdio: 'pipe' }).catch(() => {});
+            }
+          }
+          success('Existing frontend server stopped');
+          // Wait a moment for port to be released
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch {
+        // No process on port 3000, continue
+      }
+
       // Clear Next.js cache to ensure new env vars are loaded
       // This is necessary because Next.js caches env vars at build/start time
-      const frontendDir = join(PROJECT_ROOT, 'packages', 'nextjs');
       const nextCacheDir = join(frontendDir, '.next');
       if (existsSync(nextCacheDir)) {
         info('Clearing Next.js cache to load new configuration...');

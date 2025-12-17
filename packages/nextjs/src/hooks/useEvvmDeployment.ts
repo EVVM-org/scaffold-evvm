@@ -78,26 +78,34 @@ export function useEvvmDeployment() {
     async function loadDeployment() {
       try {
         setLoading(true);
+        console.log('🔄 useEvvmDeployment: Starting to load deployment...');
 
         // 1. Check localStorage first
         const storedConfig = loadEvvmConfig();
         if (storedConfig) {
+          console.log('📦 useEvvmDeployment: Found localStorage config:', {
+            evvm: storedConfig.evvm,
+            evvmID: storedConfig.evvmID,
+            timestamp: storedConfig.timestamp
+          });
           // Check if localStorage config is stale or has invalid addresses
           if (isConfigStale(storedConfig) || hasInvalidAddresses(storedConfig)) {
-            console.log('🗑️ Clearing stale/invalid localStorage config');
+            console.log('🗑️ useEvvmDeployment: Clearing stale/invalid localStorage config');
             clearEvvmConfig();
             // Fall through to load from env vars
           } else {
-            console.log('📦 Loading EVVM configuration from localStorage');
+            console.log('✅ useEvvmDeployment: Using localStorage config');
             setDeployment(storedConfig);
             setError(null);
             setLoading(false);
             return;
           }
+        } else {
+          console.log('📭 useEvvmDeployment: No localStorage config found');
         }
 
         // 2. Fallback: Read from environment variables
-        console.log('🔧 Loading EVVM configuration from environment variables');
+        console.log('🔧 useEvvmDeployment: Loading from environment variables...');
         const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
         const chainIdStr = process.env.NEXT_PUBLIC_CHAIN_ID;
         const evvmIDStr = process.env.NEXT_PUBLIC_EVVM_ID;
@@ -109,11 +117,25 @@ export function useEvvmDeployment() {
         const envTreasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS as `0x${string}` | undefined;
         const envP2pSwapAddress = process.env.NEXT_PUBLIC_P2PSWAP_ADDRESS as `0x${string}` | undefined;
 
+        // Debug: Log all env vars
+        console.log('🔧 useEvvmDeployment: Environment variables:', {
+          evvmAddress,
+          chainIdStr,
+          evvmIDStr,
+          envStakingAddress,
+          envEstimatorAddress,
+          envNameServiceAddress,
+          envTreasuryAddress,
+          envP2pSwapAddress
+        });
+
         if (!evvmAddress) {
+          console.error('❌ useEvvmDeployment: NEXT_PUBLIC_EVVM_ADDRESS is missing');
           throw new Error('NEXT_PUBLIC_EVVM_ADDRESS not configured in .env');
         }
 
         if (!chainIdStr) {
+          console.error('❌ useEvvmDeployment: NEXT_PUBLIC_CHAIN_ID is missing');
           throw new Error('NEXT_PUBLIC_CHAIN_ID not configured in .env');
         }
 
@@ -217,6 +239,15 @@ export function useEvvmDeployment() {
           goldenFisher: undefined,
           activator: undefined,
         };
+
+        console.log('✅ useEvvmDeployment: Deployment loaded successfully:', {
+          evvm: deploymentData.evvm,
+          evvmID: deploymentData.evvmID,
+          chainId: deploymentData.chainId,
+          staking: deploymentData.staking,
+          nameService: deploymentData.nameService,
+          estimator: deploymentData.estimator,
+        });
 
         setDeployment(deploymentData);
         setError(null);
