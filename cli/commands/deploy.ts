@@ -285,7 +285,7 @@ function displayTestAccounts(framework: 'foundry' | 'hardhat' = 'foundry'): void
 /**
  * Fund a keystore wallet from Anvil's default account
  */
-async function fundWalletFromAnvil(walletName: string, port: number = ANVIL_PORT): Promise<boolean> {
+async function fundWalletFromAnvil(walletName: string, port: number = ANVIL_PORT): Promise<{ success: boolean; address?: string }> {
   try {
     // Get the address of the keystore wallet
     const addressResult = await execa('cast', ['wallet', 'address', '--account', walletName], {
@@ -295,30 +295,87 @@ async function fundWalletFromAnvil(walletName: string, port: number = ANVIL_PORT
 
     if (!walletAddress || !walletAddress.startsWith('0x')) {
       error(`Could not get address for wallet: ${walletName}`);
-      return false;
+      return { success: false };
     }
 
     dim(`  Wallet address: ${walletAddress}`);
 
-    // Send 100 ETH from Anvil's default account to the wallet
-    const sendResult = await execa('cast', [
-      'send',
-      walletAddress,
-      '--value', '100ether',
-      '--private-key', DEFAULT_ANVIL_KEY,
-      '--rpc-url', `http://localhost:${port}`
-    ], {
-      stdio: 'pipe'
-    });
+    // Check if wallet already has sufficient balance
+    try {
+      const balanceResult = await execa('cast', [
+        'balance',
+        walletAddress,
+        '--rpc-url', `http://localhost:${port}`
+      ], { stdio: 'pipe' });
 
-    return sendResult.exitCode === 0 || sendResult.stdout.includes('transactionHash');
-  } catch (err: any) {
-    // Check if it's just a warning but tx succeeded
-    if (err.stdout && err.stdout.includes('transactionHash')) {
-      return true;
+      const balance = BigInt(balanceResult.stdout.trim());
+      const oneEth = BigInt('1000000000000000000'); // 1 ETH in wei
+
+      if (balance >= oneEth) {
+        success(`Wallet already has ${Number(balance / oneEth)} ETH`);
+        return { success: true, address: walletAddress };
+      }
+    } catch {
+      // Balance check failed, try funding anyway
     }
+
+    // Send 100 ETH from Anvil's default account to the wallet
+    // Use --gas-limit 21000 to skip gas estimation (avoids duplicate data/input field bug in cast)
+    try {
+      const sendResult = await execa('cast', [
+        'send',
+        walletAddress,
+        '--value', '100ether',
+        '--private-key', DEFAULT_ANVIL_KEY,
+        '--rpc-url', `http://localhost:${port}`,
+        '--gas-limit', '21000'
+      ], {
+        stdio: 'pipe'
+      });
+
+      if (sendResult.exitCode === 0 || sendResult.stdout.includes('transactionHash')) {
+        return { success: true, address: walletAddress };
+      }
+    } catch (sendErr: any) {
+      // First attempt failed, try with curl as fallback
+      dim('  First funding method failed, trying alternative...');
+    }
+
+    // Fallback: Use eth_sendTransaction via curl (raw JSON-RPC)
+    // This bypasses cast's buggy request formatting
+    try {
+      const txData = {
+        jsonrpc: '2.0',
+        method: 'eth_sendTransaction',
+        params: [{
+          from: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+          to: walletAddress,
+          value: '0x56bc75e2d63100000', // 100 ETH in hex
+          gas: '0x5208' // 21000 in hex
+        }],
+        id: 1
+      };
+
+      const curlResult = await execa('curl', [
+        '-s',
+        '-X', 'POST',
+        '-H', 'Content-Type: application/json',
+        '-d', JSON.stringify(txData),
+        `http://localhost:${port}`
+      ], { stdio: 'pipe' });
+
+      const response = JSON.parse(curlResult.stdout);
+      if (response.result && response.result.startsWith('0x')) {
+        return { success: true, address: walletAddress };
+      }
+    } catch {
+      // Curl fallback also failed
+    }
+
+    return { success: false, address: walletAddress };
+  } catch (err: any) {
     error(`Fund transfer failed: ${err.message}`);
-    return false;
+    return { success: false };
   }
 }
 
@@ -699,7 +756,7 @@ export async function deployContracts(): Promise<void> {
     ? resolve(projectRoot, '..', 'Testnet-Contracts')
     : resolve(projectRoot, '..', 'Playground-Contracts');
 
-  await syncContractsAndGenerateInputs(sourcePath, config.framework, projectRoot, evvmConfig);
+  await syncContractsAndGenerateInputs(sourcePath, config.framework, projectRoot, evvmConfig, config.contractSource);
   success('Contracts synced and configuration generated');
 
   // Save scaffold config
@@ -929,13 +986,49 @@ export async function deployContracts(): Promise<void> {
 
       // Fund the keystore wallet from Anvil's default account
       info('Funding your keystore wallet from Anvil test account...');
-      const funded = await fundWalletFromAnvil(wallet, ANVIL_PORT);
-      if (!funded) {
-        error('Failed to fund wallet. Using default Anvil account instead.');
-        useDefaultAnvilKey = true;
-        wallet = 'anvil-default';
+      const fundResult = await fundWalletFromAnvil(wallet, ANVIL_PORT);
+
+      if (fundResult.success) {
+        success('Wallet ready for deployment');
       } else {
-        success('Wallet funded with 100 ETH for deployment');
+        // Funding failed - give user options
+        warning('Could not automatically fund wallet.');
+
+        const fundingChoice = await prompts({
+          type: 'select',
+          name: 'action',
+          message: 'How would you like to proceed?',
+          choices: [
+            {
+              title: 'Use default Anvil account (recommended)',
+              value: 'default',
+              description: 'Deploy using the pre-funded Anvil test account'
+            },
+            {
+              title: 'Continue with keystore wallet',
+              value: 'continue',
+              description: 'Proceed anyway (wallet may not have funds)'
+            },
+            {
+              title: 'Cancel',
+              value: 'cancel',
+              description: 'Exit deployment'
+            }
+          ]
+        });
+
+        if (fundingChoice.action === 'cancel' || !fundingChoice.action) {
+          error('Deployment cancelled.');
+          return;
+        }
+
+        if (fundingChoice.action === 'default') {
+          useDefaultAnvilKey = true;
+          wallet = 'anvil-default';
+          info('Using default Anvil account for deployment');
+        } else {
+          info('Continuing with keystore wallet');
+        }
       }
     } else if (walletChoice.choice === 'env') {
       // Check for private key in .env
@@ -1757,7 +1850,7 @@ async function offerRegistration(
 }
 
 /**
- * Sync contracts from source and generate Inputs.sol
+ * Sync contracts from source and generate Inputs.sol (or BaseInputs.sol for Playground)
  */
 async function syncContractsAndGenerateInputs(
   sourcePath: string,
@@ -1767,7 +1860,8 @@ async function syncContractsAndGenerateInputs(
     addresses: { admin: string; goldenFisher: string; activator: string };
     basicMetadata: { EvvmName: string; principalTokenName: string; principalTokenSymbol: string };
     advancedMetadata: { totalSupply: string; eraTokens: string; reward: string };
-  }
+  },
+  contractSource: 'testnet' | 'playground' = 'testnet'
 ): Promise<void> {
   const sourceContractsPath = join(sourcePath, 'src');
   const targetDir = join(projectRoot, 'packages', framework, 'contracts');
@@ -1789,7 +1883,11 @@ async function syncContractsAndGenerateInputs(
     const targetLibPath = join(projectRoot, 'packages', 'foundry', 'lib');
 
     if (existsSync(sourceLibPath)) {
-      const libs = ['forge-std', 'openzeppelin-contracts', 'solady'];
+      // Include openzeppelin-contracts-upgradeable for Playground
+      const libs = contractSource === 'playground'
+        ? ['forge-std', 'openzeppelin-contracts', 'openzeppelin-contracts-upgradeable', 'solady']
+        : ['forge-std', 'openzeppelin-contracts', 'solady'];
+
       for (const lib of libs) {
         const srcLib = join(sourceLibPath, lib);
         const dstLib = join(targetLibPath, lib);
@@ -1799,16 +1897,26 @@ async function syncContractsAndGenerateInputs(
       }
     }
 
-    // Copy deployment scripts
+    // Copy deployment scripts (only Deploy.s.sol - skip cross-chain scripts that need extra inputs)
     const sourceScriptPath = join(sourcePath, 'script');
     const targetScriptPath = join(projectRoot, 'packages', 'foundry', 'script');
     if (existsSync(sourceScriptPath)) {
-      // Clear and recopy to get latest scripts
+      // Clear existing scripts
       if (existsSync(targetScriptPath)) {
         rmSync(targetScriptPath, { recursive: true, force: true });
       }
-      cpSync(sourceScriptPath, targetScriptPath, { recursive: true });
-      info('Copied deployment scripts');
+      mkdirSync(targetScriptPath, { recursive: true });
+
+      // Only copy the main Deploy.s.sol script
+      const mainDeployScript = join(sourceScriptPath, 'Deploy.s.sol');
+      if (existsSync(mainDeployScript)) {
+        cpSync(mainDeployScript, join(targetScriptPath, 'Deploy.s.sol'));
+        info('Copied Deploy.s.sol');
+      } else {
+        // Fallback: copy all scripts if Deploy.s.sol doesn't exist
+        cpSync(sourceScriptPath, targetScriptPath, { recursive: true });
+        info('Copied deployment scripts');
+      }
     }
   }
 
@@ -1818,9 +1926,10 @@ async function syncContractsAndGenerateInputs(
     mkdirSync(inputDir, { recursive: true });
   }
 
-  // Generate Inputs.sol
-  const inputsSol = generateInputsSol(evvmConfig);
-  writeFileSync(join(inputDir, 'Inputs.sol'), inputsSol);
+  // Generate Inputs.sol (or BaseInputs.sol for Playground)
+  const inputsSol = generateInputsSol(evvmConfig, contractSource);
+  const inputFileName = contractSource === 'playground' ? 'BaseInputs.sol' : 'Inputs.sol';
+  writeFileSync(join(inputDir, inputFileName), inputsSol);
 
   // Write legacy JSON files
   writeFileSync(
@@ -1846,22 +1955,33 @@ async function syncContractsAndGenerateInputs(
     mkdirSync(frameworkInputDir, { recursive: true });
   }
   cpSync(inputDir, frameworkInputDir, { recursive: true });
-  info('Generated Inputs.sol with your configuration');
+  info(`Generated ${inputFileName} with your configuration`);
 }
 
 /**
  * Generate Inputs.sol content from configuration
+ * For Testnet contracts: generates Inputs.sol with @evvm/testnet-contracts imports
+ * For Playground contracts: generates BaseInputs.sol with @evvm/playground-contracts imports
  */
-function generateInputsSol(config: {
-  addresses: { admin: string; goldenFisher: string; activator: string };
-  basicMetadata: { EvvmName: string; principalTokenName: string; principalTokenSymbol: string };
-  advancedMetadata: { totalSupply: string; eraTokens: string; reward: string };
-}): string {
+function generateInputsSol(
+  config: {
+    addresses: { admin: string; goldenFisher: string; activator: string };
+    basicMetadata: { EvvmName: string; principalTokenName: string; principalTokenSymbol: string };
+    advancedMetadata: { totalSupply: string; eraTokens: string; reward: string };
+  },
+  contractSource: 'testnet' | 'playground' = 'testnet'
+): string {
+  const importPath = contractSource === 'playground'
+    ? '@evvm/playground-contracts'
+    : '@evvm/testnet-contracts';
+
+  const contractName = contractSource === 'playground' ? 'BaseInputs' : 'Inputs';
+
   return `// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
-import {EvvmStructs} from "@evvm/testnet-contracts/contracts/evvm/lib/EvvmStructs.sol";
+import {EvvmStructs} from "${importPath}/contracts/evvm/lib/EvvmStructs.sol";
 
-abstract contract Inputs {
+abstract contract ${contractName} {
     address admin = ${config.addresses.admin};
     address goldenFisher = ${config.addresses.goldenFisher};
     address activator = ${config.addresses.activator};

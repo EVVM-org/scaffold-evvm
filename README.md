@@ -65,10 +65,43 @@ The `npm run cli deploy` command will:
 
 If you encounter bugs or errors:
 ```bash
-npm run cli flush   # Clear all caches and stop servers
+npm run cli flush   # Clear all caches, stop local chains, and kill servers
 npm run cli deploy  # Re-deploy contracts
 npm run frontend    # Start frontend fresh
 ```
+
+#### Common Local Deployment Issues
+
+**Nonce errors (e.g., "Nonce too high", "Nonce too low")**
+
+This happens when Anvil or Hardhat Network has stale state from previous deployments:
+```bash
+npm run cli flush   # Stops Anvil/Hardhat and clears all caches
+npm run cli deploy  # Fresh deployment with new chain instance
+```
+
+**Port 8545 already in use**
+
+A previous local chain is still running:
+```bash
+npm run cli flush   # Automatically kills processes on port 8545
+```
+
+**Transaction reverted / deployment failed**
+
+The local chain state may be corrupted:
+```bash
+npm run cli flush   # Complete reset of local environment
+npm run cli deploy  # Start fresh
+```
+
+The `npm run cli flush` command:
+- Stops all Anvil instances
+- Stops all Hardhat Network instances
+- Clears port 8545
+- Clears Next.js cache
+- Clears Foundry cache and build artifacts
+- Clears Hardhat cache and artifacts
 
 ### Alternative: All-in-One Command
 
@@ -84,16 +117,22 @@ This runs everything including the frontend in a single terminal. Use this for q
 
 ### Fully Working Flows
 
-The following combinations are fully tested and working:
+All framework and contract combinations are fully tested and working:
 
 | Framework | Contracts | Network | Status |
 |-----------|-----------|---------|--------|
 | Foundry | Testnet-Contracts | Ethereum Sepolia | ✅ Working |
 | Foundry | Testnet-Contracts | Arbitrum Sepolia | ✅ Working |
 | Foundry | Testnet-Contracts | Local (Anvil) | ✅ Working |
+| Foundry | Playground-Contracts | Ethereum Sepolia | ✅ Working |
+| Foundry | Playground-Contracts | Arbitrum Sepolia | ✅ Working |
+| Foundry | Playground-Contracts | Local (Anvil) | ✅ Working |
 | Hardhat | Testnet-Contracts | Ethereum Sepolia | ✅ Working |
 | Hardhat | Testnet-Contracts | Arbitrum Sepolia | ✅ Working |
 | Hardhat | Testnet-Contracts | Local (Hardhat Network) | ✅ Working |
+| Hardhat | Playground-Contracts | Ethereum Sepolia | ✅ Working |
+| Hardhat | Playground-Contracts | Arbitrum Sepolia | ✅ Working |
+| Hardhat | Playground-Contracts | Local (Hardhat Network) | ✅ Working |
 
 **Features verified:**
 - Contract deployment with all 6 contracts (EVVM, Staking, Estimator, NameService, Treasury, P2PSwap)
@@ -104,7 +143,7 @@ The following combinations are fully tested and working:
 
 **Tested workflow:**
 ```bash
-npm run cli deploy      # Select: Foundry/Hardhat → Testnet → Network → Configure EVVM
+npm run cli deploy      # Select: Foundry/Hardhat → Testnet/Playground → Network → Configure EVVM
 npm run frontend        # Start frontend in separate terminal
 npm run cli flush       # Use when encountering issues
 ```
@@ -113,7 +152,6 @@ npm run cli flush       # Use when encountering issues
 
 Currently being developed:
 
-- **Playground-Contracts integration** - Planned
 - **Additional network support** - Planned
 
 ---
@@ -132,9 +170,14 @@ Currently being developed:
 
 ### Wallet Management
 
-**Foundry (Keystore - Recommended for security)**
+> **Best Practice:** Always use **dedicated testing wallets** for development and testnet deployments. Do not use the default Anvil/Hardhat test accounts for anything beyond local development. Create separate wallets without real funds for testing purposes.
+
+**Foundry (Keystore - Recommended)**
 ```bash
-# Import a wallet securely (encrypted on disk)
+# Create a new testing wallet (recommended)
+cast wallet new
+
+# Import an existing testing wallet securely (encrypted on disk)
 cast wallet import deployer --interactive
 
 # List available wallets
@@ -143,13 +186,24 @@ cast wallet list
 # Wallet is stored encrypted in ~/.foundry/keystores/
 ```
 
+**Why use keystore?**
+- Private key is encrypted with your password
+- Stored securely in `~/.foundry/keystores/`
+- Never exposed in plain text or command history
+- Works seamlessly with the CLI deploy wizard
+
 **Hardhat (Private Key)**
 ```bash
 # Add to .env file (less secure, but simpler)
 DEPLOYER_PRIVATE_KEY=0x...your_private_key_here...
 ```
 
-> **Security Note:** Foundry's keystore is more secure as the private key is encrypted on disk. For Hardhat, the private key is stored in plain text in `.env`. Never commit `.env` files to version control.
+> **Security Warning:**
+> - Foundry's keystore encrypts keys on disk - **recommended for all deployments**
+> - Hardhat stores keys in plain text in `.env` - ensure `.env` is in `.gitignore`
+> - **Never** use wallets containing real funds for testing
+> - **Never** commit `.env` files to version control
+> - Create dedicated wallets for testnet deployments
 
 ---
 
@@ -210,6 +264,8 @@ Both Anvil and Hardhat Network use the same configuration:
 - Import test account: Private Key `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
 - Test account address: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
 - Test account balance: 10,000 ETH
+
+> **Warning:** The default test account above is for **local development only**. These keys are publicly known and should never be used on any network with real value. For testnet deployments, always create and use your own dedicated testing wallet.
 
 ---
 
@@ -587,20 +643,46 @@ forge test --match-test testFunctionName -vvv
 
 ## Security
 
-- Never commit `.env` files with real keys
-- All signing happens client-side
-- **Foundry:** Use keystore for secure key management: `cast wallet import deployer --interactive`
-- **Hardhat:** Private key stored in `.env` - ensure `.env` is in `.gitignore`
-- Contracts not audited for mainnet use
+### Best Practices
+
+1. **Use dedicated testing wallets** - Create wallets specifically for development and testnet use
+2. **Never use real funds** - Testing wallets should only hold testnet tokens
+3. **Use Foundry keystore** - Encrypted private key storage is more secure than plain text
+4. **Never commit secrets** - Keep `.env` files out of version control
+5. **All signing is client-side** - The frontend never sends private keys anywhere
 
 ### Wallet Security Comparison
 
-| Framework | Storage | Security Level |
-|-----------|---------|----------------|
-| Foundry | Encrypted keystore in `~/.foundry/keystores/` | High - password protected |
-| Hardhat | Plain text in `.env` file | Medium - relies on file permissions |
+| Framework | Storage | Security Level | Recommendation |
+|-----------|---------|----------------|----------------|
+| Foundry | Encrypted keystore in `~/.foundry/keystores/` | High - password protected | **Recommended** |
+| Hardhat | Plain text in `.env` file | Medium - relies on file permissions | Use for convenience only |
 
-For production deployments, Foundry's keystore approach is recommended.
+### Foundry Keystore (Recommended)
+
+```bash
+# Create a new testing wallet
+cast wallet new
+
+# Save the private key, then import it with a password
+cast wallet import my-testnet-wallet --interactive
+
+# List your wallets
+cast wallet list
+
+# The wallet is now encrypted and stored in ~/.foundry/keystores/
+```
+
+The CLI deploy wizard automatically detects your Foundry keystores and prompts for the password when deploying.
+
+### What NOT to do
+
+- Do NOT use the default Anvil/Hardhat test account (`0xf39...`) on testnets
+- Do NOT store real funds in testing wallets
+- Do NOT commit `.env` files with private keys
+- Do NOT share your keystore password
+
+> **Note:** Contracts in this repository are not audited for mainnet use. Use on mainnet at your own risk.
 
 ---
 
