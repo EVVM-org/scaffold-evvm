@@ -82,21 +82,26 @@ This runs everything including the frontend in a single terminal. Use this for q
 
 ## Current Status
 
-### Fully Working Flow
+### Fully Working Flows
 
-The following combination is fully tested and working:
+The following combinations are fully tested and working:
 
-| Component | Status |
-|-----------|--------|
-| **Framework** | Foundry |
-| **Contracts** | Testnet-Contracts |
-| **Network** | Ethereum Sepolia |
-| **Frontend** | `npm run frontend` |
-| **Troubleshooting** | `npm run cli flush` |
+| Framework | Contracts | Network | Status |
+|-----------|-----------|---------|--------|
+| Foundry | Testnet-Contracts | Ethereum Sepolia | ✅ Working |
+| Foundry | Testnet-Contracts | Arbitrum Sepolia | ✅ Working |
+| Foundry | Testnet-Contracts | Local (Anvil) | ✅ Working |
+
+**Features verified:**
+- Contract deployment with all 6 contracts (EVVM, Staking, Estimator, NameService, Treasury, P2PSwap)
+- Automatic contract verification on block explorers (Etherscan/Arbiscan)
+- EVVM Registry registration with cross-chain support
+- Frontend configuration auto-update
+- `npm run cli flush` for troubleshooting
 
 **Tested workflow:**
 ```bash
-npm run cli deploy      # Select: Foundry → Testnet → Eth Sepolia → Configure EVVM
+npm run cli deploy      # Select: Foundry → Testnet → Network → Configure EVVM
 npm run frontend        # Start frontend in separate terminal
 npm run cli flush       # Use when encountering issues
 ```
@@ -105,8 +110,6 @@ npm run cli flush       # Use when encountering issues
 
 Currently being tested:
 
-- **Foundry + Testnet-Contracts + Local (Anvil)** - In progress
-- **Foundry + Testnet-Contracts + Arbitrum Sepolia** - In progress
 - **Foundry + Playground-Contracts** - Planned
 - **Hardhat framework** - Planned
 
