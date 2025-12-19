@@ -19,7 +19,7 @@
     "generate-abis": "node scripts/generate-abis.js"
   },
   "dependencies": {
+    "@hyperlane-xyz/core": "^10.1.3",
     "dotenv": "^16.4.5"
-  },
-  "devDependencies": {}
+  }
 }

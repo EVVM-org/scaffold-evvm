@@ -197,6 +197,61 @@ async function startAnvilBackground(
 }
 
 /**
+ * Start Hardhat Network in background
+ */
+async function startHardhatBackground(
+  projectRoot: string
+): Promise<{ success: boolean; pid?: number; error?: string }> {
+  const hardhatDir = join(projectRoot, 'packages', 'hardhat');
+
+  // Check if hardhat package exists
+  if (!existsSync(hardhatDir)) {
+    return { success: false, error: 'Hardhat package not found. Run sync-contracts first.' };
+  }
+
+  // Check if port is already in use
+  const portInUse = await isPortInUse(ANVIL_PORT);
+  if (portInUse) {
+    // Check if it's a local chain running
+    const chainRunning = await isAnvilRunning(ANVIL_PORT);
+    if (chainRunning) {
+      return { success: true }; // Chain is already running
+    }
+    return { success: false, error: `Port ${ANVIL_PORT} is in use by another process` };
+  }
+
+  try {
+    // Start Hardhat node in background using nohup
+    const logFile = join(projectRoot, 'hardhat-node.log');
+    const hardhatCommand = `cd "${hardhatDir}" && nohup npx hardhat node --no-deploy > "${logFile}" 2>&1 &`;
+
+    await execa('sh', ['-c', hardhatCommand], {
+      stdio: 'ignore',
+      detached: true
+    });
+
+    // Wait for Hardhat to be ready
+    const ready = await waitForAnvil(ANVIL_PORT, 15000);
+    if (!ready) {
+      return { success: false, error: 'Hardhat Network started but not responding. Check hardhat-node.log for details.' };
+    }
+
+    // Get the PID of the running hardhat process
+    let pid: number | undefined;
+    try {
+      const { stdout } = await execa('lsof', ['-t', `-i:${ANVIL_PORT}`], { stdio: 'pipe' });
+      pid = parseInt(stdout.trim().split('\n')[0], 10);
+    } catch {
+      // PID lookup failed, but Hardhat is running
+    }
+
+    return { success: true, pid };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Wait for Anvil to be ready
  */
 async function waitForAnvil(port: number = ANVIL_PORT, timeoutMs: number = 10000): Promise<boolean> {
@@ -215,10 +270,11 @@ async function waitForAnvil(port: number = ANVIL_PORT, timeoutMs: number = 10000
 }
 
 /**
- * Display Anvil account information
+ * Display test account information (same for Anvil and Hardhat Network)
  */
-function displayAnvilAccounts(): void {
-  console.log(chalk.yellow('\nAnvil Test Accounts:'));
+function displayTestAccounts(framework: 'foundry' | 'hardhat' = 'foundry'): void {
+  const chainName = framework === 'foundry' ? 'Anvil' : 'Hardhat Network';
+  console.log(chalk.yellow(`\n${chainName} Test Accounts:`));
   console.log(chalk.gray('  Account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'));
   console.log(chalk.gray('  Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'));
   console.log(chalk.gray('  Balance: 10,000 ETH\n'));
@@ -657,51 +713,73 @@ export async function deployContracts(): Promise<void> {
     }, null, 2)
   );
 
-  // For localhost, check/start Anvil before wallet selection
+  // For localhost, check/start local chain before wallet selection
   let wallet: string | null = null;
   let useDefaultAnvilKey = false;
   let useStatePersistence = false;
+  let useDefaultHardhatKey = false;
 
   if (networkResponse.network === 'localhost') {
     sectionHeader('Local Chain Setup');
 
-    // Check if Anvil is already running
-    const anvilRunning = await isAnvilRunning(ANVIL_PORT);
+    // Check if a local chain is already running
+    const localChainRunning = await isAnvilRunning(ANVIL_PORT);
 
-    if (anvilRunning) {
-      success(`Anvil is running on port ${ANVIL_PORT}`);
-      displayAnvilAccounts();
+    if (localChainRunning) {
+      success(`Local chain is running on port ${ANVIL_PORT}`);
+      displayTestAccounts(config.framework);
     } else {
-      // Anvil not running - offer to start it
-      info('Anvil is not running on port 8545.');
+      // Local chain not running - offer to start it
+      const chainType = config.framework === 'foundry' ? 'Anvil' : 'Hardhat Network';
+      info(`${chainType} is not running on port 8545.`);
       console.log('');
+
+      const startChainChoices = config.framework === 'foundry'
+        ? [
+            {
+              title: chalk.green('Start Anvil automatically (recommended)'),
+              value: 'start',
+              description: 'Start Anvil in background on port 8545'
+            },
+            {
+              title: 'Start Anvil with state persistence',
+              value: 'start-persist',
+              description: 'Persist blockchain state between restarts'
+            },
+            {
+              title: 'I\'ll start Anvil manually',
+              value: 'manual',
+              description: 'Run "anvil" in another terminal first'
+            },
+            {
+              title: 'Cancel',
+              value: 'cancel',
+              description: 'Exit deployment'
+            }
+          ]
+        : [
+            {
+              title: chalk.green('Start Hardhat Network automatically (recommended)'),
+              value: 'start',
+              description: 'Start Hardhat Network in background on port 8545'
+            },
+            {
+              title: 'I\'ll start Hardhat Network manually',
+              value: 'manual',
+              description: 'Run "npx hardhat node" in another terminal first'
+            },
+            {
+              title: 'Cancel',
+              value: 'cancel',
+              description: 'Exit deployment'
+            }
+          ];
 
       const startAnvilResponse = await prompts({
         type: 'select',
         name: 'action',
         message: 'How would you like to proceed?',
-        choices: [
-          {
-            title: chalk.green('Start Anvil automatically (recommended)'),
-            value: 'start',
-            description: 'Start Anvil in background on port 8545'
-          },
-          {
-            title: 'Start Anvil with state persistence',
-            value: 'start-persist',
-            description: 'Persist blockchain state between restarts'
-          },
-          {
-            title: 'I\'ll start Anvil manually',
-            value: 'manual',
-            description: 'Run "anvil" in another terminal first'
-          },
-          {
-            title: 'Cancel',
-            value: 'cancel',
-            description: 'Exit deployment'
-          }
-        ]
+        choices: startChainChoices
       });
 
       if (startAnvilResponse.action === 'cancel' || !startAnvilResponse.action) {
@@ -710,97 +788,126 @@ export async function deployContracts(): Promise<void> {
       }
 
       if (startAnvilResponse.action === 'manual') {
-        warning('Please start Anvil in another terminal:');
-        console.log(chalk.cyan('\n  anvil --port 8545 --chain-id 31337\n'));
-        info('Waiting for Anvil to be ready...');
+        if (config.framework === 'foundry') {
+          warning('Please start Anvil in another terminal:');
+          console.log(chalk.cyan('\n  anvil --port 8545 --chain-id 31337\n'));
+        } else {
+          warning('Please start Hardhat Network in another terminal:');
+          console.log(chalk.cyan('\n  cd packages/hardhat && npx hardhat node\n'));
+        }
+        info('Waiting for local chain to be ready...');
 
         const ready = await waitForAnvil(ANVIL_PORT, 60000);
         if (!ready) {
-          error('Anvil not detected. Please start it and try again.');
+          error('Local chain not detected. Please start it and try again.');
           return;
         }
-        success('Anvil detected!');
+        success('Local chain detected!');
       } else {
-        // Auto-start Anvil
-        const statePath = startAnvilResponse.action === 'start-persist'
-          ? join('anvil-state', `evvm-${config.contractSource}.json`)
-          : undefined;
+        // Auto-start local chain
+        if (config.framework === 'foundry') {
+          const statePath = startAnvilResponse.action === 'start-persist'
+            ? join('anvil-state', `evvm-${config.contractSource}.json`)
+            : undefined;
 
-        if (statePath) {
-          useStatePersistence = true;
-          // Create state directory if it doesn't exist
-          const stateDir = join(process.cwd(), 'anvil-state');
-          if (!existsSync(stateDir)) {
-            mkdirSync(stateDir, { recursive: true });
+          if (statePath) {
+            useStatePersistence = true;
+            const stateDir = join(process.cwd(), 'anvil-state');
+            if (!existsSync(stateDir)) {
+              mkdirSync(stateDir, { recursive: true });
+            }
+            info(`State will be persisted to: ${statePath}`);
           }
-          info(`State will be persisted to: ${statePath}`);
-        }
 
-        info('Starting Anvil in background...');
+          info('Starting Anvil in background...');
 
-        const result = await startAnvilBackground(ANVIL_PORT, statePath);
+          const result = await startAnvilBackground(ANVIL_PORT, statePath);
 
-        if (!result.success) {
-          error(`Failed to start Anvil: ${result.error}`);
+          if (!result.success) {
+            error(`Failed to start Anvil: ${result.error}`);
 
-          // Check if port is in use by something else
-          const portInUse = await isPortInUse(ANVIL_PORT);
-          if (portInUse) {
-            const killResponse = await prompts({
-              type: 'confirm',
-              name: 'kill',
-              message: `Port ${ANVIL_PORT} is in use. Kill the existing process?`,
-              initial: false
-            });
+            const portInUse = await isPortInUse(ANVIL_PORT);
+            if (portInUse) {
+              const killResponse = await prompts({
+                type: 'confirm',
+                name: 'kill',
+                message: `Port ${ANVIL_PORT} is in use. Kill the existing process?`,
+                initial: false
+              });
 
-            if (killResponse.kill) {
-              const killed = await killProcessOnPort(ANVIL_PORT);
-              if (killed) {
-                info('Process killed. Retrying Anvil start...');
-                const retryResult = await startAnvilBackground(ANVIL_PORT, statePath);
-                if (!retryResult.success) {
-                  error(`Still failed: ${retryResult.error}`);
+              if (killResponse.kill) {
+                const killed = await killProcessOnPort(ANVIL_PORT);
+                if (killed) {
+                  info('Process killed. Retrying Anvil start...');
+                  const retryResult = await startAnvilBackground(ANVIL_PORT, statePath);
+                  if (!retryResult.success) {
+                    error(`Still failed: ${retryResult.error}`);
+                    return;
+                  }
+                  success('Anvil started successfully!');
+                } else {
+                  error('Failed to kill process. Please stop it manually.');
                   return;
                 }
-                success('Anvil started successfully!');
               } else {
-                error('Failed to kill process. Please stop it manually.');
                 return;
               }
             } else {
               return;
             }
           } else {
-            return;
+            success('Anvil started successfully!');
+            if (result.pid) {
+              dim(`  PID: ${result.pid}`);
+            }
           }
         } else {
-          success('Anvil started successfully!');
-          if (result.pid) {
-            dim(`  PID: ${result.pid}`);
+          // Start Hardhat Network
+          info('Starting Hardhat Network in background...');
+          const result = await startHardhatBackground(projectRoot);
+          if (!result.success) {
+            error(`Failed to start Hardhat Network: ${result.error}`);
+            return;
           }
+          success('Hardhat Network started successfully!');
         }
       }
 
-      displayAnvilAccounts();
+      displayTestAccounts(config.framework);
     }
 
-    // Wallet selection for localhost
+    // Wallet selection for localhost based on framework
+    const walletChoices = config.framework === 'foundry'
+      ? [
+          {
+            title: 'Default Anvil Account (0xf39F...)',
+            value: 'anvil-default',
+            description: '10,000 ETH pre-funded test account'
+          },
+          {
+            title: 'Foundry Keystore',
+            value: 'keystore',
+            description: 'Use a wallet from your Foundry keystore'
+          }
+        ]
+      : [
+          {
+            title: 'Default Hardhat Account (0xf39F...)',
+            value: 'hardhat-default',
+            description: '10,000 ETH pre-funded test account'
+          },
+          {
+            title: 'Private Key from .env',
+            value: 'env',
+            description: 'Use DEPLOYER_PRIVATE_KEY from .env'
+          }
+        ];
+
     const walletChoice = await prompts({
       type: 'select',
       name: 'choice',
       message: 'Select wallet for local deployment:',
-      choices: [
-        {
-          title: 'Default Anvil Account (0xf39F...)',
-          value: 'anvil-default',
-          description: '10,000 ETH pre-funded test account'
-        },
-        {
-          title: 'Foundry Keystore',
-          value: 'keystore',
-          description: 'Use a wallet from your Foundry keystore'
-        }
-      ]
+      choices: walletChoices
     });
 
     if (!walletChoice.choice) {
@@ -812,7 +919,11 @@ export async function deployContracts(): Promise<void> {
       useDefaultAnvilKey = true;
       wallet = 'anvil-default';
       info('Using default Anvil account for local deployment');
-    } else {
+    } else if (walletChoice.choice === 'hardhat-default') {
+      useDefaultHardhatKey = true;
+      wallet = 'hardhat-default';
+      info('Using default Hardhat account for local deployment');
+    } else if (walletChoice.choice === 'keystore') {
       wallet = await selectWallet(config.framework);
       if (!wallet) return;
 
@@ -825,6 +936,17 @@ export async function deployContracts(): Promise<void> {
         wallet = 'anvil-default';
       } else {
         success('Wallet funded with 100 ETH for deployment');
+      }
+    } else if (walletChoice.choice === 'env') {
+      // Check for private key in .env
+      const hasKey = process.env.DEPLOYER_PRIVATE_KEY && process.env.DEPLOYER_PRIVATE_KEY.length > 0;
+      if (!hasKey) {
+        warning('DEPLOYER_PRIVATE_KEY not set. Using default Hardhat account.');
+        useDefaultHardhatKey = true;
+        wallet = 'hardhat-default';
+      } else {
+        wallet = 'env';
+        success('Using private key from .env');
       }
     }
   } else {
@@ -856,7 +978,7 @@ export async function deployContracts(): Promise<void> {
   );
 
   if (result) {
-    await displayDeploymentResult(result, networkResponse.network);
+    await displayDeploymentResult(result, networkResponse.network, config.framework);
 
     // Offer registry registration for non-local deployments
     if (networkResponse.network !== 'localhost') {
@@ -1042,6 +1164,9 @@ async function deployWithFoundry(
 
 /**
  * Deploy using Hardhat
+ *
+ * Uses hybrid approach: Foundry for compilation, Hardhat ts-node script for deployment
+ * This avoids source name conflicts with self-referential imports
  */
 async function deployWithHardhat(
   network: string,
@@ -1053,12 +1178,34 @@ async function deployWithHardhat(
     : network === 'arb-sepolia' ? 'arbitrumSepolia'
     : 'localhost';
 
-  await execa('npx', ['hardhat', 'deploy', '--network', networkName], {
-    cwd: packageDir,
-    stdio: 'inherit'
-  });
+  const projectRoot = join(packageDir, '..', '..');
+  const foundryDir = join(projectRoot, 'packages', 'foundry');
 
-  // Parse deployment artifacts
+  // Step 1: Compile with Foundry (handles complex import remappings)
+  console.log(chalk.gray('Compiling contracts with Foundry...'));
+  try {
+    await execa('forge', ['build'], {
+      cwd: foundryDir,
+      stdio: 'inherit'
+    });
+  } catch (err: any) {
+    error(`Foundry compilation failed: ${err.message}`);
+    return null;
+  }
+
+  // Step 2: Deploy using ts-node script (reads Foundry artifacts)
+  console.log(chalk.blue('\nDeploying contracts...\n'));
+  try {
+    await execa('npx', ['ts-node', 'scripts/deploy.ts', '--network', networkName], {
+      cwd: packageDir,
+      stdio: 'inherit'
+    });
+  } catch (err: any) {
+    error(`Deployment script failed: ${err.message}`);
+    return null;
+  }
+
+  // Parse deployment artifacts from the summary file
   return parseHardhatArtifacts(packageDir, networkName);
 }
 
@@ -1173,10 +1320,41 @@ function parseFoundryArtifacts(packageDir: string, network: string): DeploymentR
 
 /**
  * Parse Hardhat deployment artifacts
+ * Reads from deployment-summary.json created by our ts-node deploy script
  */
-function parseHardhatArtifacts(packageDir: string, network: string): DeploymentResult | null {
-  const deploymentsDir = join(packageDir, 'deployments', network);
+function parseHardhatArtifacts(packageDir: string, hardhatNetwork: string): DeploymentResult | null {
+  const deploymentsDir = join(packageDir, 'deployments', hardhatNetwork);
+  const summaryPath = join(deploymentsDir, 'deployment-summary.json');
 
+  // Map Hardhat network names back to our network identifiers
+  const networkMap: Record<string, string> = {
+    'localhost': 'localhost',
+    'sepolia': 'eth-sepolia',
+    'arbitrumSepolia': 'arb-sepolia',
+  };
+  const network = networkMap[hardhatNetwork] || hardhatNetwork;
+  const chainId = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.id || 31337;
+
+  // Try reading from deployment-summary.json (created by our ts-node script)
+  if (existsSync(summaryPath)) {
+    try {
+      const summary = JSON.parse(readFileSync(summaryPath, 'utf-8'));
+      return {
+        evvmAddress: summary.contracts.evvm as Address,
+        stakingAddress: summary.contracts.staking as Address,
+        estimatorAddress: summary.contracts.estimator as Address,
+        nameServiceAddress: summary.contracts.nameService as Address,
+        treasuryAddress: summary.contracts.treasury as Address,
+        p2pSwapAddress: summary.contracts.p2pSwap as Address | undefined,
+        chainId: summary.chainId || chainId,
+        network
+      };
+    } catch {
+      warning('Failed to parse deployment-summary.json');
+    }
+  }
+
+  // Fallback to hardhat-deploy format (individual contract JSON files)
   if (!existsSync(deploymentsDir)) {
     warning('Deployment artifacts not found.');
     return null;
@@ -1190,8 +1368,6 @@ function parseHardhatArtifacts(packageDir: string, network: string): DeploymentR
     }
     return undefined;
   };
-
-  const chainId = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.id || 31337;
 
   return {
     evvmAddress: readDeployment('Evvm') || '0x' as Address,
@@ -1208,7 +1384,7 @@ function parseHardhatArtifacts(packageDir: string, network: string): DeploymentR
 /**
  * Display deployment result and update .env
  */
-async function displayDeploymentResult(result: DeploymentResult, network: string): Promise<void> {
+async function displayDeploymentResult(result: DeploymentResult, network: string, framework: 'foundry' | 'hardhat' = 'foundry'): Promise<void> {
   const networkName = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.name || 'Custom Network';
   const explorerUrl = EXPLORER_URLS[network] || '';
 
@@ -1285,37 +1461,48 @@ async function displayDeploymentResult(result: DeploymentResult, network: string
 
   // Local deployment specific info
   if (network === 'localhost') {
-    // Verify Anvil is still running after deployment
-    const anvilStillRunning = await isAnvilRunning(ANVIL_PORT);
+    // Verify local chain is still running after deployment
+    const localChainRunning = await isAnvilRunning(ANVIL_PORT);
+    const chainName = framework === 'foundry' ? 'Anvil' : 'Hardhat Network';
 
     console.log(chalk.cyan('\n┌─────────────────────────────────────────────────────────┐'));
     console.log(chalk.cyan('│               LOCAL DEPLOYMENT INFO                      │'));
     console.log(chalk.cyan('└─────────────────────────────────────────────────────────┘\n'));
 
-    if (anvilStillRunning) {
-      console.log(chalk.green('✓ Anvil is still running on port 8545\n'));
+    if (localChainRunning) {
+      console.log(chalk.green(`✓ ${chainName} is still running on port 8545\n`));
     } else {
-      console.log(chalk.red('⚠️  Anvil appears to have stopped!\n'));
-      console.log(chalk.yellow('To restart Anvil, run in a separate terminal:'));
-      console.log(chalk.cyan('  anvil --port 8545 --chain-id 31337\n'));
+      console.log(chalk.red(`⚠️  ${chainName} appears to have stopped!\n`));
+      if (framework === 'foundry') {
+        console.log(chalk.yellow('To restart Anvil, run in a separate terminal:'));
+        console.log(chalk.cyan('  anvil --port 8545 --chain-id 31337\n'));
+      } else {
+        console.log(chalk.yellow('To restart Hardhat Network, run in a separate terminal:'));
+        console.log(chalk.cyan('  cd packages/hardhat && npx hardhat node\n'));
+      }
     }
 
-    console.log(chalk.yellow('Anvil Local Chain:'));
+    console.log(chalk.yellow(`${chainName} Local Chain:`));
     console.log(chalk.gray('  • Chain ID: 31337'));
     console.log(chalk.gray('  • RPC URL: http://127.0.0.1:8545'));
     console.log(chalk.gray('  • Block time: 1 second\n'));
 
     console.log(chalk.yellow.bold('⚠️  IMPORTANT - Two Terminal Workflow:\n'));
     console.log(chalk.white('For local development, use TWO separate terminals:\n'));
-    console.log(chalk.cyan('Terminal 1 (keep Anvil running):'));
-    console.log(chalk.gray('  anvil --port 8545 --chain-id 31337\n'));
+    if (framework === 'foundry') {
+      console.log(chalk.cyan('Terminal 1 (keep Anvil running):'));
+      console.log(chalk.gray('  anvil --port 8545 --chain-id 31337\n'));
+    } else {
+      console.log(chalk.cyan('Terminal 1 (keep Hardhat Network running):'));
+      console.log(chalk.gray('  cd packages/hardhat && npx hardhat node\n'));
+    }
     console.log(chalk.cyan('Terminal 2 (run frontend):'));
     console.log(chalk.gray('  npm run frontend\n'));
 
     console.log(chalk.yellow('Wallet Setup (WalletConnect does NOT work with localhost):\n'));
 
     console.log(chalk.cyan('1. Add Local Network to your wallet (MetaMask/Rabby):'));
-    console.log(chalk.gray('   • Network Name: Anvil (Localhost)'));
+    console.log(chalk.gray(`   • Network Name: ${chainName} (Localhost)`));
     console.log(chalk.gray('   • RPC URL: http://127.0.0.1:8545'));
     console.log(chalk.gray('   • Chain ID: 31337'));
     console.log(chalk.gray('   • Currency Symbol: ETH\n'));
@@ -1328,8 +1515,13 @@ async function displayDeploymentResult(result: DeploymentResult, network: string
     console.log(chalk.yellow('To interact with contracts via CLI:'));
     console.log(chalk.gray(`  cast call ${result.evvmAddress} "getEvvmMetadata()" --rpc-url http://127.0.0.1:8545\n`));
 
-    console.log(chalk.yellow('To stop Anvil:'));
-    console.log(chalk.gray('  pkill anvil\n'));
+    if (framework === 'foundry') {
+      console.log(chalk.yellow('To stop Anvil:'));
+      console.log(chalk.gray('  pkill anvil\n'));
+    } else {
+      console.log(chalk.yellow('To stop Hardhat Network:'));
+      console.log(chalk.gray('  pkill -f "hardhat node"\n'));
+    }
   }
 
   info('Run "npm run frontend" to start the frontend');
@@ -1385,15 +1577,30 @@ async function offerRegistration(
     // Step 1: Register with Registry
     info('Step 1: Registering with EVVM Registry...');
 
+    // Build cast arguments - use private key for Hardhat, keystore for Foundry
     const registerArgs = [
       'send',
       REGISTRY_ADDRESS,
       'registerEvvm(uint256,address)',
       String(result.chainId),
       result.evvmAddress,
-      '--rpc-url', sepoliaRpc,
-      '--account', wallet
+      '--rpc-url', sepoliaRpc
     ];
+
+    // Add wallet authentication based on framework
+    if (wallet === 'env' || framework === 'hardhat') {
+      // Hardhat uses private key from .env
+      const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+      if (!privateKey) {
+        error('DEPLOYER_PRIVATE_KEY not set in .env. Cannot register.');
+        info('You can register manually at https://www.evvm.info/registry');
+        return;
+      }
+      registerArgs.push('--private-key', privateKey);
+    } else {
+      // Foundry uses keystore
+      registerArgs.push('--account', wallet);
+    }
 
     console.log(chalk.gray(`Calling registerEvvm(${result.chainId}, ${result.evvmAddress})...`));
 
@@ -1482,9 +1689,18 @@ async function offerRegistration(
       result.evvmAddress,
       'setEvvmID(uint256)',
       evvmId,
-      '--rpc-url', deployedRpc,
-      '--account', wallet
+      '--rpc-url', deployedRpc
     ];
+
+    // Add wallet authentication based on framework
+    if (wallet === 'env' || framework === 'hardhat') {
+      const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+      if (privateKey) {
+        setIdArgs.push('--private-key', privateKey);
+      }
+    } else {
+      setIdArgs.push('--account', wallet);
+    }
 
     console.log(chalk.gray(`Calling setEvvmID(${evvmId}) on EVVM contract...`));
 

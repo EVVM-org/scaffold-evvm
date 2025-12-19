@@ -91,6 +91,9 @@ The following combinations are fully tested and working:
 | Foundry | Testnet-Contracts | Ethereum Sepolia | ✅ Working |
 | Foundry | Testnet-Contracts | Arbitrum Sepolia | ✅ Working |
 | Foundry | Testnet-Contracts | Local (Anvil) | ✅ Working |
+| Hardhat | Testnet-Contracts | Ethereum Sepolia | ✅ Working |
+| Hardhat | Testnet-Contracts | Arbitrum Sepolia | ✅ Working |
+| Hardhat | Testnet-Contracts | Local (Hardhat Network) | ✅ Working |
 
 **Features verified:**
 - Contract deployment with all 6 contracts (EVVM, Staking, Estimator, NameService, Treasury, P2PSwap)
@@ -101,25 +104,64 @@ The following combinations are fully tested and working:
 
 **Tested workflow:**
 ```bash
-npm run cli deploy      # Select: Foundry → Testnet → Network → Configure EVVM
+npm run cli deploy      # Select: Foundry/Hardhat → Testnet → Network → Configure EVVM
 npm run frontend        # Start frontend in separate terminal
 npm run cli flush       # Use when encountering issues
 ```
 
-### In Testing
+### In Development
 
-Currently being tested:
+Currently being developed:
 
-- **Foundry + Playground-Contracts** - Planned
-- **Hardhat framework** - Planned
+- **Playground-Contracts integration** - Planned
+- **Additional network support** - Planned
 
-### Local Development with Anvil
+---
 
-For local development, the CLI can automatically start Anvil (Foundry's local chain) or you can run it manually.
+## Framework Comparison
+
+### Foundry vs Hardhat
+
+| Feature | Foundry | Hardhat |
+|---------|---------|---------|
+| Local Chain | Anvil | Hardhat Network |
+| Wallet Management | Keystore (encrypted) | Private key in `.env` |
+| Compilation | `forge build` | `forge build` (hybrid) |
+| Test Framework | Solidity tests | JavaScript/TypeScript tests |
+| Speed | Faster | Moderate |
+
+### Wallet Management
+
+**Foundry (Keystore - Recommended for security)**
+```bash
+# Import a wallet securely (encrypted on disk)
+cast wallet import deployer --interactive
+
+# List available wallets
+cast wallet list
+
+# Wallet is stored encrypted in ~/.foundry/keystores/
+```
+
+**Hardhat (Private Key)**
+```bash
+# Add to .env file (less secure, but simpler)
+DEPLOYER_PRIVATE_KEY=0x...your_private_key_here...
+```
+
+> **Security Note:** Foundry's keystore is more secure as the private key is encrypted on disk. For Hardhat, the private key is stored in plain text in `.env`. Never commit `.env` files to version control.
+
+---
+
+## Local Development
+
+### Foundry Local (Anvil)
+
+For Foundry framework, the CLI uses **Anvil** as the local development chain.
 
 **Automatic (recommended):**
 ```bash
-npm run cli deploy   # Select "Local (Anvil/Hardhat)" → CLI starts Anvil automatically
+npm run cli deploy   # Select Foundry → "Local" → CLI starts Anvil automatically
 ```
 
 **Manual (two terminals):**
@@ -132,17 +174,42 @@ npm run cli deploy   # Select "Local" → "I'll start Anvil manually"
 npm run frontend
 ```
 
+**Anvil logs:** `anvil.log` in project root
+
+### Hardhat Local (Hardhat Network)
+
+For Hardhat framework, the CLI uses **Hardhat Network** as the local development chain.
+
+**Automatic (recommended):**
+```bash
+npm run cli deploy   # Select Hardhat → "Local" → CLI starts Hardhat Network automatically
+```
+
+**Manual (two terminals):**
+```bash
+# Terminal 1: Start Hardhat Network
+cd packages/hardhat && npx hardhat node
+
+# Terminal 2: Deploy and run frontend
+npm run cli deploy   # Select "Local" → "I'll start Hardhat Network manually"
+npm run frontend
+```
+
+**Hardhat logs:** `hardhat-node.log` in project root
+
+### Local Chain Configuration (Both Frameworks)
+
+Both Anvil and Hardhat Network use the same configuration:
+- **Port:** 8545
+- **Chain ID:** 31337
+- **Test Mnemonic:** `test test test test test test test test test test test junk`
+
 **Important notes for local development:**
 - **WalletConnect does NOT work with localhost** - You must configure your wallet manually
 - Add local network to MetaMask/Rabby: RPC `http://127.0.0.1:8545`, Chain ID `31337`
 - Import test account: Private Key `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-- Anvil logs are saved to `anvil.log` in the project root
-
-### Coming Soon
-
-- Full Hardhat framework support
-- Playground-Contracts integration
-- Additional network support
+- Test account address: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
+- Test account balance: 10,000 ETH
 
 ---
 
@@ -282,13 +349,14 @@ NEXT_PUBLIC_P2PSWAP_ADDRESS=0x...
 # Config Version (for auto-sync with frontend)
 NEXT_PUBLIC_CONFIG_VERSION=1702345678901
 
-# Deployment RPC URLs
+# Deployment RPC URLs (optional - uses fallback RPCs if not set)
 RPC_URL_ETH_SEPOLIA=https://1rpc.io/sepolia
 RPC_URL_ARB_SEPOLIA=https://sepolia-rollup.arbitrum.io/rpc
 ETHERSCAN_API=your_etherscan_api_key
 
-# Hardhat (optional)
-DEPLOYER_PRIVATE_KEY=0x...
+# Hardhat Deployment (REQUIRED for Hardhat framework on testnets)
+# For Foundry, use keystore instead: cast wallet import deployer --interactive
+DEPLOYER_PRIVATE_KEY=0x...your_private_key_here...
 ```
 
 ### EVVM Configuration (input/)
@@ -521,8 +589,18 @@ forge test --match-test testFunctionName -vvv
 
 - Never commit `.env` files with real keys
 - All signing happens client-side
-- Use Foundry keystore for secure key management: `cast wallet import deployer --interactive`
+- **Foundry:** Use keystore for secure key management: `cast wallet import deployer --interactive`
+- **Hardhat:** Private key stored in `.env` - ensure `.env` is in `.gitignore`
 - Contracts not audited for mainnet use
+
+### Wallet Security Comparison
+
+| Framework | Storage | Security Level |
+|-----------|---------|----------------|
+| Foundry | Encrypted keystore in `~/.foundry/keystores/` | High - password protected |
+| Hardhat | Plain text in `.env` file | Medium - relies on file permissions |
+
+For production deployments, Foundry's keystore approach is recommended.
 
 ---
 

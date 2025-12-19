@@ -49,6 +49,9 @@ broadcast/
 anvil.log
 anvil-state/
 
+# Hardhat (local development)
+hardhat-node.log
+
 # Generated files
 *.tsbuildinfo
 tsconfig.tsbuildinfo

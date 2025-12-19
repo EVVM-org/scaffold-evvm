@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "scripts": {
     "chain": "hardhat node --no-deploy",
-    "compile": "hardhat compile",
+    "compile": "cd ../foundry && forge build",
     "test": "hardhat test",
     "deploy": "ts-node scripts/deploy.ts",
-    "deploy:local": "hardhat deploy --network localhost",
-    "deploy:sepolia": "hardhat deploy --network sepolia",
-    "deploy:arb-sepolia": "hardhat deploy --network arbitrumSepolia",
-    "clean": "hardhat clean",
+    "deploy:local": "ts-node scripts/deploy.ts --network localhost",
+    "deploy:sepolia": "ts-node scripts/deploy.ts --network sepolia",
+    "deploy:arb-sepolia": "ts-node scripts/deploy.ts --network arbitrumSepolia",
+    "clean": "hardhat clean && rm -rf ../foundry/out ../foundry/cache",
     "verify": "hardhat verify",
     "account:generate": "hardhat run scripts/generateAccount.ts",
     "account:list": "hardhat run scripts/listAccount.ts",
@@ -17,11 +17,15 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "solady": "^0.0.228"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
     "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-foundry": "^1.1.0",
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.17",
+    "@nomicfoundation/hardhat-network-helpers": "^1.1.2",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-verify": "^2.0.0",
     "@typechain/ethers-v6": "^0.5.0",
