@@ -110,6 +110,31 @@ Currently being tested:
 - **Foundry + Playground-Contracts** - Planned
 - **Hardhat framework** - Planned
 
+### Local Development with Anvil
+
+For local development, the CLI can automatically start Anvil (Foundry's local chain) or you can run it manually.
+
+**Automatic (recommended):**
+```bash
+npm run cli deploy   # Select "Local (Anvil/Hardhat)" → CLI starts Anvil automatically
+```
+
+**Manual (two terminals):**
+```bash
+# Terminal 1: Start Anvil
+anvil --port 8545 --chain-id 31337
+
+# Terminal 2: Deploy and run frontend
+npm run cli deploy   # Select "Local" → "I'll start Anvil manually"
+npm run frontend
+```
+
+**Important notes for local development:**
+- **WalletConnect does NOT work with localhost** - You must configure your wallet manually
+- Add local network to MetaMask/Rabby: RPC `http://127.0.0.1:8545`, Chain ID `31337`
+- Import test account: Private Key `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+- Anvil logs are saved to `anvil.log` in the project root
+
 ### Coming Soon
 
 - Full Hardhat framework support

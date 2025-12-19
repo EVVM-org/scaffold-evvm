@@ -14,8 +14,13 @@ import { createPublicClient, createWalletClient, http, type Address } from 'viem
 import { sepolia, arbitrumSepolia } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
-import { getAvailableWallets } from '../utils/prerequisites.js';
+import { getAvailableWallets, commandExists } from '../utils/prerequisites.js';
 import { checkContractSources, displayContractSourcesStatus, pullLatest, ensureContractSources } from '../utils/contractSources.js';
+
+// Anvil configuration
+const ANVIL_PORT = 8545;
+const ANVIL_CHAIN_ID = 31337;
+const ANVIL_STATE_DIR = 'anvil-state';
 
 // Chain configurations
 const CHAIN_CONFIGS = {
@@ -58,6 +63,212 @@ const REGISTRY_ADDRESS = '0x389dC8fb09211bbDA841D59f4a51160dA2377832' as Address
 
 // Deployments directory for saving summaries
 const DEPLOYMENTS_DIR = join(process.cwd(), 'deployments');
+
+// ============================================================================
+// ANVIL MANAGEMENT FUNCTIONS
+// ============================================================================
+
+/**
+ * Check if Anvil is running on the specified port
+ */
+async function isAnvilRunning(port: number = ANVIL_PORT): Promise<boolean> {
+  try {
+    const response = await fetch(`http://localhost:${port}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', params: [], id: 1 }),
+      signal: AbortSignal.timeout(2000)
+    });
+    if (response.ok) {
+      const data = await response.json() as { result?: string };
+      // Check if it's chain ID 31337 (Anvil/local)
+      const chainId = parseInt(data.result || '0', 16);
+      return chainId === ANVIL_CHAIN_ID;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a port is in use
+ */
+async function isPortInUse(port: number): Promise<boolean> {
+  try {
+    const { stdout } = await execa('lsof', ['-t', `-i:${port}`], { stdio: 'pipe' });
+    return stdout.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Kill process on a port
+ */
+async function killProcessOnPort(port: number): Promise<boolean> {
+  try {
+    const { stdout } = await execa('lsof', ['-t', `-i:${port}`], { stdio: 'pipe' });
+    const pids = stdout.trim().split('\n').filter(Boolean);
+    for (const pid of pids) {
+      await execa('kill', ['-9', pid], { stdio: 'pipe' });
+    }
+    // Wait for port to be released
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Start Anvil in background with optional state persistence
+ * Uses nohup to ensure the process survives after CLI exits
+ */
+async function startAnvilBackground(
+  port: number = ANVIL_PORT,
+  statePath?: string
+): Promise<{ success: boolean; pid?: number; error?: string }> {
+  // Check if Anvil is installed
+  const hasAnvil = await commandExists('anvil');
+  if (!hasAnvil) {
+    return { success: false, error: 'Anvil not found. Install Foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup' };
+  }
+
+  // Check if port is already in use
+  const portInUse = await isPortInUse(port);
+  if (portInUse) {
+    // Check if it's Anvil running
+    const anvilRunning = await isAnvilRunning(port);
+    if (anvilRunning) {
+      return { success: true }; // Anvil is already running
+    }
+    return { success: false, error: `Port ${port} is in use by another process` };
+  }
+
+  // Build Anvil arguments
+  const anvilArgs = [
+    '--port', String(port),
+    '--accounts', '10',
+    '--balance', '10000',
+    '--chain-id', String(ANVIL_CHAIN_ID),
+    '--block-time', '1' // 1 second block time for faster local testing
+  ];
+
+  // Add state persistence if path provided
+  if (statePath) {
+    const fullStatePath = join(process.cwd(), statePath);
+    if (existsSync(fullStatePath)) {
+      anvilArgs.push('--load-state', fullStatePath);
+    }
+    anvilArgs.push('--dump-state', fullStatePath);
+  }
+
+  try {
+    // Use nohup to start Anvil in a way that survives CLI exit
+    // This is more robust than just detached: true
+    const logFile = join(process.cwd(), 'anvil.log');
+    const anvilCommand = `nohup anvil ${anvilArgs.join(' ')} > "${logFile}" 2>&1 &`;
+
+    await execa('sh', ['-c', anvilCommand], {
+      stdio: 'ignore',
+      detached: true
+    });
+
+    // Wait for Anvil to be ready
+    const ready = await waitForAnvil(port, 10000);
+    if (!ready) {
+      return { success: false, error: 'Anvil started but not responding. Check anvil.log for details.' };
+    }
+
+    // Get the PID of the running anvil process
+    let pid: number | undefined;
+    try {
+      const { stdout } = await execa('lsof', ['-t', `-i:${port}`], { stdio: 'pipe' });
+      pid = parseInt(stdout.trim().split('\n')[0], 10);
+    } catch {
+      // PID lookup failed, but Anvil is running
+    }
+
+    return { success: true, pid };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Wait for Anvil to be ready
+ */
+async function waitForAnvil(port: number = ANVIL_PORT, timeoutMs: number = 10000): Promise<boolean> {
+  const startTime = Date.now();
+  const checkInterval = 500;
+
+  while (Date.now() - startTime < timeoutMs) {
+    const running = await isAnvilRunning(port);
+    if (running) {
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
+  }
+
+  return false;
+}
+
+/**
+ * Display Anvil account information
+ */
+function displayAnvilAccounts(): void {
+  console.log(chalk.yellow('\nAnvil Test Accounts:'));
+  console.log(chalk.gray('  Account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'));
+  console.log(chalk.gray('  Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'));
+  console.log(chalk.gray('  Balance: 10,000 ETH\n'));
+  console.log(chalk.gray('  (9 more accounts available with same mnemonic)'));
+  console.log(chalk.gray('  Mnemonic: test test test test test test test test test test test junk\n'));
+}
+
+/**
+ * Fund a keystore wallet from Anvil's default account
+ */
+async function fundWalletFromAnvil(walletName: string, port: number = ANVIL_PORT): Promise<boolean> {
+  try {
+    // Get the address of the keystore wallet
+    const addressResult = await execa('cast', ['wallet', 'address', '--account', walletName], {
+      stdio: 'pipe'
+    });
+    const walletAddress = addressResult.stdout.trim();
+
+    if (!walletAddress || !walletAddress.startsWith('0x')) {
+      error(`Could not get address for wallet: ${walletName}`);
+      return false;
+    }
+
+    dim(`  Wallet address: ${walletAddress}`);
+
+    // Send 100 ETH from Anvil's default account to the wallet
+    const sendResult = await execa('cast', [
+      'send',
+      walletAddress,
+      '--value', '100ether',
+      '--private-key', DEFAULT_ANVIL_KEY,
+      '--rpc-url', `http://localhost:${port}`
+    ], {
+      stdio: 'pipe'
+    });
+
+    return sendResult.exitCode === 0 || sendResult.stdout.includes('transactionHash');
+  } catch (err: any) {
+    // Check if it's just a warning but tx succeeded
+    if (err.stdout && err.stdout.includes('transactionHash')) {
+      return true;
+    }
+    error(`Fund transfer failed: ${err.message}`);
+    return false;
+  }
+}
+
+// ============================================================================
+// END ANVIL MANAGEMENT FUNCTIONS
+// ============================================================================
 
 interface ScaffoldConfig {
   framework: 'foundry' | 'hardhat';
@@ -446,20 +657,143 @@ export async function deployContracts(): Promise<void> {
     }, null, 2)
   );
 
-  // Select wallet - offer choice for localhost
+  // For localhost, check/start Anvil before wallet selection
   let wallet: string | null = null;
   let useDefaultAnvilKey = false;
+  let useStatePersistence = false;
 
   if (networkResponse.network === 'localhost') {
+    sectionHeader('Local Chain Setup');
+
+    // Check if Anvil is already running
+    const anvilRunning = await isAnvilRunning(ANVIL_PORT);
+
+    if (anvilRunning) {
+      success(`Anvil is running on port ${ANVIL_PORT}`);
+      displayAnvilAccounts();
+    } else {
+      // Anvil not running - offer to start it
+      info('Anvil is not running on port 8545.');
+      console.log('');
+
+      const startAnvilResponse = await prompts({
+        type: 'select',
+        name: 'action',
+        message: 'How would you like to proceed?',
+        choices: [
+          {
+            title: chalk.green('Start Anvil automatically (recommended)'),
+            value: 'start',
+            description: 'Start Anvil in background on port 8545'
+          },
+          {
+            title: 'Start Anvil with state persistence',
+            value: 'start-persist',
+            description: 'Persist blockchain state between restarts'
+          },
+          {
+            title: 'I\'ll start Anvil manually',
+            value: 'manual',
+            description: 'Run "anvil" in another terminal first'
+          },
+          {
+            title: 'Cancel',
+            value: 'cancel',
+            description: 'Exit deployment'
+          }
+        ]
+      });
+
+      if (startAnvilResponse.action === 'cancel' || !startAnvilResponse.action) {
+        error('Deployment cancelled.');
+        return;
+      }
+
+      if (startAnvilResponse.action === 'manual') {
+        warning('Please start Anvil in another terminal:');
+        console.log(chalk.cyan('\n  anvil --port 8545 --chain-id 31337\n'));
+        info('Waiting for Anvil to be ready...');
+
+        const ready = await waitForAnvil(ANVIL_PORT, 60000);
+        if (!ready) {
+          error('Anvil not detected. Please start it and try again.');
+          return;
+        }
+        success('Anvil detected!');
+      } else {
+        // Auto-start Anvil
+        const statePath = startAnvilResponse.action === 'start-persist'
+          ? join('anvil-state', `evvm-${config.contractSource}.json`)
+          : undefined;
+
+        if (statePath) {
+          useStatePersistence = true;
+          // Create state directory if it doesn't exist
+          const stateDir = join(process.cwd(), 'anvil-state');
+          if (!existsSync(stateDir)) {
+            mkdirSync(stateDir, { recursive: true });
+          }
+          info(`State will be persisted to: ${statePath}`);
+        }
+
+        info('Starting Anvil in background...');
+
+        const result = await startAnvilBackground(ANVIL_PORT, statePath);
+
+        if (!result.success) {
+          error(`Failed to start Anvil: ${result.error}`);
+
+          // Check if port is in use by something else
+          const portInUse = await isPortInUse(ANVIL_PORT);
+          if (portInUse) {
+            const killResponse = await prompts({
+              type: 'confirm',
+              name: 'kill',
+              message: `Port ${ANVIL_PORT} is in use. Kill the existing process?`,
+              initial: false
+            });
+
+            if (killResponse.kill) {
+              const killed = await killProcessOnPort(ANVIL_PORT);
+              if (killed) {
+                info('Process killed. Retrying Anvil start...');
+                const retryResult = await startAnvilBackground(ANVIL_PORT, statePath);
+                if (!retryResult.success) {
+                  error(`Still failed: ${retryResult.error}`);
+                  return;
+                }
+                success('Anvil started successfully!');
+              } else {
+                error('Failed to kill process. Please stop it manually.');
+                return;
+              }
+            } else {
+              return;
+            }
+          } else {
+            return;
+          }
+        } else {
+          success('Anvil started successfully!');
+          if (result.pid) {
+            dim(`  PID: ${result.pid}`);
+          }
+        }
+      }
+
+      displayAnvilAccounts();
+    }
+
+    // Wallet selection for localhost
     const walletChoice = await prompts({
       type: 'select',
       name: 'choice',
       message: 'Select wallet for local deployment:',
       choices: [
         {
-          title: 'Default Anvil Account',
+          title: 'Default Anvil Account (0xf39F...)',
           value: 'anvil-default',
-          description: 'Use Anvil\'s pre-funded test account (0xf39F...)'
+          description: '10,000 ETH pre-funded test account'
         },
         {
           title: 'Foundry Keystore',
@@ -481,6 +815,17 @@ export async function deployContracts(): Promise<void> {
     } else {
       wallet = await selectWallet(config.framework);
       if (!wallet) return;
+
+      // Fund the keystore wallet from Anvil's default account
+      info('Funding your keystore wallet from Anvil test account...');
+      const funded = await fundWalletFromAnvil(wallet, ANVIL_PORT);
+      if (!funded) {
+        error('Failed to fund wallet. Using default Anvil account instead.');
+        useDefaultAnvilKey = true;
+        wallet = 'anvil-default';
+      } else {
+        success('Wallet funded with 100 ETH for deployment');
+      }
     }
   } else {
     wallet = await selectWallet(config.framework);
@@ -937,6 +1282,55 @@ async function displayDeploymentResult(result: DeploymentResult, network: string
 
   // Save deployment summary to deployments/ folder
   await saveDeploymentSummary(result, network);
+
+  // Local deployment specific info
+  if (network === 'localhost') {
+    // Verify Anvil is still running after deployment
+    const anvilStillRunning = await isAnvilRunning(ANVIL_PORT);
+
+    console.log(chalk.cyan('\n┌─────────────────────────────────────────────────────────┐'));
+    console.log(chalk.cyan('│               LOCAL DEPLOYMENT INFO                      │'));
+    console.log(chalk.cyan('└─────────────────────────────────────────────────────────┘\n'));
+
+    if (anvilStillRunning) {
+      console.log(chalk.green('✓ Anvil is still running on port 8545\n'));
+    } else {
+      console.log(chalk.red('⚠️  Anvil appears to have stopped!\n'));
+      console.log(chalk.yellow('To restart Anvil, run in a separate terminal:'));
+      console.log(chalk.cyan('  anvil --port 8545 --chain-id 31337\n'));
+    }
+
+    console.log(chalk.yellow('Anvil Local Chain:'));
+    console.log(chalk.gray('  • Chain ID: 31337'));
+    console.log(chalk.gray('  • RPC URL: http://127.0.0.1:8545'));
+    console.log(chalk.gray('  • Block time: 1 second\n'));
+
+    console.log(chalk.yellow.bold('⚠️  IMPORTANT - Two Terminal Workflow:\n'));
+    console.log(chalk.white('For local development, use TWO separate terminals:\n'));
+    console.log(chalk.cyan('Terminal 1 (keep Anvil running):'));
+    console.log(chalk.gray('  anvil --port 8545 --chain-id 31337\n'));
+    console.log(chalk.cyan('Terminal 2 (run frontend):'));
+    console.log(chalk.gray('  npm run frontend\n'));
+
+    console.log(chalk.yellow('Wallet Setup (WalletConnect does NOT work with localhost):\n'));
+
+    console.log(chalk.cyan('1. Add Local Network to your wallet (MetaMask/Rabby):'));
+    console.log(chalk.gray('   • Network Name: Anvil (Localhost)'));
+    console.log(chalk.gray('   • RPC URL: http://127.0.0.1:8545'));
+    console.log(chalk.gray('   • Chain ID: 31337'));
+    console.log(chalk.gray('   • Currency Symbol: ETH\n'));
+
+    console.log(chalk.cyan('2. Import a test account (use Account #0):'));
+    console.log(chalk.gray('   Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'));
+    console.log(chalk.gray('   Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'));
+    console.log(chalk.gray('   Balance: 10,000 ETH\n'));
+
+    console.log(chalk.yellow('To interact with contracts via CLI:'));
+    console.log(chalk.gray(`  cast call ${result.evvmAddress} "getEvvmMetadata()" --rpc-url http://127.0.0.1:8545\n`));
+
+    console.log(chalk.yellow('To stop Anvil:'));
+    console.log(chalk.gray('  pkill anvil\n'));
+  }
 
   info('Run "npm run frontend" to start the frontend');
   warning('If a dev server is already running, restart it for changes to take effect.');

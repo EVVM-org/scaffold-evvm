@@ -45,6 +45,10 @@ out/
 broadcast/
 *.cache
 
+# Anvil (local development)
+anvil.log
+anvil-state/
+
 # Generated files
 *.tsbuildinfo
 tsconfig.tsbuildinfo
