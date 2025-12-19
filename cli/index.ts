@@ -20,6 +20,7 @@ import { startChain } from './commands/chain.js';
 import { configureProject } from './commands/config.js';
 import { fullStart } from './commands/start.js';
 import { flush } from './commands/flush.js';
+import { manageSources, checkSources } from './commands/sources.js';
 
 // Load environment variables
 config();
@@ -70,6 +71,11 @@ async function interactiveWizard(): Promise<void> {
         description: 'Clear all caches and stop running servers'
       },
       {
+        title: 'Manage contract sources',
+        value: 'sources',
+        description: 'Check/clone/update Testnet & Playground contracts'
+      },
+      {
         title: 'Exit',
         value: 'exit',
         description: 'Exit the wizard'
@@ -100,6 +106,9 @@ async function interactiveWizard(): Promise<void> {
       break;
     case 'flush':
       await flush();
+      break;
+    case 'sources':
+      await manageSources();
       break;
   }
 }
@@ -143,6 +152,9 @@ async function main(): Promise<void> {
     case 'flush':
       await flush();
       break;
+    case 'sources':
+      await manageSources();
+      break;
     case 'help':
       showHelp();
       break;
@@ -171,6 +183,7 @@ ${chalk.yellow('Commands:')}
   chain         Start a local blockchain (Anvil or Hardhat)
   config        Configure EVVM parameters (addresses, metadata)
   flush         Clear all caches and stop running servers
+  sources       Check/clone/update contract source repositories
   help          Show this help message
 
 ${chalk.yellow('Quick Start:')}

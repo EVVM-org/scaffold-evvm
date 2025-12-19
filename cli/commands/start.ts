@@ -23,6 +23,7 @@ import chalk from 'chalk';
 import { execa, ExecaChildProcess } from 'execa';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
 import { commandExists, checkSubmodules, initializeSubmodules, getAvailableWallets } from '../utils/prerequisites.js';
+import { ensureContractSources, checkContractSources, displayContractSourcesStatus, pullLatest, initSubmodules as initContractSubmodules } from '../utils/contractSources.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -149,30 +150,137 @@ export async function fullStart(): Promise<void> {
   }
 
   // Step 2: Contract Source Selection
-  sectionHeader('Step 2: Contract Source Selection');
+  sectionHeader('Step 2: Contract Sources');
 
-  const hasTestnet = existsSync(TESTNET_PATH);
-  const hasPlayground = existsSync(PLAYGROUND_PATH);
+  // Check contract sources status (fetches from remote to check for updates)
+  info('Checking contract source repositories...');
+  const sourcesStatus = await checkContractSources(PROJECT_ROOT);
 
+  const hasTestnet = sourcesStatus.testnet.exists;
+  const hasPlayground = sourcesStatus.playground.exists;
+  const testnetOutdated = hasTestnet && sourcesStatus.testnet.behind > 0;
+  const playgroundOutdated = hasPlayground && sourcesStatus.playground.behind > 0;
+
+  // Display status
+  displayContractSourcesStatus(sourcesStatus);
+
+  // Handle missing repos
   if (!hasTestnet && !hasPlayground) {
     error('No contract sources found!');
-    info('Expected directories:');
-    dim(`  - ${TESTNET_PATH}`);
-    dim(`  - ${PLAYGROUND_PATH}`);
-    return;
+    info('Run "npm run sources" to clone the repositories.');
+
+    const cloneResponse = await prompts({
+      type: 'confirm',
+      name: 'clone',
+      message: 'Would you like to clone contract repositories now?',
+      initial: true
+    });
+
+    if (cloneResponse.clone) {
+      const sourcesReady = await ensureContractSources(PROJECT_ROOT, 'both');
+      if (!sourcesReady) {
+        error('Failed to clone repositories. Please try manually.');
+        return;
+      }
+      // Re-check status after cloning
+      const newStatus = await checkContractSources(PROJECT_ROOT);
+      if (!newStatus.testnet.exists && !newStatus.playground.exists) {
+        error('Still no contract sources found after cloning.');
+        return;
+      }
+    } else {
+      return;
+    }
   }
 
+  // Handle outdated repos - strongly encourage updating to latest
+  if (testnetOutdated || playgroundOutdated) {
+    console.log(chalk.yellow.bold('\n⚠️  CONTRACT SOURCES ARE OUTDATED!\n'));
+
+    if (testnetOutdated) {
+      console.log(chalk.yellow(`   Testnet-Contracts: ${sourcesStatus.testnet.behind} commit(s) behind remote`));
+      console.log(chalk.gray(`   Local:  ${sourcesStatus.testnet.localCommit} → Remote: ${sourcesStatus.testnet.remoteCommit}`));
+    }
+    if (playgroundOutdated) {
+      console.log(chalk.yellow(`   Playground-Contracts: ${sourcesStatus.playground.behind} commit(s) behind remote`));
+      console.log(chalk.gray(`   Local:  ${sourcesStatus.playground.localCommit} → Remote: ${sourcesStatus.playground.remoteCommit}`));
+    }
+
+    console.log(chalk.cyan('\n   Updating ensures you deploy with the latest bug fixes and features.\n'));
+
+    const updateResponse = await prompts({
+      type: 'select',
+      name: 'action',
+      message: 'How would you like to proceed?',
+      choices: [
+        {
+          title: chalk.green('Update to latest (recommended)'),
+          value: 'update',
+          description: 'Pull latest changes from GitHub'
+        },
+        {
+          title: 'Continue with current version',
+          value: 'skip',
+          description: 'Use existing local contracts (not recommended)'
+        },
+        {
+          title: 'Cancel',
+          value: 'cancel',
+          description: 'Exit setup'
+        }
+      ]
+    });
+
+    if (updateResponse.action === 'cancel' || !updateResponse.action) {
+      error('Setup cancelled.');
+      return;
+    }
+
+    if (updateResponse.action === 'update') {
+      // Update outdated repos
+      if (testnetOutdated && sourcesStatus.testnet.path) {
+        if (sourcesStatus.testnet.hasUncommittedChanges) {
+          warning('Testnet-Contracts has uncommitted changes. Skipping update.');
+        } else {
+          info('Updating Testnet-Contracts...');
+          await pullLatest(sourcesStatus.testnet.path);
+        }
+      }
+      if (playgroundOutdated && sourcesStatus.playground.path) {
+        if (sourcesStatus.playground.hasUncommittedChanges) {
+          warning('Playground-Contracts has uncommitted changes. Skipping update.');
+        } else {
+          info('Updating Playground-Contracts...');
+          await pullLatest(sourcesStatus.playground.path);
+        }
+      }
+      success('Contract sources updated to latest!');
+    } else {
+      warning('Continuing with outdated contracts. You may be missing important updates.');
+    }
+  } else if (hasTestnet || hasPlayground) {
+    success('Contract sources are up to date!');
+  }
+
+  // Re-check after any updates
+  const finalStatus = await checkContractSources(PROJECT_ROOT);
+  const finalHasTestnet = finalStatus.testnet.exists;
+  const finalHasPlayground = finalStatus.playground.exists;
+
+  // Build source choices based on available repos
   const sourceChoices = [];
-  if (hasTestnet) {
+  if (finalHasTestnet) {
+    const suffix = finalStatus.testnet.localCommit ? ` (${finalStatus.testnet.localCommit})` : '';
     sourceChoices.push({
-      title: 'Testnet Contracts',
+      title: `Testnet Contracts${suffix}`,
       value: 'testnet',
       description: 'Production-ready for testnet deployment'
     });
   }
-  if (hasPlayground) {
+  if (finalHasPlayground) {
+    const suffix = finalStatus.playground.localCommit ? ` (${finalStatus.playground.localCommit})` : '';
     sourceChoices.push({
-      title: 'Playground Contracts',
+      title: `Playground Contracts${suffix}`,
       value: 'playground',
       description: 'Experimental for prototyping'
     });
@@ -698,6 +806,11 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
     mkdirSync(inputDir, { recursive: true });
   }
 
+  // Generate Inputs.sol (new format used by Testnet-Contracts)
+  const inputsSol = generateInputsSol(config);
+  writeFileSync(join(inputDir, 'Inputs.sol'), inputsSol);
+
+  // Also write legacy JSON files for backwards compatibility
   // address.json
   writeFileSync(
     join(inputDir, 'address.json'),
@@ -739,6 +852,35 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
   );
 }
 
+/**
+ * Generate Inputs.sol content from configuration
+ */
+function generateInputsSol(config: FullStartConfig): string {
+  return `// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+import {EvvmStructs} from "@evvm/testnet-contracts/contracts/evvm/lib/EvvmStructs.sol";
+
+abstract contract Inputs {
+    address admin = ${config.addresses.admin};
+    address goldenFisher = ${config.addresses.goldenFisher};
+    address activator = ${config.addresses.activator};
+
+    EvvmStructs.EvvmMetadata inputMetadata =
+        EvvmStructs.EvvmMetadata({
+            EvvmName: "${config.basicMetadata.EvvmName}",
+            // evvmID will be set to 0, and it will be assigned when you register the evvm
+            EvvmID: 0,
+            principalTokenName: "${config.basicMetadata.principalTokenName}",
+            principalTokenSymbol: "${config.basicMetadata.principalTokenSymbol}",
+            principalTokenAddress: 0x0000000000000000000000000000000000000001,
+            totalSupply: ${config.advancedMetadata.totalSupply},
+            eraTokens: ${config.advancedMetadata.eraTokens},
+            reward: ${config.advancedMetadata.reward}
+        });
+}
+`;
+}
+
 interface DeployedAddresses {
   evvm: string;
   staking: string;
@@ -768,10 +910,9 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
       : config.network === 'eth-sepolia' ? (process.env.RPC_URL_ETH_SEPOLIA || 'https://1rpc.io/sepolia')
       : (process.env.RPC_URL_ARB_SEPOLIA || 'https://sepolia-rollup.arbitrum.io/rpc');
 
-    // Select the appropriate deployment script based on network
-    const scriptFile = config.network === 'localhost'
-      ? 'script/DeployTestnetOnAnvil.s.sol:DeployTestnetOnAnvil'
-      : 'script/DeployTestnet.s.sol:DeployTestnet';
+    // Select the deployment script
+    // New Testnet-Contracts uses unified Deploy.s.sol
+    const scriptFile = 'script/Deploy.s.sol:DeployScript';
 
     const args = [
       'script',
@@ -842,10 +983,8 @@ function parseFoundryArtifacts(packageDir: string, network: string): DeployedAdd
     : network === 'eth-sepolia' ? 11155111
     : 421614;
 
-  // Try different script names based on network
-  const scriptNames = network === 'localhost'
-    ? ['DeployTestnetOnAnvil.s.sol', 'DeployTestnet.s.sol', 'Deploy.s.sol']
-    : ['DeployTestnet.s.sol', 'Deploy.s.sol'];
+  // Try different script names (Deploy.s.sol is the new unified script)
+  const scriptNames = ['Deploy.s.sol', 'DeployTestnet.s.sol', 'DeployTestnetOnAnvil.s.sol'];
 
   let runLatestPath: string | null = null;
 

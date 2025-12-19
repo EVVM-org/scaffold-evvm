@@ -1,0 +1,24 @@
+{
+  "network": {
+    "name": "Ethereum Sepolia",
+    "chainId": 11155111,
+    "network": "eth-sepolia"
+  },
+  "evvm": {
+    "id": null,
+    "address": "0x8f1a6327f28c915c225462fb64377320b6830b62",
+    "explorer": "https://sepolia.etherscan.io/address/0x8f1a6327f28c915c225462fb64377320b6830b62"
+  },
+  "contracts": {
+    "evvm": "0x8f1a6327f28c915c225462fb64377320b6830b62",
+    "staking": "0x0304bc7289457e0be1f30e95969efa856101e0f9",
+    "estimator": "0x27ca6a2eeea8696a5024a101d53a1c7ff83fb10b",
+    "nameService": "0xd498da571b20eed2f085cc5b72bdd6ece89bc3f3",
+    "treasury": "0x558a735e610fd77c37e670cb05d09b45a0177e96",
+    "p2pSwap": "0x265f4fb0221bf67b20e698cec8cfdac7545a894b"
+  },
+  "deployment": {
+    "timestamp": "2025-12-19T18:01:09.432Z",
+    "timestampUnix": 1766167269433
+  }
+}

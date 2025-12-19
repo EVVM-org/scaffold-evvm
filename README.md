@@ -24,51 +24,97 @@ Scaffold-EVVM is your all-in-one toolkit for deploying, interacting with, and bu
 
 ## Quick Start
 
-### One Command Setup
-
-```bash
-# Clone and install
-git clone <your-repo-url>
-cd scaffold-evvm
-npm install
-
-# Full setup in ONE command:
-npm run start:full
-```
-
-This single command will:
-1. Select framework (Foundry/Hardhat)
-2. Select contracts (Testnet/Playground)
-3. Configure EVVM (addresses, metadata)
-4. Sync and compile contracts
-5. Start local chain (if localhost)
-6. Deploy contracts
-7. Register with EVVM Registry (optional)
-8. Update frontend configuration
-9. Start the frontend
-
 ### Prerequisites
 
 - Node.js 18+ and npm
 - Git
 - Foundry (recommended) - Install: `curl -L https://foundry.paradigm.xyz | bash && foundryup`
 
-### Alternative: Interactive Wizard
+### Recommended Workflow (Two Terminals)
 
+This is the recommended way to develop with Scaffold-EVVM:
+
+**Terminal 1: Deploy Contracts**
 ```bash
-npm run wizard    # Step-by-step interactive setup
+# Clone and install
+git clone <your-repo-url>
+cd scaffold-evvm
+npm install
+
+# Deploy contracts (interactive wizard)
+npm run cli deploy
 ```
 
-### Wizard Flow
+**Terminal 2: Start Frontend**
+```bash
+npm run frontend
+```
 
-The wizard guides you through:
+The `npm run cli deploy` command will:
+1. Check for latest contract updates from GitHub
+2. Select framework (Foundry/Hardhat)
+3. Select contracts (Testnet/Playground)
+4. Configure EVVM (admin addresses, token metadata)
+5. Sync and compile contracts
+6. Select network (Local/Sepolia/Arbitrum)
+7. Deploy contracts
+8. Register with EVVM Registry (optional)
+9. Update frontend configuration
 
-1. **Framework Selection** - Foundry (fast, Solidity-native) or Hardhat (JS/TS ecosystem)
-2. **Contract Source** - Testnet-Contracts or Playground-Contracts
-3. **EVVM Configuration** - Admin addresses and token metadata
-4. **Network Selection** - Local, Sepolia, Arbitrum, or custom RPC
-5. **Deployment** - Automatic contract deployment and verification
-6. **Registry Registration** - Optional global EVVM registry enrollment
+### Troubleshooting
+
+If you encounter bugs or errors:
+```bash
+npm run cli flush   # Clear all caches and stop servers
+npm run cli deploy  # Re-deploy contracts
+npm run frontend    # Start frontend fresh
+```
+
+### Alternative: All-in-One Command
+
+```bash
+npm run start:full  # Full setup + deploy + frontend in one command
+```
+
+This runs everything including the frontend in a single terminal. Use this for quick demos, but the two-terminal workflow is better for development.
+
+---
+
+## Current Status
+
+### Fully Working Flow
+
+The following combination is fully tested and working:
+
+| Component | Status |
+|-----------|--------|
+| **Framework** | Foundry |
+| **Contracts** | Testnet-Contracts |
+| **Network** | Ethereum Sepolia |
+| **Frontend** | `npm run frontend` |
+| **Troubleshooting** | `npm run cli flush` |
+
+**Tested workflow:**
+```bash
+npm run cli deploy      # Select: Foundry → Testnet → Eth Sepolia → Configure EVVM
+npm run frontend        # Start frontend in separate terminal
+npm run cli flush       # Use when encountering issues
+```
+
+### In Testing
+
+Currently being tested:
+
+- **Foundry + Testnet-Contracts + Local (Anvil)** - In progress
+- **Foundry + Testnet-Contracts + Arbitrum Sepolia** - In progress
+- **Foundry + Playground-Contracts** - Planned
+- **Hardhat framework** - Planned
+
+### Coming Soon
+
+- Full Hardhat framework support
+- Playground-Contracts integration
+- Additional network support
 
 ---
 
@@ -105,33 +151,38 @@ scaffold-evvm/
 
 ## Commands
 
-### Wizard & CLI
+### Main Commands (Recommended)
 
 ```bash
-npm run wizard          # Interactive setup wizard
-npm run start:full      # Full setup + deploy + frontend in one command
-npm run cli init        # Initialize project
-npm run cli deploy      # Deploy contracts only
-npm run cli chain       # Start local chain
-npm run cli config      # Update configuration
-npm run cli flush       # Clear all caches and stop servers
+npm run cli deploy      # Full deployment wizard (checks GitHub, configures, deploys)
+npm run frontend        # Start Next.js frontend dev server
+npm run cli flush       # Clear all caches and stop servers (use when troubleshooting)
 ```
 
-### Separate Deploy & Frontend (Recommended for Development)
+### Workflow
 
 ```bash
-# Terminal 1: Deploy contracts
-npm run cli deploy      # Deploy and register with EVVM Registry
+# Terminal 1: Deploy
+npm run cli deploy      # Interactive: GitHub check → config → deploy → registry
 
-# Terminal 2: Start frontend (after deployment)
-npm run flush           # Clear caches (if needed)
-npm run frontend        # Start Next.js dev server
+# Terminal 2: Frontend
+npm run frontend        # Start frontend (after deployment)
+
+# If errors occur:
+npm run cli flush       # Clear caches
+npm run cli deploy      # Re-deploy
+npm run frontend        # Restart frontend
 ```
 
-This workflow allows you to:
-- Keep the deployment terminal open for logs
-- Restart the frontend independently after config changes
-- Clear caches without redeploying
+### Other CLI Commands
+
+```bash
+npm run wizard          # Alias for interactive setup
+npm run start:full      # All-in-one: deploy + frontend (single terminal)
+npm run cli chain       # Start local chain only (Anvil/Hardhat)
+npm run cli sources     # Check/update contract source repositories
+npm run cli config      # Update EVVM configuration only
+```
 
 ### Framework Commands
 
@@ -157,10 +208,22 @@ npm run build           # Build for production
 npm run start           # Start production server
 ```
 
+### Contract Source Management
+
+```bash
+npm run sources         # Interactive: check, clone, or update contract repos
+npm run check-sources   # Same as above (alias)
+```
+
+The CLI automatically checks for contract source updates before deployment:
+- Fetches latest from remote to compare versions
+- Prompts to clone if repositories are missing
+- Warns if local repos are behind remote
+
 ### Utilities
 
 ```bash
-npm run sync-contracts  # Sync from Testnet/Playground
+npm run sync-contracts  # Sync from Testnet/Playground to packages/
 npm run generate-abis   # Generate ABIs for frontend
 npm run flush           # Clear all caches and stop frontend server
 npm run frontend        # Start frontend server (alias for npm run dev)

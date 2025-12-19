@@ -1,7 +1,6 @@
 {
   "framework": "foundry",
   "contractSource": "testnet",
-  "network": "eth-sepolia",
   "initialized": true,
-  "timestamp": "2025-12-13T00:44:19.946Z"
+  "timestamp": "2025-12-19T18:10:39.628Z"
 }

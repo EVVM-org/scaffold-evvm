@@ -39,7 +39,7 @@ export function parseArgs(): string | null {
   const command = args[0].toLowerCase();
 
   // Valid commands
-  const validCommands = ['start', 'init', 'deploy', 'chain', 'config', 'help', '--help', '-h'];
+  const validCommands = ['start', 'init', 'deploy', 'chain', 'config', 'flush', 'sources', 'help', '--help', '-h'];
 
   if (validCommands.includes(command)) {
     if (command === '--help' || command === '-h') {

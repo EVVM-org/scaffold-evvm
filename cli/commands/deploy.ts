@@ -5,8 +5,8 @@
  * using either Foundry or Hardhat based on project configuration.
  */
 
-import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync } from 'fs';
+import { join, resolve } from 'path';
 import prompts from 'prompts';
 import chalk from 'chalk';
 import { execa } from 'execa';
@@ -15,6 +15,7 @@ import { sepolia, arbitrumSepolia } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
 import { getAvailableWallets } from '../utils/prerequisites.js';
+import { checkContractSources, displayContractSourcesStatus, pullLatest, ensureContractSources } from '../utils/contractSources.js';
 
 // Chain configurations
 const CHAIN_CONFIGS = {
@@ -55,6 +56,9 @@ const ARB_SEPOLIA_RPC_FALLBACKS = [
 // Registry for EVVM registration
 const REGISTRY_ADDRESS = '0x389dC8fb09211bbDA841D59f4a51160dA2377832' as Address;
 
+// Deployments directory for saving summaries
+const DEPLOYMENTS_DIR = join(process.cwd(), 'deployments');
+
 interface ScaffoldConfig {
   framework: 'foundry' | 'hardhat';
   contractSource: 'testnet' | 'playground';
@@ -80,17 +84,163 @@ export async function deployContracts(): Promise<void> {
 
   const projectRoot = process.cwd();
 
-  // Check if project is initialized
-  const config = loadProjectConfig(projectRoot);
-  if (!config) {
-    error('Project not initialized. Run "npm run wizard" first.');
+  // Check contract sources (fetches from GitHub to check for updates)
+  info('Checking contract source repositories...');
+  const sourcesStatus = await checkContractSources(projectRoot);
+
+  const hasTestnet = sourcesStatus.testnet.exists;
+  const hasPlayground = sourcesStatus.playground.exists;
+  const testnetOutdated = hasTestnet && sourcesStatus.testnet.behind > 0;
+  const playgroundOutdated = hasPlayground && sourcesStatus.playground.behind > 0;
+
+  // Display status
+  displayContractSourcesStatus(sourcesStatus);
+
+  // Handle missing repos
+  if (!hasTestnet && !hasPlayground) {
+    error('No contract sources found!');
+    info('Run "npm run sources" to clone the repositories.');
+
+    const cloneResponse = await prompts({
+      type: 'confirm',
+      name: 'clone',
+      message: 'Would you like to clone contract repositories now?',
+      initial: true
+    });
+
+    if (cloneResponse.clone) {
+      const sourcesReady = await ensureContractSources(projectRoot, 'both');
+      if (!sourcesReady) {
+        error('Failed to clone repositories. Please try manually.');
+        return;
+      }
+    } else {
+      return;
+    }
+  }
+
+  // Handle outdated repos - strongly encourage updating to latest
+  if (testnetOutdated || playgroundOutdated) {
+    console.log(chalk.yellow.bold('\n⚠️  CONTRACT SOURCES ARE OUTDATED!\n'));
+
+    if (testnetOutdated) {
+      console.log(chalk.yellow(`   Testnet-Contracts: ${sourcesStatus.testnet.behind} commit(s) behind remote`));
+      console.log(chalk.gray(`   Local:  ${sourcesStatus.testnet.localCommit} → Remote: ${sourcesStatus.testnet.remoteCommit}`));
+    }
+    if (playgroundOutdated) {
+      console.log(chalk.yellow(`   Playground-Contracts: ${sourcesStatus.playground.behind} commit(s) behind remote`));
+      console.log(chalk.gray(`   Local:  ${sourcesStatus.playground.localCommit} → Remote: ${sourcesStatus.playground.remoteCommit}`));
+    }
+
+    console.log(chalk.cyan('\n   Updating ensures you deploy with the latest bug fixes and features.\n'));
+
+    const updateResponse = await prompts({
+      type: 'select',
+      name: 'action',
+      message: 'How would you like to proceed?',
+      choices: [
+        {
+          title: chalk.green('Update to latest (recommended)'),
+          value: 'update',
+          description: 'Pull latest changes from GitHub'
+        },
+        {
+          title: 'Continue with current version',
+          value: 'skip',
+          description: 'Use existing local contracts (not recommended)'
+        },
+        {
+          title: 'Cancel',
+          value: 'cancel',
+          description: 'Exit deployment'
+        }
+      ]
+    });
+
+    if (updateResponse.action === 'cancel' || !updateResponse.action) {
+      error('Deployment cancelled.');
+      return;
+    }
+
+    if (updateResponse.action === 'update') {
+      // Update outdated repos
+      if (testnetOutdated && sourcesStatus.testnet.path) {
+        if (sourcesStatus.testnet.hasUncommittedChanges) {
+          warning('Testnet-Contracts has uncommitted changes. Skipping update.');
+        } else {
+          info('Updating Testnet-Contracts...');
+          await pullLatest(sourcesStatus.testnet.path);
+        }
+      }
+      if (playgroundOutdated && sourcesStatus.playground.path) {
+        if (sourcesStatus.playground.hasUncommittedChanges) {
+          warning('Playground-Contracts has uncommitted changes. Skipping update.');
+        } else {
+          info('Updating Playground-Contracts...');
+          await pullLatest(sourcesStatus.playground.path);
+        }
+      }
+      success('Contract sources updated to latest!');
+    } else {
+      warning('Continuing with outdated contracts. You may be missing important updates.');
+    }
+  } else if (hasTestnet || hasPlayground) {
+    success('Contract sources are up to date!');
+  }
+
+  // Load existing config for pre-selection
+  const existingConfig = loadProjectConfig(projectRoot);
+
+  // Step 1: Framework Selection
+  sectionHeader('Framework Selection');
+
+  const frameworkResponse = await prompts({
+    type: 'select',
+    name: 'framework',
+    message: 'Select your smart contract framework:',
+    choices: [
+      { title: 'Foundry', value: 'foundry', description: 'Fast, Solidity-native testing (recommended)' },
+      { title: 'Hardhat', value: 'hardhat', description: 'JavaScript/TypeScript ecosystem' }
+    ],
+    initial: existingConfig?.framework === 'hardhat' ? 1 : 0
+  });
+  if (!frameworkResponse.framework) {
+    error('Deployment cancelled.');
     return;
   }
 
-  info(`Framework: ${chalk.green(config.framework.toUpperCase())}`);
-  info(`Contracts: ${chalk.green(config.contractSource === 'testnet' ? 'Testnet' : 'Playground')}\n`);
+  // Step 2: Contract Source Selection
+  sectionHeader('Contract Source');
 
-  // Select network
+  const sourceChoices = [];
+  if (hasTestnet) {
+    sourceChoices.push({ title: 'Testnet Contracts', value: 'testnet', description: 'Production-ready for testnet' });
+  }
+  if (hasPlayground) {
+    sourceChoices.push({ title: 'Playground Contracts', value: 'playground', description: 'Experimental for prototyping' });
+  }
+
+  const sourceResponse = await prompts({
+    type: 'select',
+    name: 'contractSource',
+    message: 'Select contract source:',
+    choices: sourceChoices,
+    initial: existingConfig?.contractSource === 'playground' ? (hasTestnet ? 1 : 0) : 0
+  });
+  if (!sourceResponse.contractSource) {
+    error('Deployment cancelled.');
+    return;
+  }
+
+  const config: ScaffoldConfig = {
+    framework: frameworkResponse.framework,
+    contractSource: sourceResponse.contractSource,
+    initialized: true
+  };
+
+  // Step 3: Network Selection
+  sectionHeader('Network Selection');
+
   const networkResponse = await prompts({
     type: 'select',
     name: 'network',
@@ -135,6 +285,166 @@ export async function deployContracts(): Promise<void> {
     if (!rpcResponse.rpc) return;
     customRpc = rpcResponse.rpc;
   }
+
+  // Step 4: EVVM Configuration
+  sectionHeader('EVVM Configuration');
+
+  const inputDir = join(projectRoot, 'input');
+  const existingAddressPath = join(inputDir, 'address.json');
+  let useExistingConfig = false;
+
+  if (existsSync(existingAddressPath)) {
+    try {
+      const existingAddresses = JSON.parse(readFileSync(existingAddressPath, 'utf-8'));
+      const basicPath = join(inputDir, 'evvmBasicMetadata.json');
+      const existingBasicMetadata = existsSync(basicPath)
+        ? JSON.parse(readFileSync(basicPath, 'utf-8'))
+        : { EvvmName: 'EVVM', principalTokenName: 'Mate token', principalTokenSymbol: 'MATE' };
+
+      info('Found existing configuration:');
+      dim(`  Admin:        ${existingAddresses.admin}`);
+      dim(`  GoldenFisher: ${existingAddresses.goldenFisher}`);
+      dim(`  Activator:    ${existingAddresses.activator}`);
+      dim(`  EVVM Name:    ${existingBasicMetadata.EvvmName}`);
+      dim(`  Token Name:   ${existingBasicMetadata.principalTokenName}`);
+      dim(`  Token Symbol: ${existingBasicMetadata.principalTokenSymbol}`);
+      console.log('');
+
+      const reuseResponse = await prompts({
+        type: 'confirm',
+        name: 'reuse',
+        message: 'Use existing EVVM configuration?',
+        initial: true
+      });
+
+      useExistingConfig = reuseResponse.reuse;
+    } catch {
+      // Invalid config, will prompt for new one
+    }
+  }
+
+  let evvmConfig: {
+    addresses: { admin: string; goldenFisher: string; activator: string };
+    basicMetadata: { EvvmName: string; principalTokenName: string; principalTokenSymbol: string };
+    advancedMetadata: { totalSupply: string; eraTokens: string; reward: string };
+  };
+
+  if (useExistingConfig) {
+    // Load existing config
+    const addresses = JSON.parse(readFileSync(existingAddressPath, 'utf-8'));
+    const basicPath = join(inputDir, 'evvmBasicMetadata.json');
+    const basicMetadata = existsSync(basicPath)
+      ? JSON.parse(readFileSync(basicPath, 'utf-8'))
+      : { EvvmName: 'EVVM', principalTokenName: 'Mate token', principalTokenSymbol: 'MATE' };
+
+    evvmConfig = {
+      addresses,
+      basicMetadata,
+      advancedMetadata: {
+        totalSupply: '2033333333000000000000000000',
+        eraTokens: '1016666666500000000000000000',
+        reward: '5000000000000000000'
+      }
+    };
+    success('Using existing EVVM configuration');
+  } else {
+    // Prompt for new configuration
+    info('Configure admin addresses for your EVVM instance.\n');
+
+    const validateAddress = (v: string) =>
+      /^0x[a-fA-F0-9]{40}$/.test(v) ? true : 'Invalid address format';
+
+    const adminResponse = await prompts({
+      type: 'text',
+      name: 'value',
+      message: 'Admin address (0x...):',
+      validate: validateAddress
+    });
+    if (!adminResponse.value) { error('Deployment cancelled.'); return; }
+
+    const goldenFisherResponse = await prompts({
+      type: 'text',
+      name: 'value',
+      message: 'Golden Fisher address (0x...):',
+      validate: validateAddress
+    });
+    if (!goldenFisherResponse.value) { error('Deployment cancelled.'); return; }
+
+    const activatorResponse = await prompts({
+      type: 'text',
+      name: 'value',
+      message: 'Activator address (0x...):',
+      validate: validateAddress
+    });
+    if (!activatorResponse.value) { error('Deployment cancelled.'); return; }
+
+    // Basic metadata
+    console.log('');
+    const basicResponse = await prompts([
+      {
+        type: 'text',
+        name: 'EvvmName',
+        message: `EVVM Name ${chalk.gray('[EVVM]')}:`,
+        initial: 'EVVM'
+      },
+      {
+        type: 'text',
+        name: 'principalTokenName',
+        message: `Token Name ${chalk.gray('[Mate token]')}:`,
+        initial: 'Mate token'
+      },
+      {
+        type: 'text',
+        name: 'principalTokenSymbol',
+        message: `Token Symbol ${chalk.gray('[MATE]')}:`,
+        initial: 'MATE'
+      }
+    ]);
+    if (!basicResponse.EvvmName) { error('Deployment cancelled.'); return; }
+
+    evvmConfig = {
+      addresses: {
+        admin: adminResponse.value,
+        goldenFisher: goldenFisherResponse.value,
+        activator: activatorResponse.value
+      },
+      basicMetadata: basicResponse,
+      advancedMetadata: {
+        totalSupply: '2033333333000000000000000000',
+        eraTokens: '1016666666500000000000000000',
+        reward: '5000000000000000000'
+      }
+    };
+    success('EVVM configuration saved');
+  }
+
+  // Display summary
+  console.log('');
+  info(`Framework: ${chalk.green(config.framework.toUpperCase())}`);
+  info(`Contracts: ${chalk.green(config.contractSource === 'testnet' ? 'Testnet' : 'Playground')}`);
+  info(`Network:   ${chalk.green(CHAIN_CONFIGS[networkResponse.network as keyof typeof CHAIN_CONFIGS]?.name || 'Custom')}`);
+  console.log('');
+
+  // Sync contracts and generate Inputs.sol
+  sectionHeader('Syncing Contracts');
+
+  const sourcePath = config.contractSource === 'testnet'
+    ? resolve(projectRoot, '..', 'Testnet-Contracts')
+    : resolve(projectRoot, '..', 'Playground-Contracts');
+
+  await syncContractsAndGenerateInputs(sourcePath, config.framework, projectRoot, evvmConfig);
+  success('Contracts synced and configuration generated');
+
+  // Save scaffold config
+  writeFileSync(
+    join(projectRoot, 'scaffold.config.json'),
+    JSON.stringify({
+      framework: config.framework,
+      contractSource: config.contractSource,
+      initialized: true,
+      timestamp: new Date().toISOString()
+    }, null, 2)
+  );
 
   // Select wallet - offer choice for localhost
   let wallet: string | null = null;
@@ -347,10 +657,9 @@ async function deployWithFoundry(
   console.log(chalk.gray('Cleaning stale artifacts...'));
   await execa('forge', ['clean'], { cwd: packageDir, stdio: 'pipe' }).catch(() => {});
 
-  // Select the appropriate deployment script based on network
-  const scriptFile = network === 'localhost'
-    ? 'script/DeployTestnetOnAnvil.s.sol:DeployTestnetOnAnvil'
-    : 'script/DeployTestnet.s.sol:DeployTestnet';
+  // Select the deployment script
+  // New Testnet-Contracts uses unified Deploy.s.sol
+  const scriptFile = 'script/Deploy.s.sol:DeployScript';
 
   const args = [
     'script',
@@ -478,10 +787,8 @@ async function getWorkingRpc(network: 'eth-sepolia' | 'arb-sepolia'): Promise<st
 function parseFoundryArtifacts(packageDir: string, network: string): DeploymentResult | null {
   const chainId = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.id || 31337;
 
-  // Try different script names based on network
-  const scriptNames = network === 'localhost'
-    ? ['DeployTestnetOnAnvil.s.sol', 'Deploy.s.sol']
-    : ['DeployTestnet.s.sol', 'Deploy.s.sol'];
+  // Try different script names (Deploy.s.sol is the new unified script)
+  const scriptNames = ['Deploy.s.sol', 'DeployTestnet.s.sol', 'DeployTestnetOnAnvil.s.sol'];
 
   let runLatestPath: string | null = null;
 
@@ -627,8 +934,12 @@ async function displayDeploymentResult(result: DeploymentResult, network: string
   }
 
   success('Frontend .env updated with deployed addresses');
-  info('Run "npm run dev" in packages/nextjs to start the frontend with new config');
-  warning('IMPORTANT: If a dev server is already running, you MUST restart it for changes to take effect.');
+
+  // Save deployment summary to deployments/ folder
+  await saveDeploymentSummary(result, network);
+
+  info('Run "npm run frontend" to start the frontend');
+  warning('If a dev server is already running, restart it for changes to take effect.');
 }
 
 /**
@@ -833,4 +1144,183 @@ async function offerRegistration(
     error(`Registration failed: ${err.message}`);
     info('You can register manually at https://www.evvm.info/registry');
   }
+}
+
+/**
+ * Sync contracts from source and generate Inputs.sol
+ */
+async function syncContractsAndGenerateInputs(
+  sourcePath: string,
+  framework: 'foundry' | 'hardhat',
+  projectRoot: string,
+  evvmConfig: {
+    addresses: { admin: string; goldenFisher: string; activator: string };
+    basicMetadata: { EvvmName: string; principalTokenName: string; principalTokenSymbol: string };
+    advancedMetadata: { totalSupply: string; eraTokens: string; reward: string };
+  }
+): Promise<void> {
+  const sourceContractsPath = join(sourcePath, 'src');
+  const targetDir = join(projectRoot, 'packages', framework, 'contracts');
+
+  // Clear existing contracts
+  if (existsSync(targetDir)) {
+    rmSync(targetDir, { recursive: true, force: true });
+  }
+
+  // Copy contracts
+  if (existsSync(sourceContractsPath)) {
+    cpSync(sourceContractsPath, targetDir, { recursive: true });
+    info('Copied contracts');
+  }
+
+  // For Foundry, also sync lib and scripts
+  if (framework === 'foundry') {
+    const sourceLibPath = join(sourcePath, 'lib');
+    const targetLibPath = join(projectRoot, 'packages', 'foundry', 'lib');
+
+    if (existsSync(sourceLibPath)) {
+      const libs = ['forge-std', 'openzeppelin-contracts', 'solady'];
+      for (const lib of libs) {
+        const srcLib = join(sourceLibPath, lib);
+        const dstLib = join(targetLibPath, lib);
+        if (existsSync(srcLib) && !existsSync(dstLib)) {
+          cpSync(srcLib, dstLib, { recursive: true });
+        }
+      }
+    }
+
+    // Copy deployment scripts
+    const sourceScriptPath = join(sourcePath, 'script');
+    const targetScriptPath = join(projectRoot, 'packages', 'foundry', 'script');
+    if (existsSync(sourceScriptPath)) {
+      // Clear and recopy to get latest scripts
+      if (existsSync(targetScriptPath)) {
+        rmSync(targetScriptPath, { recursive: true, force: true });
+      }
+      cpSync(sourceScriptPath, targetScriptPath, { recursive: true });
+      info('Copied deployment scripts');
+    }
+  }
+
+  // Write configuration files
+  const inputDir = join(projectRoot, 'input');
+  if (!existsSync(inputDir)) {
+    mkdirSync(inputDir, { recursive: true });
+  }
+
+  // Generate Inputs.sol
+  const inputsSol = generateInputsSol(evvmConfig);
+  writeFileSync(join(inputDir, 'Inputs.sol'), inputsSol);
+
+  // Write legacy JSON files
+  writeFileSync(
+    join(inputDir, 'address.json'),
+    JSON.stringify(evvmConfig.addresses, null, 2) + '\n'
+  );
+  writeFileSync(
+    join(inputDir, 'evvmBasicMetadata.json'),
+    JSON.stringify(evvmConfig.basicMetadata, null, 2) + '\n'
+  );
+  writeFileSync(
+    join(inputDir, 'evvmAdvancedMetadata.json'),
+    JSON.stringify({
+      eraTokens: evvmConfig.advancedMetadata.eraTokens,
+      reward: evvmConfig.advancedMetadata.reward,
+      totalSupply: evvmConfig.advancedMetadata.totalSupply
+    }, null, 2) + '\n'
+  );
+
+  // Copy to framework package
+  const frameworkInputDir = join(projectRoot, 'packages', framework, 'input');
+  if (!existsSync(frameworkInputDir)) {
+    mkdirSync(frameworkInputDir, { recursive: true });
+  }
+  cpSync(inputDir, frameworkInputDir, { recursive: true });
+  info('Generated Inputs.sol with your configuration');
+}
+
+/**
+ * Generate Inputs.sol content from configuration
+ */
+function generateInputsSol(config: {
+  addresses: { admin: string; goldenFisher: string; activator: string };
+  basicMetadata: { EvvmName: string; principalTokenName: string; principalTokenSymbol: string };
+  advancedMetadata: { totalSupply: string; eraTokens: string; reward: string };
+}): string {
+  return `// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+import {EvvmStructs} from "@evvm/testnet-contracts/contracts/evvm/lib/EvvmStructs.sol";
+
+abstract contract Inputs {
+    address admin = ${config.addresses.admin};
+    address goldenFisher = ${config.addresses.goldenFisher};
+    address activator = ${config.addresses.activator};
+
+    EvvmStructs.EvvmMetadata inputMetadata =
+        EvvmStructs.EvvmMetadata({
+            EvvmName: "${config.basicMetadata.EvvmName}",
+            // evvmID will be set to 0, and it will be assigned when you register the evvm
+            EvvmID: 0,
+            principalTokenName: "${config.basicMetadata.principalTokenName}",
+            principalTokenSymbol: "${config.basicMetadata.principalTokenSymbol}",
+            principalTokenAddress: 0x0000000000000000000000000000000000000001,
+            totalSupply: ${config.advancedMetadata.totalSupply},
+            eraTokens: ${config.advancedMetadata.eraTokens},
+            reward: ${config.advancedMetadata.reward}
+        });
+}
+`;
+}
+
+/**
+ * Save deployment summary to deployments/ folder
+ */
+async function saveDeploymentSummary(
+  result: DeploymentResult,
+  network: string,
+  evvmId?: string
+): Promise<void> {
+  // Create deployments directory if it doesn't exist
+  if (!existsSync(DEPLOYMENTS_DIR)) {
+    mkdirSync(DEPLOYMENTS_DIR, { recursive: true });
+  }
+
+  const networkName = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.name || 'Custom Network';
+  const explorerUrl = EXPLORER_URLS[network] || null;
+
+  const summary = {
+    network: {
+      name: networkName,
+      chainId: result.chainId,
+      network: network
+    },
+    evvm: {
+      id: evvmId ? parseInt(evvmId) : null,
+      address: result.evvmAddress,
+      explorer: explorerUrl ? `${explorerUrl}${result.evvmAddress}` : null
+    },
+    contracts: {
+      evvm: result.evvmAddress,
+      staking: result.stakingAddress,
+      estimator: result.estimatorAddress,
+      nameService: result.nameServiceAddress,
+      treasury: result.treasuryAddress,
+      p2pSwap: result.p2pSwapAddress || null
+    },
+    deployment: {
+      timestamp: new Date().toISOString(),
+      timestampUnix: Date.now()
+    }
+  };
+
+  // Save with network-specific filename
+  const filename = `deployment-${network}-${result.chainId}.json`;
+  const filepath = join(DEPLOYMENTS_DIR, filename);
+  writeFileSync(filepath, JSON.stringify(summary, null, 2));
+
+  // Also save as latest
+  const latestPath = join(DEPLOYMENTS_DIR, 'latest.json');
+  writeFileSync(latestPath, JSON.stringify(summary, null, 2));
+
+  info(`Deployment summary saved to ${filename}`);
 }

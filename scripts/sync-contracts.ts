@@ -384,9 +384,9 @@ async function syncToFoundry(sourceContracts: string, sourceLib: string, sourceI
     if (!existsSync(inputDir)) {
       mkdirSync(inputDir, { recursive: true });
     }
-    // Copy config files
+    // Copy all config files (both .json and .sol)
     for (const file of readdirSync(sourceInput)) {
-      if (file.endsWith('.json')) {
+      if (file.endsWith('.json') || file.endsWith('.sol')) {
         cpSync(join(sourceInput, file), join(inputDir, file));
       }
     }

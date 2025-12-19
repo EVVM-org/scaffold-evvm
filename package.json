@@ -20,6 +20,8 @@
     "chain": "tsx cli/index.ts chain",
     "config": "tsx cli/index.ts config",
     "flush": "tsx cli/index.ts flush",
+    "sources": "tsx cli/index.ts sources",
+    "check-sources": "tsx cli/index.ts sources",
     "frontend": "npm run -w @scaffold-evvm/nextjs dev",
     "dev": "npm run -w @scaffold-evvm/nextjs dev",
     "build": "npm run -w @scaffold-evvm/nextjs build",
