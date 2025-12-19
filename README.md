@@ -1,6 +1,8 @@
 # Scaffold-EVVM
 
-**The complete development environment for EVVM (Ethereum Virtual Virtual Machine) ecosystem.**
+**The complete local development and deployment environment for EVVM (Ethereum Virtual Virtual Machine) ecosystem.**
+
+EVVM is a virtual blockchain system that runs on existing blockchains, giving you your own blockchain without managing infrastructure. Deploy without validators or nodes, inherit security from underlying blockchains, and launch rapidly.
 
 Scaffold-EVVM is your all-in-one toolkit for deploying, interacting with, and building services on EVVM. Choose between Foundry or Hardhat, deploy production-ready contracts from Testnet-Contracts or experimental ones from Playground-Contracts, and use the integrated frontend to construct and execute EVVM signatures.
 
@@ -24,11 +26,40 @@ Scaffold-EVVM is your all-in-one toolkit for deploying, interacting with, and bu
 
 ## Quick Start
 
-### Prerequisites
+### Fresh Clone Experience
 
-- Node.js 18+ and npm
-- Git
-- Foundry (recommended) - Install: `curl -L https://foundry.paradigm.xyz | bash && foundryup`
+Any user can clone, install, and deploy with any combination of framework, contract source, and network:
+
+```bash
+git clone https://github.com/EVVM-org/scaffold-evvm.git
+cd scaffold-evvm
+npm install
+npm run cli deploy
+```
+
+The `npm run cli deploy` wizard will:
+1. **Detect missing contract sources** → Prompt to clone Testnet-Contracts or Playground-Contracts from GitHub
+2. **Clone to sibling directory** → `../Testnet-Contracts` or `../Playground-Contracts`
+3. **Initialize git submodules** automatically
+4. **Guide you through deployment** → Select framework, contracts, network, and configure EVVM
+
+### Prerequisites by Deployment Type
+
+| Deployment | Requirements |
+|------------|--------------|
+| **Local (any framework)** | Node.js 18+, Git, Foundry (`foundryup`) |
+| **Testnet + Foundry** | Above + keystore wallet with testnet ETH |
+| **Testnet + Hardhat** | Node.js 18+, Git, `DEPLOYER_PRIVATE_KEY` in `.env` with testnet ETH |
+
+**For local deployments**, everything is fully automated - no wallet setup needed since test accounts are used.
+
+**For testnet deployments**, the only manual step is getting testnet ETH from faucets.
+
+### Install Foundry
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash && foundryup
+```
 
 ### Recommended Workflow (Two Terminals)
 
@@ -36,12 +67,6 @@ This is the recommended way to develop with Scaffold-EVVM:
 
 **Terminal 1: Deploy Contracts**
 ```bash
-# Clone and install
-git clone <your-repo-url>
-cd scaffold-evvm
-npm install
-
-# Deploy contracts (interactive wizard)
 npm run cli deploy
 ```
 
@@ -520,30 +545,38 @@ npm run sync-contracts
 
 ### What is EVVM?
 
-EVVM (Ethereum Virtual Virtual Machine) is a payment and identity system that uses meta-transactions (EIP-191 signatures) for gasless operations. Users sign messages off-chain, and executors ("fishers") submit transactions on-chain.
+EVVM (Ethereum Virtual Virtual Machine) is a virtual blockchain system that runs on existing blockchains, giving you your own blockchain without managing infrastructure. Key capabilities:
+
+- **No Infrastructure Required** - Deploy without validators or nodes
+- **Inherited Security** - Leverages underlying blockchain security
+- **Rapid Launch** - Multiple EVVMs can operate on a single host blockchain
+- **Gasless Communication** - Transactions via APIs or messaging systems instead of traditional blockchain pathways
 
 ### Core Contracts
 
-1. **Evvm** - Core payment system with dual-nonce meta-transactions
-2. **Staking** - MATE token staking (golden, presale, public tiers)
-3. **Estimator** - Staking rewards calculation
-4. **NameService** - ENS-like identity system with offers and metadata
-5. **Treasury** - Deposit/withdrawal management for ETH and ERC20
+The system comprises six main components:
+
+1. **Evvm** - Core contract managing payments and tokens using EIP-191 signatures
+2. **Staking** - Era-based rewards for MATE token holders (golden, presale, public tiers)
+3. **Estimator** - Staking rewards calculation engine
+4. **NameService** - Human-readable identities through username registration
+5. **Treasury** - Cross-chain asset management and transfers
 6. **P2PSwap** - Decentralized peer-to-peer token exchange
 
-### Meta-Transaction Flow
+### Meta-Transaction Flow (Gasless Operations)
 
 ```
 1. User signs message off-chain (no gas cost)
-2. Executor submits signed message on-chain
-3. Contract verifies signature and executes
-4. User receives result without paying gas
+2. Message broadcast to "fishing spots" (mempools, APIs, or communication channels)
+3. Fishers (operators) capture, validate, and submit transactions on-chain
+4. Contract verifies signature and executes
+5. User receives result without paying gas
 ```
 
 ### Dual Nonce System
 
-- **Sync Nonces** - Sequential, for ordered operations
-- **Async Nonces** - Parallel, for independent operations
+- **Sync Nonces** - Sequential counters enforcing transaction order
+- **Async Nonces** - User-defined, allowing parallel processing
 
 ---
 
