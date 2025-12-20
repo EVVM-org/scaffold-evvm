@@ -80,4 +80,8 @@ packages/foundry/contracts/
 packages/foundry/script/
 packages/foundry/lib/
 packages/hardhat/contracts/
-packages/hardhat/lib
+packages/hardhat/lib/
+
+# Ignore cloned repositories
+Testnet-Contracts/
+Playground-Contracts/
