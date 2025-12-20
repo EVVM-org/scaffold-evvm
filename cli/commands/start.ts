@@ -615,16 +615,7 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     sectionHeader('Compiling Contracts');
 
     if (config.framework === 'foundry') {
-      const foundryDir = join(PROJECT_ROOT, 'packages', 'foundry');
-
-      // Initialize submodules if needed
-      if (!existsSync(join(foundryDir, 'lib', 'forge-std'))) {
-        info('Installing Foundry dependencies...');
-        await execa('forge', ['install', 'foundry-rs/forge-std', '--no-commit'], {
-          cwd: foundryDir,
-          stdio: 'inherit'
-        });
-      }
+      const foundryDir = TESTNET_PATH; // Cambiar a Testnet-Contracts directamente
 
       info('Compiling with Forge...');
       await execa('forge', ['build', '--via-ir'], {
