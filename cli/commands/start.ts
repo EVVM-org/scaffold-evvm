@@ -30,8 +30,8 @@ const __dirname = dirname(__filename);
 
 // Paths
 const PROJECT_ROOT = join(__dirname, '..', '..');
-const TESTNET_PATH = resolve(PROJECT_ROOT, '..', 'Testnet-Contracts');
-const PLAYGROUND_PATH = resolve(PROJECT_ROOT, '..', 'Playground-Contracts');
+const TESTNET_PATH = resolve(PROJECT_ROOT, 'Testnet-Contracts');
+const PLAYGROUND_PATH = resolve(PROJECT_ROOT, 'Playground-Contracts');
 const DEPLOYMENTS_DIR = join(PROJECT_ROOT, 'deployments');
 
 // RPC Fallback endpoints for Ethereum Sepolia (ordered by latency/reliability)

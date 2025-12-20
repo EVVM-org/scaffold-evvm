@@ -753,8 +753,8 @@ export async function deployContracts(): Promise<void> {
   sectionHeader('Syncing Contracts');
 
   const sourcePath = config.contractSource === 'testnet'
-    ? resolve(projectRoot, '..', 'Testnet-Contracts')
-    : resolve(projectRoot, '..', 'Playground-Contracts');
+    ? resolve(projectRoot, 'Testnet-Contracts')
+    : resolve(projectRoot, 'Playground-Contracts');
 
   await syncContractsAndGenerateInputs(sourcePath, config.framework, projectRoot, evvmConfig, config.contractSource);
   success('Contracts synced and configuration generated');

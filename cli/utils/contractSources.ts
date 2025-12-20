@@ -54,6 +54,7 @@ export interface ContractSourcesStatus {
  */
 function findContractPath(projectRoot: string, repoName: string): string | null {
   const searchPaths = [
+    resolve(projectRoot, repoName), // Nueva ubicación dentro de scaffold-evvm
     resolve(projectRoot, '..', repoName),
     resolve(projectRoot, '..', '..', repoName),
     resolve(projectRoot, '..', repoName.replace('-', ''), repoName),
@@ -71,7 +72,7 @@ function findContractPath(projectRoot: string, repoName: string): string | null 
  * Get the default clone path for a repo
  */
 function getDefaultClonePath(projectRoot: string, repoName: string): string {
-  return resolve(projectRoot, '..', repoName);
+  return resolve(projectRoot, repoName); // Clona dentro de scaffold-evvm
 }
 
 /**
@@ -251,29 +252,24 @@ export function displayContractSourcesStatus(status: ContractSourcesStatus): voi
  */
 export async function cloneRepo(
   projectRoot: string,
-  repoKey: 'testnet' | 'playground',
-  useHttps: boolean = false
+  repoKey: 'testnet' | 'playground'
 ): Promise<boolean> {
   const repoInfo = REPOS[repoKey];
   const clonePath = getDefaultClonePath(projectRoot, repoInfo.name);
-  const repoUrl = useHttps ? repoInfo.httpsUrl : repoInfo.url;
+  const repoUrl = repoInfo.httpsUrl; // Always use HTTPS URL
 
   info(`Cloning ${repoInfo.name}...`);
   dim(`  From: ${repoUrl}`);
   dim(`  To: ${clonePath}`);
 
   try {
-    await execa('git', ['clone', '--recursive', repoUrl, clonePath], {
-      stdio: 'inherit',
+    // Execute git clone directly in bash
+    await execa('bash', ['-c', `git clone --recursive ${repoUrl} ${clonePath}`], {
+      stdio: 'inherit', // Show all operations in the terminal
     });
     success(`${repoInfo.name} cloned successfully!`);
     return true;
   } catch (err: any) {
-    // If SSH fails, suggest HTTPS
-    if (!useHttps && err.message?.includes('Permission denied')) {
-      warning('SSH clone failed. Trying HTTPS...');
-      return cloneRepo(projectRoot, repoKey, true);
-    }
     error(`Failed to clone ${repoInfo.name}: ${err.message}`);
     return false;
   }
