@@ -615,9 +615,9 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     sectionHeader('Compiling Contracts');
 
     if (config.framework === 'foundry') {
-      const foundryDir = TESTNET_PATH; // Cambiar a Testnet-Contracts directamente
+      const foundryDir = config.contractSource === 'testnet' ? TESTNET_PATH : PLAYGROUND_PATH; // Seleccionar ruta según la fuente
 
-      info('Compiling with Forge...');
+      info(`Compiling with Forge in ${foundryDir}...`);
       await execa('forge', ['build', '--via-ir'], {
         cwd: foundryDir,
         stdio: 'inherit'
@@ -889,9 +889,10 @@ const DEFAULT_ANVIL_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae7
  * Deploy contracts
  */
 async function deployContracts(config: FullStartConfig): Promise<DeployedAddresses | null> {
-  const packageDir = join(PROJECT_ROOT, 'packages', config.framework);
-
+  let packageDir: string;
   if (config.framework === 'foundry') {
+    packageDir = config.contractSource === 'testnet' ? TESTNET_PATH : PLAYGROUND_PATH;
+
     // Clean stale artifacts first
     info('Cleaning stale artifacts...');
     await execa('forge', ['clean'], { cwd: packageDir, stdio: 'pipe' }).catch(() => {});
@@ -947,6 +948,8 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
       return null;
     }
   } else {
+    packageDir = join(PROJECT_ROOT, 'packages', 'hardhat');
+
     // Hardhat deployment
     const networkName = config.network === 'localhost' ? 'localhost'
       : config.network === 'eth-sepolia' ? 'sepolia'
