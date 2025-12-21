@@ -238,10 +238,15 @@ async function main() {
         to: deployerAddress,
         value: FUND_AMOUNT,
       });
-      await tx.wait();
+      const receipt = await tx.wait();
+      console.log(`  Transaction hash: ${receipt?.hash}`);
 
-      // Update balance
-      balance = await provider.getBalance(deployerAddress);
+      // Wait a moment for state to update, then query with fresh provider
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Create fresh provider to avoid caching issues
+      const freshProvider = new ethers.JsonRpcProvider(networkConfig.rpc);
+      balance = await freshProvider.getBalance(deployerAddress);
       console.log(`  ✓ Funded! New balance: ${ethers.formatEther(balance)} ETH`);
     } catch (err: any) {
       console.error(`  ✗ Funding failed: ${err.message}`);
@@ -250,6 +255,13 @@ async function main() {
     }
   }
 
+  console.log("");
+  console.log("=".repeat(60));
+  console.log("DEPLOYER INFORMATION");
+  console.log("=".repeat(60));
+  console.log(`  Address: ${deployerAddress}`);
+  console.log(`  Balance: ${ethers.formatEther(balance)} ETH`);
+  console.log("=".repeat(60));
   console.log("");
 
   // Verify Foundry artifacts exist
