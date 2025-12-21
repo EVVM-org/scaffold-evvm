@@ -194,15 +194,18 @@ async function main() {
   // Get signer
   let signer: ethers.Signer;
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+  const isLocalNetwork = networkName === "localhost" || networkName === "hardhat";
 
-  if (networkName === "localhost" || networkName === "hardhat") {
-    // Use Hardhat/Anvil default account for local development
+  // Priority: Use DEPLOYER_PRIVATE_KEY if set, otherwise fall back to test mnemonic for local
+  if (privateKey) {
+    signer = new ethers.Wallet(privateKey, provider);
+    console.log("Using DEPLOYER_PRIVATE_KEY from .env");
+  } else if (isLocalNetwork) {
+    // Fall back to test mnemonic only for local development when no private key is set
     const testMnemonic = "test test test test test test test test test test test junk";
     const hdWallet = ethers.Wallet.fromPhrase(testMnemonic);
     signer = hdWallet.connect(provider);
-    console.log("Using test mnemonic for local deployment");
-  } else if (privateKey) {
-    signer = new ethers.Wallet(privateKey, provider);
+    console.log("Using test mnemonic for local deployment (no DEPLOYER_PRIVATE_KEY set)");
   } else {
     console.error("ERROR: DEPLOYER_PRIVATE_KEY not set in .env");
     console.error("Set DEPLOYER_PRIVATE_KEY=0x... in your .env file");

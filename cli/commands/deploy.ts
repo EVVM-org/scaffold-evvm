@@ -382,6 +382,31 @@ async function getWalletAddress(walletName: string): Promise<string | null> {
 }
 
 /**
+ * Get address from DEPLOYER_PRIVATE_KEY environment variable
+ * Uses cast to derive the address from the private key
+ */
+async function getAddressFromPrivateKey(): Promise<string | null> {
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+  if (!privateKey) {
+    return null;
+  }
+
+  try {
+    // Use cast to derive address from private key
+    const result = await execa('cast', ['wallet', 'address', privateKey], {
+      stdio: 'pipe'
+    });
+    const address = result.stdout.trim();
+    if (address && address.startsWith('0x')) {
+      return address;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Main deploy command
  */
 export async function deployContracts(): Promise<void> {
@@ -978,6 +1003,9 @@ export async function deployContracts(): Promise<void> {
     deployerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
   } else if (config.framework === 'foundry' && wallet !== 'env') {
     deployerAddress = await getWalletAddress(wallet);
+  } else if (config.framework === 'hardhat' && wallet === 'env') {
+    // Get address from DEPLOYER_PRIVATE_KEY
+    deployerAddress = await getAddressFromPrivateKey();
   }
 
   // Execute deployment
