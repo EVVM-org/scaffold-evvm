@@ -85,3 +85,4 @@ packages/hardhat/lib/
 # Ignore cloned repositories
 Testnet-Contracts/
 Playground-Contracts/
+frontend.log

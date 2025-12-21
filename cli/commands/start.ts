@@ -435,11 +435,18 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
         stdio: 'inherit'
       });
     } else {
+      // For Hardhat, we use a hybrid approach:
+      // 1. Compile with Foundry (handles complex import remappings)
+      // 2. Deploy with ts-node script (reads Foundry artifacts)
+      // This avoids source name conflicts with self-referential imports
       const hardhatDir = join(PROJECT_ROOT, 'packages', 'hardhat');
       info('Installing npm dependencies...');
       await execa('npm', ['install'], { cwd: hardhatDir, stdio: 'inherit' });
-      info('Compiling with Hardhat...');
-      await execa('npx', ['hardhat', 'compile'], { cwd: hardhatDir, stdio: 'inherit' });
+      info('Compiling with Foundry (handles complex imports)...');
+      await execa('forge', ['build'], {
+        cwd: FOUNDRY_DIR,
+        stdio: 'inherit'
+      });
     }
 
     success('Contracts compiled');
@@ -868,10 +875,13 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
       return null;
     }
   } else {
+    // Hardhat uses hybrid approach: Foundry compile + ts-node deploy script
+    // The ts-node script reads Foundry artifacts from packages/foundry/out/
     const packageDir = join(PROJECT_ROOT, 'packages', 'hardhat');
 
     try {
-      await execa('npx', ['hardhat', 'deploy', '--network', 'localhost'], {
+      info('Deploying with ts-node script (using Foundry artifacts)...');
+      await execa('npx', ['ts-node', 'scripts/deploy.ts', '--network', 'localhost'], {
         cwd: packageDir,
         stdio: 'inherit'
       });
@@ -936,10 +946,31 @@ function parseFoundryArtifacts(packageDir: string): DeployedAddresses | null {
 
 /**
  * Parse Hardhat deployment artifacts (local chain only)
+ * Reads from deployment-summary.json created by ts-node deploy script
  */
 function parseHardhatArtifacts(packageDir: string): DeployedAddresses | null {
   const deploymentsDir = join(packageDir, 'deployments', 'localhost');
+  const summaryPath = join(deploymentsDir, 'deployment-summary.json');
 
+  // Try reading from deployment-summary.json first (created by ts-node script)
+  if (existsSync(summaryPath)) {
+    try {
+      const summary = JSON.parse(readFileSync(summaryPath, 'utf-8'));
+      return {
+        evvm: summary.contracts.evvm,
+        staking: summary.contracts.staking,
+        estimator: summary.contracts.estimator,
+        nameService: summary.contracts.nameService,
+        treasury: summary.contracts.treasury,
+        p2pSwap: summary.contracts.p2pSwap,
+        chainId: summary.chainId || LOCAL_CHAIN_ID
+      };
+    } catch {
+      warning('Failed to parse deployment-summary.json');
+    }
+  }
+
+  // Fallback to hardhat-deploy format (individual contract JSON files)
   if (!existsSync(deploymentsDir)) {
     return null;
   }
