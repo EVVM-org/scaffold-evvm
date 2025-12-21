@@ -170,14 +170,6 @@ npm run frontend        # Start frontend in separate terminal
 npm run cli flush       # Use when encountering issues
 ```
 
-### Coming Soon
-
-Planned for future releases:
-
-- **Testnet deployment** - Ethereum Sepolia, Arbitrum Sepolia
-- **EVVM Registry integration** - Cross-chain registration
-- **Contract verification** - Etherscan/Arbiscan verification
-
 ---
 
 ## Framework Comparison
@@ -413,8 +405,7 @@ The CLI automatically updates `.env` after deployment with all contract addresse
 # Frontend Configuration
 NEXT_PUBLIC_PROJECT_ID=your_walletconnect_project_id
 NEXT_PUBLIC_EVVM_ADDRESS=0x...deployed_evvm_address
-NEXT_PUBLIC_CHAIN_ID=11155111  # or 421614 for Arbitrum
-NEXT_PUBLIC_EVVM_ID=1234       # Assigned after registry registration
+NEXT_PUBLIC_CHAIN_ID=31337  # Local chain ID
 
 # Contract Addresses (auto-populated by CLI)
 NEXT_PUBLIC_STAKING_ADDRESS=0x...
@@ -425,15 +416,6 @@ NEXT_PUBLIC_P2PSWAP_ADDRESS=0x...
 
 # Config Version (for auto-sync with frontend)
 NEXT_PUBLIC_CONFIG_VERSION=1702345678901
-
-# Deployment RPC URLs (optional - uses fallback RPCs if not set)
-RPC_URL_ETH_SEPOLIA=https://1rpc.io/sepolia
-RPC_URL_ARB_SEPOLIA=https://sepolia-rollup.arbitrum.io/rpc
-ETHERSCAN_API=your_etherscan_api_key
-
-# Hardhat Deployment (REQUIRED for Hardhat framework on testnets)
-# For Foundry, use keystore instead: cast wallet import deployer --interactive
-DEPLOYER_PRIVATE_KEY=0x...your_private_key_here...
 ```
 
 ### EVVM Configuration (input/)
@@ -451,14 +433,12 @@ After deployment, a summary is saved:
 ```json
 {
   "network": {
-    "name": "Ethereum Sepolia",
-    "chainId": 11155111,
-    "network": "eth-sepolia"
+    "name": "Local Chain",
+    "chainId": 31337,
+    "network": "localhost"
   },
   "evvm": {
-    "id": 1101,
-    "address": "0x9f736cc2c759fa91b5a34dcdc46bf0ed7c69470c",
-    "explorer": "https://sepolia.etherscan.io/address/0x..."
+    "address": "0x9f736cc2c759fa91b5a34dcdc46bf0ed7c69470c"
   },
   "contracts": {
     "evvm": "0x...",
@@ -479,38 +459,11 @@ After deployment, a summary is saved:
 
 ## Supported Networks
 
-| Network | Chain ID | Primary RPC |
-|---------|----------|-------------|
+| Network | Chain ID | RPC |
+|---------|----------|-----|
 | Local (Anvil/Hardhat) | 31337 | http://localhost:8545 |
-| Ethereum Sepolia | 11155111 | https://eth-sepolia.api.onfinality.io/public |
-| Arbitrum Sepolia | 421614 | https://sepolia-rollup.arbitrum.io/rpc |
 
-### Fallback RPC Endpoints
-
-The CLI includes automatic failover to backup RPCs if the primary fails:
-
-**Ethereum Sepolia** (ordered by latency):
-| Provider | RPC URL | Latency |
-|----------|---------|---------|
-| OnFinality | https://eth-sepolia.api.onfinality.io/public | ~60ms |
-| 1RPC | https://1rpc.io/sepolia | ~109ms |
-| SubQuery | https://ethereum-sepolia.rpc.subquery.network/public | ~110ms |
-| PublicNode | https://ethereum-sepolia-rpc.publicnode.com | ~172ms |
-| Tenderly | https://sepolia.gateway.tenderly.co | ~172ms |
-| dRPC | https://sepolia.drpc.org | ~216ms |
-| Nodies | https://ethereum-sepolia-public.nodies.app | ~229ms |
-| 0xRPC | https://0xrpc.io/sep | ~250ms |
-
-**Arbitrum Sepolia** (ordered by latency):
-| Provider | RPC URL | Latency |
-|----------|---------|---------|
-| Arbitrum Official | https://sepolia-rollup.arbitrum.io/rpc | ~134ms |
-| Tenderly | https://arbitrum-sepolia.gateway.tenderly.co | ~161ms |
-| Pocket | https://arbitrum-sepolia-testnet.api.pocket.network | ~174ms |
-| PublicNode | https://arbitrum-sepolia-rpc.publicnode.com | ~236ms |
-| Omnia | https://endpoints.omniatech.io/v1/arbitrum/sepolia/public | ~243ms |
-| ZAN | https://api.zan.top/arb-sepolia | ~281ms |
-| dRPC | https://arbitrum-sepolia.drpc.org | ~382ms |
+> **Note:** This version supports local development only. Testnet support (Ethereum Sepolia, Arbitrum Sepolia) will be available in a future release.
 
 ---
 
@@ -573,22 +526,6 @@ The system comprises six main components:
 
 - **Sync Nonces** - Sequential counters enforcing transaction order
 - **Async Nonces** - User-defined, allowing parallel processing
-
----
-
-## EVVM Registry
-
-All EVVM deployments should register with the global EVVM Registry on Ethereum Sepolia to receive an official EVVM ID.
-
-**Registry Address:** `0x389dC8fb09211bbDA841D59f4a51160dA2377832`
-
-The CLI handles registration automatically:
-1. Calls `registerEvvm(chainId, evvmAddress)` on the Registry
-2. Retrieves the assigned EVVM ID
-3. Calls `setEvvmID(evvmId)` on your EVVM contract
-4. Updates `.env` with the EVVM ID
-
-Manual registration: https://www.evvm.info/registry
 
 ---
 

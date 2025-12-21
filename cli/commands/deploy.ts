@@ -10,9 +10,7 @@ import { join, resolve } from 'path';
 import prompts from 'prompts';
 import chalk from 'chalk';
 import { execa } from 'execa';
-import { createPublicClient, createWalletClient, http, type Address } from 'viem';
-import { sepolia, arbitrumSepolia } from 'viem/chains';
-import { privateKeyToAccount } from 'viem/accounts';
+import type { Address } from 'viem';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
 import { getAvailableWallets, commandExists } from '../utils/prerequisites.js';
 import { checkContractSources, displayContractSourcesStatus, pullLatest, ensureContractSources } from '../utils/contractSources.js';
@@ -22,44 +20,8 @@ const ANVIL_PORT = 8545;
 const ANVIL_CHAIN_ID = 31337;
 const ANVIL_STATE_DIR = 'anvil-state';
 
-// Chain configurations
-const CHAIN_CONFIGS = {
-  'localhost': { id: 31337, name: 'Local Chain', rpc: 'http://localhost:8545' },
-  'eth-sepolia': { id: 11155111, name: 'Ethereum Sepolia', chain: sepolia },
-  'arb-sepolia': { id: 421614, name: 'Arbitrum Sepolia', chain: arbitrumSepolia }
-};
-
-const EXPLORER_URLS: Record<string, string> = {
-  'eth-sepolia': 'https://sepolia.etherscan.io/address/',
-  'arb-sepolia': 'https://sepolia.arbiscan.io/address/'
-};
-
-// RPC Fallback endpoints for Ethereum Sepolia (ordered by latency/reliability)
-const ETH_SEPOLIA_RPC_FALLBACKS = [
-  'https://eth-sepolia.api.onfinality.io/public',         // OnFinality (0.060s)
-  'https://1rpc.io/sepolia',                              // 1RPC (0.109s)
-  'https://ethereum-sepolia.rpc.subquery.network/public', // SubQuery (0.110s)
-  'https://ethereum-sepolia-rpc.publicnode.com',          // PublicNode (0.172s)
-  'https://sepolia.gateway.tenderly.co',                  // Tenderly (0.172s)
-  'https://gateway.tenderly.co/public/sepolia',           // Tenderly Alt (0.172s)
-  'https://sepolia.drpc.org',                             // dRPC (0.216s)
-  'https://ethereum-sepolia-public.nodies.app',           // Nodies (0.229s)
-  'https://0xrpc.io/sep',                                 // 0xRPC (0.250s)
-];
-
-// RPC Fallback endpoints for Arbitrum Sepolia (ordered by latency/reliability)
-const ARB_SEPOLIA_RPC_FALLBACKS = [
-  'https://sepolia-rollup.arbitrum.io/rpc',               // Official Arbitrum (0.134s)
-  'https://arbitrum-sepolia.gateway.tenderly.co',         // Tenderly (0.161s)
-  'https://arbitrum-sepolia-testnet.api.pocket.network',  // Pocket (0.174s)
-  'https://arbitrum-sepolia-rpc.publicnode.com',          // PublicNode (0.236s)
-  'https://endpoints.omniatech.io/v1/arbitrum/sepolia/public', // Omnia (0.243s)
-  'https://api.zan.top/arb-sepolia',                      // ZAN (0.281s)
-  'https://arbitrum-sepolia.drpc.org',                    // dRPC (0.382s)
-];
-
-// Registry for EVVM registration
-const REGISTRY_ADDRESS = '0x389dC8fb09211bbDA841D59f4a51160dA2377832' as Address;
+// Local chain configuration
+const LOCAL_RPC_URL = 'http://localhost:8545';
 
 // Deployments directory for saving summaries
 const DEPLOYMENTS_DIR = join(process.cwd(), 'deployments');
@@ -606,58 +568,12 @@ export async function deployContracts(): Promise<void> {
     initialized: true
   };
 
-  // Step 3: Network Selection
-  sectionHeader('Network Selection');
+  // Network is always local for this version
+  sectionHeader('Network');
+  const chainName = config.framework === 'foundry' ? 'Anvil' : 'Hardhat Network';
+  info(`Deploying to local chain (${chainName})`);
 
-  const networkResponse = await prompts({
-    type: 'select',
-    name: 'network',
-    message: 'Select deployment network:',
-    choices: [
-      {
-        title: 'Local (Anvil/Hardhat)',
-        value: 'localhost',
-        description: 'Deploy to local development chain'
-      },
-      {
-        title: chalk.gray('Ethereum Sepolia (coming soon)'),
-        value: 'eth-sepolia-disabled',
-        description: 'Testnet deployment not yet supported in this version',
-        disabled: true
-      },
-      {
-        title: chalk.gray('Arbitrum Sepolia (coming soon)'),
-        value: 'arb-sepolia-disabled',
-        description: 'Testnet deployment not yet supported in this version',
-        disabled: true
-      }
-    ]
-  });
-
-  // Handle disabled options
-  if (networkResponse.network?.includes('-disabled')) {
-    warning('Testnet deployment is not yet supported in this version.');
-    info('This version of Scaffold-EVVM supports local development only.');
-    info('Testnet deployment will be available in a future release.');
-    return;
-  }
-
-  if (!networkResponse.network) {
-    error('Deployment cancelled.');
-    return;
-  }
-
-  let customRpc: string | undefined;
-  if (networkResponse.network === 'custom') {
-    const rpcResponse = await prompts({
-      type: 'text',
-      name: 'rpc',
-      message: 'Enter RPC URL:',
-      validate: (value) => value.startsWith('http') ? true : 'Must be a valid URL'
-    });
-    if (!rpcResponse.rpc) return;
-    customRpc = rpcResponse.rpc;
-  }
+  const networkResponse = { network: 'localhost' };
 
   // Step 4: EVVM Configuration
   sectionHeader('EVVM Configuration');
@@ -795,7 +711,7 @@ export async function deployContracts(): Promise<void> {
   console.log('');
   info(`Framework: ${chalk.green(config.framework.toUpperCase())}`);
   info(`Contracts: ${chalk.green(config.contractSource === 'testnet' ? 'Testnet' : 'Playground')}`);
-  info(`Network:   ${chalk.green(CHAIN_CONFIGS[networkResponse.network as keyof typeof CHAIN_CONFIGS]?.name || 'Custom')}`);
+  info(`Network:   ${chalk.green(chainName)}`);
   console.log('');
 
   // Sync contracts and generate Inputs.sol
@@ -1100,7 +1016,7 @@ export async function deployContracts(): Promise<void> {
   const confirmResponse = await prompts({
     type: 'confirm',
     name: 'value',
-    message: `Deploy to ${CHAIN_CONFIGS[networkResponse.network as keyof typeof CHAIN_CONFIGS]?.name || 'Custom Network'}?`,
+    message: `Deploy to local ${chainName}?`,
     initial: true
   });
 
@@ -1115,17 +1031,11 @@ export async function deployContracts(): Promise<void> {
     networkResponse.network,
     wallet,
     projectRoot,
-    customRpc,
     useDefaultAnvilKey
   );
 
   if (result) {
-    await displayDeploymentResult(result, networkResponse.network, config.framework);
-
-    // Offer registry registration for non-local deployments
-    if (networkResponse.network !== 'localhost') {
-      await offerRegistration(result, wallet, config.framework);
-    }
+    await displayDeploymentResult(result, config.framework);
   }
 }
 
@@ -1222,7 +1132,6 @@ async function executeDeployment(
   network: string,
   wallet: string,
   projectRoot: string,
-  customRpc?: string,
   useDefaultAnvilKey: boolean = false
 ): Promise<DeploymentResult | null> {
   console.log(chalk.blue('\n🚀 Starting deployment...\n'));
@@ -1237,9 +1146,9 @@ async function executeDeployment(
 
   try {
     if (config.framework === 'foundry') {
-      return await deployWithFoundry(network, wallet, packageDir, customRpc, useDefaultAnvilKey);
+      return await deployWithFoundry(wallet, packageDir, useDefaultAnvilKey);
     } else {
-      return await deployWithHardhat(network, packageDir, customRpc);
+      return await deployWithHardhat(packageDir);
     }
   } catch (err: any) {
     error(`Deployment failed: ${err.message}`);
@@ -1251,16 +1160,14 @@ async function executeDeployment(
 const DEFAULT_ANVIL_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
 /**
- * Deploy using Foundry
+ * Deploy using Foundry (local chain only)
  */
 async function deployWithFoundry(
-  network: string,
   wallet: string,
   packageDir: string,
-  customRpc?: string,
   useDefaultAnvilKey: boolean = false
 ): Promise<DeploymentResult | null> {
-  const rpcUrl = customRpc || getRpcUrl(network);
+  const rpcUrl = LOCAL_RPC_URL;
 
   // Clean stale artifacts first
   console.log(chalk.gray('Cleaning stale artifacts...'));
@@ -1279,20 +1186,12 @@ async function deployWithFoundry(
     '-vvvv'
   ];
 
-  // For localhost with default Anvil key, use --private-key
-  // For localhost with keystore or testnets, use --account
-  if (network === 'localhost' && useDefaultAnvilKey) {
+  // For local deployment with default Anvil key, use --private-key
+  // Otherwise use --account for keystore wallets
+  if (useDefaultAnvilKey) {
     args.push('--private-key', DEFAULT_ANVIL_KEY);
   } else {
     args.push('--account', wallet);
-  }
-
-  // Add verification for testnets
-  if (network !== 'localhost' && !customRpc) {
-    const etherscanKey = process.env.ETHERSCAN_API;
-    if (etherscanKey) {
-      args.push('--verify', '--etherscan-api-key', etherscanKey);
-    }
   }
 
   await execa('forge', args, {
@@ -1301,24 +1200,19 @@ async function deployWithFoundry(
   });
 
   // Parse deployment artifacts
-  return parseFoundryArtifacts(packageDir, network);
+  return parseFoundryArtifacts(packageDir);
 }
 
 /**
- * Deploy using Hardhat
+ * Deploy using Hardhat (local chain only)
  *
  * Uses hybrid approach: Foundry for compilation, Hardhat ts-node script for deployment
  * This avoids source name conflicts with self-referential imports
  */
 async function deployWithHardhat(
-  network: string,
-  packageDir: string,
-  customRpc?: string
+  packageDir: string
 ): Promise<DeploymentResult | null> {
-  const networkName = network === 'localhost' ? 'localhost'
-    : network === 'eth-sepolia' ? 'sepolia'
-    : network === 'arb-sepolia' ? 'arbitrumSepolia'
-    : 'localhost';
+  const networkName = 'localhost';
 
   const projectRoot = join(packageDir, '..', '..');
   const foundryDir = join(projectRoot, 'packages', 'foundry');
@@ -1348,78 +1242,15 @@ async function deployWithHardhat(
   }
 
   // Parse deployment artifacts from the summary file
-  return parseHardhatArtifacts(packageDir, networkName);
+  return parseHardhatArtifacts(packageDir);
 }
 
-/**
- * Get RPC URL for network with fallback support
- */
-function getRpcUrl(network: string): string {
-  switch (network) {
-    case 'localhost':
-      return 'http://localhost:8545';
-    case 'eth-sepolia':
-      return process.env.RPC_URL_ETH_SEPOLIA || ETH_SEPOLIA_RPC_FALLBACKS[0];
-    case 'arb-sepolia':
-      return process.env.RPC_URL_ARB_SEPOLIA || ARB_SEPOLIA_RPC_FALLBACKS[0];
-    default:
-      return 'http://localhost:8545';
-  }
-}
 
 /**
- * Get working RPC endpoint with fallback support
+ * Parse Foundry deployment artifacts (local chain only)
  */
-async function getWorkingRpc(network: 'eth-sepolia' | 'arb-sepolia'): Promise<string> {
-  const fallbacks = network === 'eth-sepolia' ? ETH_SEPOLIA_RPC_FALLBACKS : ARB_SEPOLIA_RPC_FALLBACKS;
-  const envVar = network === 'eth-sepolia' ? 'RPC_URL_ETH_SEPOLIA' : 'RPC_URL_ARB_SEPOLIA';
-
-  // Try env variable first
-  const envRpc = process.env[envVar];
-  if (envRpc) {
-    try {
-      const response = await fetch(envRpc, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-        signal: AbortSignal.timeout(5000)
-      });
-      if (response.ok) {
-        return envRpc;
-      }
-    } catch {
-      dim(`   Primary RPC from .env failed, trying fallbacks...`);
-    }
-  }
-
-  // Try fallback RPCs
-  for (const rpc of fallbacks) {
-    try {
-      const response = await fetch(rpc, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-        signal: AbortSignal.timeout(5000)
-      });
-      if (response.ok) {
-        dim(`   Using RPC: ${rpc}`);
-        return rpc;
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  // Return default if all fail
-  warning(`No working RPC found, using default`);
-  return fallbacks[0];
-}
-
-/**
- * Parse Foundry deployment artifacts
- */
-function parseFoundryArtifacts(packageDir: string, network: string): DeploymentResult | null {
-  const chainId = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.id || 31337;
+function parseFoundryArtifacts(packageDir: string): DeploymentResult | null {
+  const chainId = ANVIL_CHAIN_ID;
 
   // Try different script names (Deploy.s.sol is the new unified script)
   const scriptNames = ['Deploy.s.sol', 'DeployTestnet.s.sol', 'DeployTestnetOnAnvil.s.sol'];
@@ -1453,7 +1284,7 @@ function parseFoundryArtifacts(packageDir: string, network: string): DeploymentR
       treasuryAddress: findContract('Treasury') || '0x',
       p2pSwapAddress: findContract('P2PSwap'),
       chainId,
-      network
+      network: 'localhost'
     };
   } catch {
     return null;
@@ -1461,21 +1292,14 @@ function parseFoundryArtifacts(packageDir: string, network: string): DeploymentR
 }
 
 /**
- * Parse Hardhat deployment artifacts
+ * Parse Hardhat deployment artifacts (local chain only)
  * Reads from deployment-summary.json created by our ts-node deploy script
  */
-function parseHardhatArtifacts(packageDir: string, hardhatNetwork: string): DeploymentResult | null {
-  const deploymentsDir = join(packageDir, 'deployments', hardhatNetwork);
+function parseHardhatArtifacts(packageDir: string): DeploymentResult | null {
+  const deploymentsDir = join(packageDir, 'deployments', 'localhost');
   const summaryPath = join(deploymentsDir, 'deployment-summary.json');
 
-  // Map Hardhat network names back to our network identifiers
-  const networkMap: Record<string, string> = {
-    'localhost': 'localhost',
-    'sepolia': 'eth-sepolia',
-    'arbitrumSepolia': 'arb-sepolia',
-  };
-  const network = networkMap[hardhatNetwork] || hardhatNetwork;
-  const chainId = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.id || 31337;
+  const chainId = ANVIL_CHAIN_ID;
 
   // Try reading from deployment-summary.json (created by our ts-node script)
   if (existsSync(summaryPath)) {
@@ -1489,7 +1313,7 @@ function parseHardhatArtifacts(packageDir: string, hardhatNetwork: string): Depl
         treasuryAddress: summary.contracts.treasury as Address,
         p2pSwapAddress: summary.contracts.p2pSwap as Address | undefined,
         chainId: summary.chainId || chainId,
-        network
+        network: 'localhost'
       };
     } catch {
       warning('Failed to parse deployment-summary.json');
@@ -1519,40 +1343,32 @@ function parseHardhatArtifacts(packageDir: string, hardhatNetwork: string): Depl
     treasuryAddress: readDeployment('Treasury') || '0x' as Address,
     p2pSwapAddress: readDeployment('P2PSwap'),
     chainId,
-    network
+    network: 'localhost'
   };
 }
 
 /**
  * Display deployment result and update .env
  */
-async function displayDeploymentResult(result: DeploymentResult, network: string, framework: 'foundry' | 'hardhat' = 'foundry'): Promise<void> {
-  const networkName = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.name || 'Custom Network';
-  const explorerUrl = EXPLORER_URLS[network] || '';
+async function displayDeploymentResult(result: DeploymentResult, framework: 'foundry' | 'hardhat' = 'foundry'): Promise<void> {
+  const chainName = framework === 'foundry' ? 'Anvil' : 'Hardhat Network';
 
   console.log(evvmGreen('\n═══════════════════════════════════════════════════════════'));
   console.log(evvmGreen('                 DEPLOYED CONTRACTS SUMMARY'));
   console.log(evvmGreen('═══════════════════════════════════════════════════════════\n'));
 
-  console.log(chalk.white(`Network: ${chalk.green(networkName)} (Chain ID: ${result.chainId})\n`));
+  console.log(chalk.white(`Network: ${chalk.green(`Local (${chainName})`)} (Chain ID: ${result.chainId})\n`));
 
   console.log(chalk.yellow('Core Contracts:'));
   console.log(chalk.white(`  EVVM:        ${chalk.green(result.evvmAddress)}`));
-  if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.evvmAddress}`));
-
   console.log(chalk.white(`  Treasury:    ${chalk.green(result.treasuryAddress)}`));
-  if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.treasuryAddress}`));
 
   console.log(chalk.yellow('\nSupporting Contracts:'));
   console.log(chalk.white(`  Staking:     ${chalk.green(result.stakingAddress)}`));
-  if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.stakingAddress}`));
   console.log(chalk.white(`  Estimator:   ${chalk.green(result.estimatorAddress)}`));
-  if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.estimatorAddress}`));
   console.log(chalk.white(`  NameService: ${chalk.green(result.nameServiceAddress)}`));
-  if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.nameServiceAddress}`));
   if (result.p2pSwapAddress) {
     console.log(chalk.white(`  P2PSwap:     ${chalk.green(result.p2pSwapAddress)}`));
-    if (explorerUrl) console.log(chalk.gray(`               ${explorerUrl}${result.p2pSwapAddress}`));
   }
 
   console.log(evvmGreen('\n═══════════════════════════════════════════════════════════\n'));
@@ -1599,303 +1415,71 @@ async function displayDeploymentResult(result: DeploymentResult, network: string
   success('Frontend .env updated with deployed addresses');
 
   // Save deployment summary to deployments/ folder
-  await saveDeploymentSummary(result, network);
+  await saveDeploymentSummary(result);
 
-  // Local deployment specific info
-  if (network === 'localhost') {
-    // Verify local chain is still running after deployment
-    const localChainRunning = await isAnvilRunning(ANVIL_PORT);
-    const chainName = framework === 'foundry' ? 'Anvil' : 'Hardhat Network';
+  // Verify local chain is still running after deployment
+  const localChainRunning = await isAnvilRunning(ANVIL_PORT);
 
-    console.log(chalk.cyan('\n┌─────────────────────────────────────────────────────────┐'));
-    console.log(chalk.cyan('│               LOCAL DEPLOYMENT INFO                      │'));
-    console.log(chalk.cyan('└─────────────────────────────────────────────────────────┘\n'));
+  console.log(chalk.cyan('\n┌─────────────────────────────────────────────────────────┐'));
+  console.log(chalk.cyan('│               LOCAL DEPLOYMENT INFO                      │'));
+  console.log(chalk.cyan('└─────────────────────────────────────────────────────────┘\n'));
 
-    if (localChainRunning) {
-      console.log(chalk.green(`✓ ${chainName} is still running on port 8545\n`));
-    } else {
-      console.log(chalk.red(`⚠️  ${chainName} appears to have stopped!\n`));
-      if (framework === 'foundry') {
-        console.log(chalk.yellow('To restart Anvil, run in a separate terminal:'));
-        console.log(chalk.cyan('  anvil --port 8545 --chain-id 31337\n'));
-      } else {
-        console.log(chalk.yellow('To restart Hardhat Network, run in a separate terminal:'));
-        console.log(chalk.cyan('  cd packages/hardhat && npx hardhat node\n'));
-      }
-    }
-
-    console.log(chalk.yellow(`${chainName} Local Chain:`));
-    console.log(chalk.gray('  • Chain ID: 31337'));
-    console.log(chalk.gray('  • RPC URL: http://127.0.0.1:8545'));
-    console.log(chalk.gray('  • Block time: 1 second\n'));
-
-    console.log(chalk.yellow.bold('⚠️  IMPORTANT - Two Terminal Workflow:\n'));
-    console.log(chalk.white('For local development, use TWO separate terminals:\n'));
+  if (localChainRunning) {
+    console.log(chalk.green(`✓ ${chainName} is still running on port 8545\n`));
+  } else {
+    console.log(chalk.red(`⚠️  ${chainName} appears to have stopped!\n`));
     if (framework === 'foundry') {
-      console.log(chalk.cyan('Terminal 1 (keep Anvil running):'));
-      console.log(chalk.gray('  anvil --port 8545 --chain-id 31337\n'));
+      console.log(chalk.yellow('To restart Anvil, run in a separate terminal:'));
+      console.log(chalk.cyan('  anvil --port 8545 --chain-id 31337\n'));
     } else {
-      console.log(chalk.cyan('Terminal 1 (keep Hardhat Network running):'));
-      console.log(chalk.gray('  cd packages/hardhat && npx hardhat node\n'));
+      console.log(chalk.yellow('To restart Hardhat Network, run in a separate terminal:'));
+      console.log(chalk.cyan('  cd packages/hardhat && npx hardhat node\n'));
     }
-    console.log(chalk.cyan('Terminal 2 (run frontend):'));
-    console.log(chalk.gray('  npm run frontend\n'));
+  }
 
-    console.log(chalk.yellow('Wallet Setup (WalletConnect does NOT work with localhost):\n'));
+  console.log(chalk.yellow(`${chainName} Local Chain:`));
+  console.log(chalk.gray('  • Chain ID: 31337'));
+  console.log(chalk.gray('  • RPC URL: http://127.0.0.1:8545'));
+  console.log(chalk.gray('  • Block time: 1 second\n'));
 
-    console.log(chalk.cyan('1. Add Local Network to your wallet (MetaMask/Rabby):'));
-    console.log(chalk.gray(`   • Network Name: ${chainName} (Localhost)`));
-    console.log(chalk.gray('   • RPC URL: http://127.0.0.1:8545'));
-    console.log(chalk.gray('   • Chain ID: 31337'));
-    console.log(chalk.gray('   • Currency Symbol: ETH\n'));
+  console.log(chalk.yellow.bold('Two Terminal Workflow:\n'));
+  console.log(chalk.white('For local development, use TWO separate terminals:\n'));
+  if (framework === 'foundry') {
+    console.log(chalk.cyan('Terminal 1 (keep Anvil running):'));
+    console.log(chalk.gray('  anvil --port 8545 --chain-id 31337\n'));
+  } else {
+    console.log(chalk.cyan('Terminal 1 (keep Hardhat Network running):'));
+    console.log(chalk.gray('  cd packages/hardhat && npx hardhat node\n'));
+  }
+  console.log(chalk.cyan('Terminal 2 (run frontend):'));
+  console.log(chalk.gray('  npm run frontend\n'));
 
-    console.log(chalk.cyan('2. Import a test account (use Account #0):'));
-    console.log(chalk.gray('   Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'));
-    console.log(chalk.gray('   Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'));
-    console.log(chalk.gray('   Balance: 10,000 ETH\n'));
+  console.log(chalk.yellow('Wallet Setup (WalletConnect does NOT work with localhost):\n'));
 
-    console.log(chalk.yellow('To interact with contracts via CLI:'));
-    console.log(chalk.gray(`  cast call ${result.evvmAddress} "getEvvmMetadata()" --rpc-url http://127.0.0.1:8545\n`));
+  console.log(chalk.cyan('1. Add Local Network to your wallet (MetaMask/Rabby):'));
+  console.log(chalk.gray(`   • Network Name: ${chainName} (Localhost)`));
+  console.log(chalk.gray('   • RPC URL: http://127.0.0.1:8545'));
+  console.log(chalk.gray('   • Chain ID: 31337'));
+  console.log(chalk.gray('   • Currency Symbol: ETH\n'));
 
-    if (framework === 'foundry') {
-      console.log(chalk.yellow('To stop Anvil:'));
-      console.log(chalk.gray('  pkill anvil\n'));
-    } else {
-      console.log(chalk.yellow('To stop Hardhat Network:'));
-      console.log(chalk.gray('  pkill -f "hardhat node"\n'));
-    }
+  console.log(chalk.cyan('2. Import a test account (use Account #0):'));
+  console.log(chalk.gray('   Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'));
+  console.log(chalk.gray('   Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'));
+  console.log(chalk.gray('   Balance: 10,000 ETH\n'));
+
+  console.log(chalk.yellow('To interact with contracts via CLI:'));
+  console.log(chalk.gray(`  cast call ${result.evvmAddress} "getEvvmMetadata()" --rpc-url http://127.0.0.1:8545\n`));
+
+  if (framework === 'foundry') {
+    console.log(chalk.yellow('To stop Anvil:'));
+    console.log(chalk.gray('  pkill anvil\n'));
+  } else {
+    console.log(chalk.yellow('To stop Hardhat Network:'));
+    console.log(chalk.gray('  pkill -f "hardhat node"\n'));
   }
 
   info('Run "npm run frontend" to start the frontend');
   warning('If a dev server is already running, restart it for changes to take effect.');
-}
-
-/**
- * Offer EVVM registry registration
- */
-async function offerRegistration(
-  result: DeploymentResult,
-  wallet: string,
-  framework: 'foundry' | 'hardhat'
-): Promise<void> {
-  divider();
-  console.log(chalk.cyan('                 REGISTRY REGISTRATION'));
-  divider();
-
-  info('Register your EVVM with the global registry to get an official EVVM ID.');
-  console.log('');
-  dim(`Registry: ${REGISTRY_ADDRESS} (Ethereum Sepolia)`);
-  dim('The registry is on Ethereum Sepolia. You\'ll need Sepolia ETH for gas.\n');
-
-  if (result.network !== 'eth-sepolia') {
-    warning(`Your EVVM is deployed on ${result.network}, but registration happens on Ethereum Sepolia.`);
-    console.log('');
-  }
-
-  const registerResponse = await prompts({
-    type: 'confirm',
-    name: 'value',
-    message: 'Register with EVVM Registry now?',
-    initial: true
-  });
-
-  if (!registerResponse.value) {
-    info('Skipping registration. You can register later using:');
-    dim('  npm run cli registry');
-    console.log('');
-    dim('Or register manually at https://www.evvm.info/registry');
-    return;
-  }
-
-  // Registration process using cast
-  const sepoliaRpc = process.env.RPC_URL_ETH_SEPOLIA || 'https://1rpc.io/sepolia';
-
-  info('Registration requires 2 transactions:');
-  console.log(chalk.gray('  1. Call registerEvvm() on Registry contract (Ethereum Sepolia)'));
-  console.log(chalk.gray('  2. Call setEvvmID() on your EVVM contract'));
-  console.log('');
-
-  try {
-    // Step 1: Register with Registry
-    info('Step 1: Registering with EVVM Registry...');
-
-    // Build cast arguments - use private key for Hardhat, keystore for Foundry
-    const registerArgs = [
-      'send',
-      REGISTRY_ADDRESS,
-      'registerEvvm(uint256,address)',
-      String(result.chainId),
-      result.evvmAddress,
-      '--rpc-url', sepoliaRpc
-    ];
-
-    // Add wallet authentication based on framework
-    if (wallet === 'env' || framework === 'hardhat') {
-      // Hardhat uses private key from .env
-      const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
-      if (!privateKey) {
-        error('DEPLOYER_PRIVATE_KEY not set in .env. Cannot register.');
-        info('You can register manually at https://www.evvm.info/registry');
-        return;
-      }
-      registerArgs.push('--private-key', privateKey);
-    } else {
-      // Foundry uses keystore
-      registerArgs.push('--account', wallet);
-    }
-
-    console.log(chalk.gray(`Calling registerEvvm(${result.chainId}, ${result.evvmAddress})...`));
-
-    const registerResult = await execa('cast', registerArgs, {
-      stdio: 'inherit'
-    }).catch((err) => {
-      error(`Registry registration failed: ${err.message}`);
-      return null;
-    });
-
-    if (!registerResult) {
-      info('You can register manually at https://www.evvm.info/registry');
-      return;
-    }
-
-    success('Registered with EVVM Registry!');
-
-    // Step 2: Get the assigned EVVM ID
-    info('Fetching assigned EVVM ID...');
-
-    // Get all public EVVM IDs and find ours by matching chain ID and address
-    const getIdsArgs = [
-      'call',
-      REGISTRY_ADDRESS,
-      'getPublicEvvmIdActive()(uint256[])',
-      '--rpc-url', sepoliaRpc
-    ];
-
-    const idsResult = await execa('cast', getIdsArgs, {
-      stdio: 'pipe'
-    });
-
-    // Parse the array output: [1000, 1001, 1002, ...]
-    const idsString = idsResult.stdout.trim();
-    const idsMatch = idsString.match(/\[([^\]]+)\]/);
-    if (!idsMatch) {
-      error('Failed to parse EVVM IDs from registry');
-      return;
-    }
-
-    const ids = idsMatch[1].split(',').map(s => s.trim());
-
-    // Find our EVVM ID by checking metadata for each ID (start from end, most recent first)
-    let evvmId: string | null = null;
-    for (let i = ids.length - 1; i >= 0; i--) {
-      const id = ids[i];
-      try {
-        const metadataArgs = [
-          'call',
-          REGISTRY_ADDRESS,
-          'getEvvmIdMetadata(uint256)((uint256,address))',
-          id,
-          '--rpc-url', sepoliaRpc
-        ];
-
-        const metadataResult = await execa('cast', metadataArgs, { stdio: 'pipe' });
-        // Output format: (chainId, address)
-        const output = metadataResult.stdout.trim();
-
-        // Check if this matches our deployment
-        if (output.toLowerCase().includes(result.evvmAddress.toLowerCase()) &&
-            output.includes(String(result.chainId))) {
-          evvmId = id;
-          break;
-        }
-      } catch {
-        // Skip if metadata fetch fails
-        continue;
-      }
-    }
-
-    if (!evvmId) {
-      error('Could not find EVVM ID in registry');
-      info('Registration may have succeeded. Check manually at https://www.evvm.info/registry');
-      return;
-    }
-    success(`Assigned EVVM ID: ${chalk.green(evvmId)}`);
-
-    // Step 3: Set the EVVM ID on the deployed contract
-    info('Step 2: Setting EVVM ID on your contract...');
-
-    const deployedRpc = getRpcUrl(result.network);
-
-    const setIdArgs = [
-      'send',
-      result.evvmAddress,
-      'setEvvmID(uint256)',
-      evvmId,
-      '--rpc-url', deployedRpc
-    ];
-
-    // Add wallet authentication based on framework
-    if (wallet === 'env' || framework === 'hardhat') {
-      const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
-      if (privateKey) {
-        setIdArgs.push('--private-key', privateKey);
-      }
-    } else {
-      setIdArgs.push('--account', wallet);
-    }
-
-    console.log(chalk.gray(`Calling setEvvmID(${evvmId}) on EVVM contract...`));
-
-    const setIdResult = await execa('cast', setIdArgs, {
-      stdio: 'inherit'
-    }).catch((err) => {
-      error(`Failed to set EVVM ID: ${err.message}`);
-      info(`Set manually: cast send ${result.evvmAddress} "setEvvmID(uint256)" ${evvmId}`);
-      return null;
-    });
-
-    if (setIdResult) {
-      success('EVVM ID set successfully!');
-
-      // Update .env
-      const projectRoot = process.cwd();
-      const envPath = join(projectRoot, '.env');
-      let envContent = '';
-      try {
-        envContent = readFileSync(envPath, 'utf-8');
-      } catch {
-        // No existing .env
-      }
-
-      const updateEnvVar = (content: string, key: string, value: string): string => {
-        const regex = new RegExp(`^${key}=.*$`, 'm');
-        if (regex.test(content)) {
-          return content.replace(regex, `${key}=${value}`);
-        }
-        return content.trim() + `\n${key}=${value}\n`;
-      };
-
-      envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ID', evvmId);
-      envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CONFIG_VERSION', String(Date.now()));
-      writeFileSync(envPath, envContent);
-
-      divider();
-      console.log(chalk.green('Registration Complete!'));
-      console.log('');
-      console.log(chalk.yellow('Your EVVM Details:'));
-      console.log(`  EVVM ID:      ${chalk.green(evvmId)}`);
-      console.log(`  EVVM Address: ${chalk.green(result.evvmAddress)}`);
-      console.log(`  Chain ID:     ${chalk.green(result.chainId)}`);
-      const explorerUrl = EXPLORER_URLS[result.network];
-      if (explorerUrl) {
-        console.log(`  Explorer:     ${chalk.gray(explorerUrl + result.evvmAddress)}`);
-      }
-      divider();
-    }
-  } catch (err: any) {
-    error(`Registration failed: ${err.message}`);
-    info('You can register manually at https://www.evvm.info/registry');
-  }
 }
 
 /**
@@ -2052,31 +1636,24 @@ abstract contract ${contractName} {
 }
 
 /**
- * Save deployment summary to deployments/ folder
+ * Save deployment summary to deployments/ folder (local chain only)
  */
 async function saveDeploymentSummary(
-  result: DeploymentResult,
-  network: string,
-  evvmId?: string
+  result: DeploymentResult
 ): Promise<void> {
   // Create deployments directory if it doesn't exist
   if (!existsSync(DEPLOYMENTS_DIR)) {
     mkdirSync(DEPLOYMENTS_DIR, { recursive: true });
   }
 
-  const networkName = CHAIN_CONFIGS[network as keyof typeof CHAIN_CONFIGS]?.name || 'Custom Network';
-  const explorerUrl = EXPLORER_URLS[network] || null;
-
   const summary = {
     network: {
-      name: networkName,
+      name: 'Local Chain',
       chainId: result.chainId,
-      network: network
+      network: 'localhost'
     },
     evvm: {
-      id: evvmId ? parseInt(evvmId) : null,
-      address: result.evvmAddress,
-      explorer: explorerUrl ? `${explorerUrl}${result.evvmAddress}` : null
+      address: result.evvmAddress
     },
     contracts: {
       evvm: result.evvmAddress,
@@ -2093,7 +1670,7 @@ async function saveDeploymentSummary(
   };
 
   // Save with network-specific filename
-  const filename = `deployment-${network}-${result.chainId}.json`;
+  const filename = `deployment-localhost-${result.chainId}.json`;
   const filepath = join(DEPLOYMENTS_DIR, filename);
   writeFileSync(filepath, JSON.stringify(summary, null, 2));
 

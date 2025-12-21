@@ -34,47 +34,13 @@ const TESTNET_PATH = resolve(PROJECT_ROOT, 'Testnet-Contracts');
 const PLAYGROUND_PATH = resolve(PROJECT_ROOT, 'Playground-Contracts');
 const DEPLOYMENTS_DIR = join(PROJECT_ROOT, 'deployments');
 
-// RPC Fallback endpoints for Ethereum Sepolia (ordered by latency/reliability)
-const ETH_SEPOLIA_RPC_FALLBACKS = [
-  'https://eth-sepolia.api.onfinality.io/public',         // OnFinality (0.060s)
-  'https://1rpc.io/sepolia',                              // 1RPC (0.109s)
-  'https://ethereum-sepolia.rpc.subquery.network/public', // SubQuery (0.110s)
-  'https://ethereum-sepolia-rpc.publicnode.com',          // PublicNode (0.172s)
-  'https://sepolia.gateway.tenderly.co',                  // Tenderly (0.172s)
-  'https://gateway.tenderly.co/public/sepolia',           // Tenderly Alt (0.172s)
-  'https://sepolia.drpc.org',                             // dRPC (0.216s)
-  'https://ethereum-sepolia-public.nodies.app',           // Nodies (0.229s)
-  'https://0xrpc.io/sep',                                 // 0xRPC (0.250s)
-];
-
-// RPC Fallback endpoints for Arbitrum Sepolia (ordered by latency/reliability)
-const ARB_SEPOLIA_RPC_FALLBACKS = [
-  'https://sepolia-rollup.arbitrum.io/rpc',               // Official Arbitrum (0.134s)
-  'https://arbitrum-sepolia.gateway.tenderly.co',         // Tenderly (0.161s)
-  'https://arbitrum-sepolia-testnet.api.pocket.network',  // Pocket (0.174s)
-  'https://arbitrum-sepolia-rpc.publicnode.com',          // PublicNode (0.236s)
-  'https://endpoints.omniatech.io/v1/arbitrum/sepolia/public', // Omnia (0.243s)
-  'https://api.zan.top/arb-sepolia',                      // ZAN (0.281s)
-  'https://arbitrum-sepolia.drpc.org',                    // dRPC (0.382s)
-];
-
-// Explorer URLs
-const EXPLORER_ADDRESS_URLS: Record<string, string> = {
-  'eth-sepolia': 'https://sepolia.etherscan.io/address/',
-  'arb-sepolia': 'https://sepolia.arbiscan.io/address/',
-  'localhost': ''
-};
-
-const EXPLORER_TX_URLS: Record<string, string> = {
-  'eth-sepolia': 'https://sepolia.etherscan.io/tx/',
-  'arb-sepolia': 'https://sepolia.arbiscan.io/tx/',
-  'localhost': ''
-};
+// Local chain configuration
+const LOCAL_RPC_URL = 'http://localhost:8545';
+const LOCAL_CHAIN_ID = 31337;
 
 interface FullStartConfig {
   framework: 'foundry' | 'hardhat';
   contractSource: 'testnet' | 'playground';
-  network: 'localhost' | 'eth-sepolia' | 'arb-sepolia';
   addresses: {
     admin: string;
     goldenFisher: string;
@@ -300,46 +266,10 @@ export async function fullStart(): Promise<void> {
 
   success(`Selected: ${sourceResponse.contractSource === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts'}`);
 
-  // Step 3: Network Selection
-  sectionHeader('Step 3: Network Selection');
-
-  const networkResponse = await prompts({
-    type: 'select',
-    name: 'network',
-    message: 'Select deployment network:',
-    choices: [
-      {
-        title: 'Local (Anvil/Hardhat)',
-        value: 'localhost',
-        description: 'Start local chain and deploy (fastest for development)'
-      },
-      {
-        title: chalk.gray('Ethereum Sepolia (coming soon)'),
-        value: 'eth-sepolia-disabled',
-        description: 'Testnet deployment not yet supported in this version',
-        disabled: true
-      },
-      {
-        title: chalk.gray('Arbitrum Sepolia (coming soon)'),
-        value: 'arb-sepolia-disabled',
-        description: 'Testnet deployment not yet supported in this version',
-        disabled: true
-      }
-    ]
-  });
-
-  // Handle disabled options
-  if (networkResponse.network?.includes('-disabled')) {
-    warning('Testnet deployment is not yet supported in this version.');
-    info('This version of Scaffold-EVVM supports local development only.');
-    info('Testnet deployment will be available in a future release.');
-    return;
-  }
-
-  if (!networkResponse.network) {
-    error('Setup cancelled.');
-    return;
-  }
+  // Network is always local
+  sectionHeader('Step 3: Network');
+  const chainName = frameworkResponse.framework === 'foundry' ? 'Anvil' : 'Hardhat Network';
+  info(`Deploying to local chain (${chainName})`);
 
   // Step 4: EVVM Configuration
   sectionHeader('Step 4: EVVM Configuration');
@@ -349,25 +279,21 @@ export async function fullStart(): Promise<void> {
   // For local deployment, offer to use default test addresses
   let addresses: FullStartConfig['addresses'];
 
-  if (networkResponse.network === 'localhost') {
-    const useDefaults = await prompts({
-      type: 'confirm',
-      name: 'value',
-      message: 'Use default test addresses for local deployment?',
-      initial: true
-    });
+  const useDefaults = await prompts({
+    type: 'confirm',
+    name: 'value',
+    message: 'Use default test addresses for local deployment?',
+    initial: true
+  });
 
-    if (useDefaults.value) {
-      // Anvil's default test accounts
-      addresses = {
-        admin: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-        goldenFisher: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-        activator: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
-      };
-      success('Using Anvil default test addresses');
-    } else {
-      addresses = await promptAddresses();
-    }
+  if (useDefaults.value) {
+    // Anvil's default test accounts
+    addresses = {
+      admin: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      goldenFisher: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+      activator: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
+    };
+    success('Using default test addresses');
   } else {
     addresses = await promptAddresses();
   }
@@ -414,41 +340,35 @@ export async function fullStart(): Promise<void> {
   if (frameworkResponse.framework === 'foundry') {
     sectionHeader('Step 5: Wallet Selection');
 
-    if (networkResponse.network === 'localhost') {
-      // Offer choice between default Anvil key or keystore wallet
-      const walletChoice = await prompts({
-        type: 'select',
-        name: 'choice',
-        message: 'Select wallet for local deployment:',
-        choices: [
-          {
-            title: 'Default Anvil Account',
-            value: 'anvil-default',
-            description: 'Use Anvil\'s pre-funded test account (0xf39F...)'
-          },
-          {
-            title: 'Foundry Keystore',
-            value: 'keystore',
-            description: 'Use a wallet from your Foundry keystore'
-          }
-        ]
-      });
+    // Offer choice between default Anvil key or keystore wallet
+    const walletChoice = await prompts({
+      type: 'select',
+      name: 'choice',
+      message: 'Select wallet for local deployment:',
+      choices: [
+        {
+          title: 'Default Anvil Account',
+          value: 'anvil-default',
+          description: 'Use Anvil\'s pre-funded test account (0xf39F...)'
+        },
+        {
+          title: 'Foundry Keystore',
+          value: 'keystore',
+          description: 'Use a wallet from your Foundry keystore'
+        }
+      ]
+    });
 
-      if (!walletChoice.choice) {
-        error('Setup cancelled.');
-        return;
-      }
+    if (!walletChoice.choice) {
+      error('Setup cancelled.');
+      return;
+    }
 
-      if (walletChoice.choice === 'anvil-default') {
-        useDefaultAnvilKey = true;
-        info('Using default Anvil account for local deployment');
-      } else {
-        // Select from keystore
-        wallet = await selectKeystoreWallet();
-        if (!wallet) return;
-      }
+    if (walletChoice.choice === 'anvil-default') {
+      useDefaultAnvilKey = true;
+      info('Using default Anvil account for local deployment');
     } else {
-      // For testnets, always use keystore
+      // Select from keystore
       wallet = await selectKeystoreWallet();
       if (!wallet) return;
     }
@@ -504,7 +424,6 @@ export async function fullStart(): Promise<void> {
   const config: FullStartConfig = {
     framework: frameworkResponse.framework,
     contractSource: sourceResponse.contractSource,
-    network: networkResponse.network,
     addresses,
     basicMetadata: basicResponse,
     advancedMetadata,
@@ -570,13 +489,15 @@ async function promptAddresses(): Promise<FullStartConfig['addresses']> {
  * Display configuration summary
  */
 function displaySummary(config: FullStartConfig): void {
+  const chainName = config.framework === 'foundry' ? 'Anvil' : 'Hardhat Network';
+
   divider();
   console.log(chalk.cyan('                    SETUP SUMMARY'));
   divider();
 
   console.log(chalk.yellow('Framework:    ') + chalk.green(config.framework.toUpperCase()));
   console.log(chalk.yellow('Contracts:    ') + chalk.green(config.contractSource === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts'));
-  console.log(chalk.yellow('Network:      ') + chalk.green(config.network));
+  console.log(chalk.yellow('Network:      ') + chalk.green(`Local (${chainName})`));
   console.log('');
   console.log(chalk.yellow('EVVM Name:    ') + chalk.green(config.basicMetadata.EvvmName));
   console.log(chalk.yellow('Token:        ') + chalk.green(`${config.basicMetadata.principalTokenName} (${config.basicMetadata.principalTokenSymbol})`));
@@ -591,12 +512,10 @@ function displaySummary(config: FullStartConfig): void {
   console.log(chalk.gray('  1. Sync contracts from ' + (config.contractSource === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts')));
   console.log(chalk.gray('  2. Write configuration files'));
   console.log(chalk.gray('  3. Compile contracts'));
-  if (config.network === 'localhost') {
-    console.log(chalk.gray('  4. Start local chain (Anvil/Hardhat)'));
-  }
-  console.log(chalk.gray(`  ${config.network === 'localhost' ? '5' : '4'}. Deploy contracts`));
-  console.log(chalk.gray(`  ${config.network === 'localhost' ? '6' : '5'}. Update frontend .env`));
-  console.log(chalk.gray(`  ${config.network === 'localhost' ? '7' : '6'}. Start frontend development server`));
+  console.log(chalk.gray(`  4. Start local chain (${chainName})`));
+  console.log(chalk.gray('  5. Deploy contracts'));
+  console.log(chalk.gray('  6. Update frontend .env'));
+  console.log(chalk.gray('  7. Start frontend development server'));
 
   divider();
 }
@@ -642,30 +561,28 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
 
     success('Contracts compiled');
 
-    // Step 4: Start local chain (if localhost)
-    if (config.network === 'localhost') {
-      sectionHeader('Starting Local Chain');
+    // Step 4: Start local chain
+    sectionHeader('Starting Local Chain');
 
-      if (config.framework === 'foundry') {
-        info('Starting Anvil...');
-        chainProcess = execa('anvil', ['--block-time', '10'], {
-          stdio: 'pipe'
-        });
+    if (config.framework === 'foundry') {
+      info('Starting Anvil...');
+      chainProcess = execa('anvil', ['--block-time', '10'], {
+        stdio: 'pipe'
+      });
 
-        // Wait for chain to be ready
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        success('Anvil running on http://localhost:8545');
-      } else {
-        info('Starting Hardhat Network...');
-        const hardhatDir = join(PROJECT_ROOT, 'packages', 'hardhat');
-        chainProcess = execa('npx', ['hardhat', 'node', '--no-deploy'], {
-          cwd: hardhatDir,
-          stdio: 'pipe'
-        });
+      // Wait for chain to be ready
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      success('Anvil running on http://localhost:8545');
+    } else {
+      info('Starting Hardhat Network...');
+      const hardhatDir = join(PROJECT_ROOT, 'packages', 'hardhat');
+      chainProcess = execa('npx', ['hardhat', 'node', '--no-deploy'], {
+        cwd: hardhatDir,
+        stdio: 'pipe'
+      });
 
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        success('Hardhat Network running on http://localhost:8545');
-      }
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      success('Hardhat Network running on http://localhost:8545');
     }
 
     // Step 5: Deploy contracts
@@ -677,22 +594,15 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
       success('Contracts deployed!');
 
       // Display comprehensive deployment summary
-      displayDeploymentSummary(deployedAddresses, config.network);
+      displayDeploymentSummary(deployedAddresses, config.framework);
 
-      // For localhost, save deployment summary immediately (no registry)
-      let registeredEvvmId: string | undefined;
-      if (config.network === 'localhost') {
-        await saveDeploymentSummary(deployedAddresses, config.network);
-      } else {
-        // Offer EVVM Registry registration for testnet deployments
-        const explorerUrl = EXPLORER_ADDRESS_URLS[config.network] || null;
-        registeredEvvmId = await offerEvvmRegistration(deployedAddresses, config, explorerUrl);
-      }
+      // Save deployment summary
+      await saveDeploymentSummary(deployedAddresses);
 
       // Step 6: Update frontend .env
       sectionHeader('Updating Frontend Configuration');
 
-      await updateFrontendEnv(deployedAddresses, config.network, registeredEvvmId);
+      await updateFrontendEnv(deployedAddresses);
       success('Frontend .env updated');
 
       // Step 7: Start frontend
@@ -734,11 +644,8 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
       }
 
       console.log(chalk.gray('\nThe frontend will open at http://localhost:3000\n'));
-
-      if (config.network === 'localhost') {
-        console.log(chalk.yellow('Note: Keep this terminal open to maintain the local chain.'));
-        console.log(chalk.gray('Press Ctrl+C to stop everything.\n'));
-      }
+      console.log(chalk.yellow('Note: Keep this terminal open to maintain the local chain.'));
+      console.log(chalk.gray('Press Ctrl+C to stop everything.\n'));
 
       // Start frontend
       await execa('npm', ['run', 'dev'], {
@@ -846,7 +753,6 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
     JSON.stringify({
       framework: config.framework,
       contractSource: config.contractSource,
-      network: config.network,
       initialized: true,
       timestamp: new Date().toISOString()
     }, null, 2)
@@ -896,7 +802,7 @@ interface DeployedAddresses {
 const DEFAULT_ANVIL_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
 /**
- * Deploy contracts
+ * Deploy contracts (local chain only)
  */
 async function deployContracts(config: FullStartConfig): Promise<DeployedAddresses | null> {
   let packageDir: string;
@@ -907,11 +813,6 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
     info('Cleaning stale artifacts...');
     await execa('forge', ['clean'], { cwd: packageDir, stdio: 'pipe' }).catch(() => {});
 
-    // Use forge script for deployment
-    const rpcUrl = config.network === 'localhost' ? 'http://localhost:8545'
-      : config.network === 'eth-sepolia' ? (process.env.RPC_URL_ETH_SEPOLIA || 'https://1rpc.io/sepolia')
-      : (process.env.RPC_URL_ARB_SEPOLIA || 'https://sepolia-rollup.arbitrum.io/rpc');
-
     // Select the deployment script
     // New Testnet-Contracts uses unified Deploy.s.sol
     const scriptFile = 'script/Deploy.s.sol:DeployScript';
@@ -919,30 +820,18 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
     const args = [
       'script',
       scriptFile,
-      '--rpc-url', rpcUrl,
+      '--rpc-url', LOCAL_RPC_URL,
       '--broadcast',
       '--via-ir',
       '-vvvv'
     ];
 
-    // For localhost with default Anvil key, use --private-key
-    // For localhost with keystore or testnets, use --account
-    if (config.network === 'localhost' && config.useDefaultAnvilKey) {
+    // For local deployment with default Anvil key, use --private-key
+    // Otherwise use --account for keystore wallets
+    if (config.useDefaultAnvilKey) {
       args.push('--private-key', DEFAULT_ANVIL_KEY);
     } else if (config.wallet) {
       args.push('--account', config.wallet);
-    }
-
-    // Add verification for testnet deployments
-    if (config.network !== 'localhost') {
-      const etherscanKey = process.env.ETHERSCAN_API;
-      if (etherscanKey) {
-        args.push('--verify', '--etherscan-api-key', etherscanKey);
-        info('Contract verification enabled');
-      } else {
-        warning('ETHERSCAN_API not set - contracts will not be verified');
-        dim('Add ETHERSCAN_API to your .env file for automatic verification');
-      }
     }
 
     try {
@@ -952,7 +841,7 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
       });
 
       // Parse deployment artifacts
-      return parseFoundryArtifacts(packageDir, config.network);
+      return parseFoundryArtifacts(packageDir);
     } catch (err) {
       error('Deployment failed');
       return null;
@@ -960,18 +849,13 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
   } else {
     packageDir = join(PROJECT_ROOT, 'packages', 'hardhat');
 
-    // Hardhat deployment
-    const networkName = config.network === 'localhost' ? 'localhost'
-      : config.network === 'eth-sepolia' ? 'sepolia'
-      : 'arbitrumSepolia';
-
     try {
-      await execa('npx', ['hardhat', 'deploy', '--network', networkName], {
+      await execa('npx', ['hardhat', 'deploy', '--network', 'localhost'], {
         cwd: packageDir,
         stdio: 'inherit'
       });
 
-      return parseHardhatArtifacts(packageDir, networkName);
+      return parseHardhatArtifacts(packageDir);
     } catch {
       error('Deployment failed');
       return null;
@@ -980,12 +864,10 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
 }
 
 /**
- * Parse Foundry deployment artifacts
+ * Parse Foundry deployment artifacts (local chain only)
  */
-function parseFoundryArtifacts(packageDir: string, network: string): DeployedAddresses | null {
-  const chainId = network === 'localhost' ? 31337
-    : network === 'eth-sepolia' ? 11155111
-    : 421614;
+function parseFoundryArtifacts(packageDir: string): DeployedAddresses | null {
+  const chainId = LOCAL_CHAIN_ID;
 
   // Try different script names (Deploy.s.sol is the new unified script)
   const scriptNames = ['Deploy.s.sol', 'DeployTestnet.s.sol', 'DeployTestnetOnAnvil.s.sol'];
@@ -1026,10 +908,10 @@ function parseFoundryArtifacts(packageDir: string, network: string): DeployedAdd
 }
 
 /**
- * Parse Hardhat deployment artifacts
+ * Parse Hardhat deployment artifacts (local chain only)
  */
-function parseHardhatArtifacts(packageDir: string, network: string): DeployedAddresses | null {
-  const deploymentsDir = join(packageDir, 'deployments', network);
+function parseHardhatArtifacts(packageDir: string): DeployedAddresses | null {
+  const deploymentsDir = join(packageDir, 'deployments', 'localhost');
 
   if (!existsSync(deploymentsDir)) {
     return null;
@@ -1044,10 +926,6 @@ function parseHardhatArtifacts(packageDir: string, network: string): DeployedAdd
     return '0x';
   };
 
-  const chainId = network === 'localhost' ? 31337
-    : network === 'sepolia' ? 11155111
-    : 421614;
-
   return {
     evvm: readDeployment('Evvm'),
     staking: readDeployment('Staking'),
@@ -1055,86 +933,27 @@ function parseHardhatArtifacts(packageDir: string, network: string): DeployedAdd
     nameService: readDeployment('NameService'),
     treasury: readDeployment('Treasury'),
     p2pSwap: readDeployment('P2PSwap'),
-    chainId
+    chainId: LOCAL_CHAIN_ID
   };
 }
 
 /**
- * Get working RPC endpoint with fallback support
+ * Save deployment summary to JSON file (local chain only)
  */
-async function getWorkingRpc(network: 'eth-sepolia' | 'arb-sepolia'): Promise<string> {
-  const fallbacks = network === 'eth-sepolia' ? ETH_SEPOLIA_RPC_FALLBACKS : ARB_SEPOLIA_RPC_FALLBACKS;
-  const envVar = network === 'eth-sepolia' ? 'RPC_URL_ETH_SEPOLIA' : 'RPC_URL_ARB_SEPOLIA';
-
-  // Try env variable first
-  const envRpc = process.env[envVar];
-  if (envRpc) {
-    try {
-      const response = await fetch(envRpc, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-        signal: AbortSignal.timeout(5000)
-      });
-      if (response.ok) {
-        return envRpc;
-      }
-    } catch {
-      dim(`   Primary RPC from .env failed, trying fallbacks...`);
-    }
-  }
-
-  // Try fallback RPCs
-  for (const rpc of fallbacks) {
-    try {
-      const response = await fetch(rpc, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-        signal: AbortSignal.timeout(5000)
-      });
-      if (response.ok) {
-        dim(`   Using RPC: ${rpc}`);
-        return rpc;
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  // Return default if all fail
-  warning(`No working RPC found, using default`);
-  return fallbacks[0];
-}
-
-/**
- * Save deployment summary to JSON file
- */
-async function saveDeploymentSummary(
-  addresses: DeployedAddresses,
-  network: string,
-  evvmId?: string
-): Promise<void> {
+async function saveDeploymentSummary(addresses: DeployedAddresses): Promise<void> {
   // Create deployments directory if it doesn't exist
   if (!existsSync(DEPLOYMENTS_DIR)) {
     mkdirSync(DEPLOYMENTS_DIR, { recursive: true });
   }
 
-  const networkName = network === 'eth-sepolia' ? 'Ethereum Sepolia'
-    : network === 'arb-sepolia' ? 'Arbitrum Sepolia'
-    : network === 'localhost' ? 'Local Chain'
-    : 'Unknown';
-
   const summary = {
     network: {
-      name: networkName,
+      name: 'Local Chain',
       chainId: addresses.chainId,
-      network: network
+      network: 'localhost'
     },
     evvm: {
-      id: evvmId ? parseInt(evvmId) : null,
-      address: addresses.evvm,
-      explorer: EXPLORER_ADDRESS_URLS[network] ? `${EXPLORER_ADDRESS_URLS[network]}${addresses.evvm}` : null
+      address: addresses.evvm
     },
     contracts: {
       evvm: addresses.evvm,
@@ -1151,7 +970,7 @@ async function saveDeploymentSummary(
   };
 
   // Save with network-specific filename
-  const filename = `deployment-${network}-${addresses.chainId}.json`;
+  const filename = `deployment-localhost-${addresses.chainId}.json`;
   const filepath = join(DEPLOYMENTS_DIR, filename);
   writeFileSync(filepath, JSON.stringify(summary, null, 2));
 
@@ -1163,54 +982,37 @@ async function saveDeploymentSummary(
 }
 
 /**
- * Display comprehensive deployment summary (like Testnet-Contracts)
+ * Display comprehensive deployment summary (local chain only)
  */
-function displayDeploymentSummary(addresses: DeployedAddresses, network: string, evvmId?: string): void {
-  const networkName = network === 'eth-sepolia' ? 'Ethereum Sepolia'
-    : network === 'arb-sepolia' ? 'Arbitrum Sepolia'
-    : network === 'localhost' ? 'Local Chain'
-    : 'Unknown';
-
-  const explorerBase = EXPLORER_ADDRESS_URLS[network] || '';
+function displayDeploymentSummary(addresses: DeployedAddresses, framework: 'foundry' | 'hardhat'): void {
+  const chainName = framework === 'foundry' ? 'Anvil' : 'Hardhat Network';
 
   console.log(evvmGreen('\n═══════════════════════════════════════════════════════════'));
   console.log(evvmGreen('                 DEPLOYED CONTRACTS SUMMARY'));
   console.log(evvmGreen('═══════════════════════════════════════════════════════════\n'));
 
-  console.log(chalk.white(`Network: ${chalk.green(networkName)} (Chain ID: ${addresses.chainId})\n`));
-
-  if (evvmId) {
-    console.log(chalk.yellow('EVVM Instance:'));
-    console.log(chalk.white(`  EVVM ID:     ${chalk.green(evvmId)}`));
-    console.log('');
-  }
+  console.log(chalk.white(`Network: ${chalk.green(`Local (${chainName})`)} (Chain ID: ${addresses.chainId})\n`));
 
   console.log(chalk.yellow('Core Contracts:'));
   console.log(chalk.white(`  EVVM:        ${chalk.green(addresses.evvm)}`));
-  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.evvm}`));
   console.log(chalk.white(`  Treasury:    ${chalk.green(addresses.treasury)}`));
-  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.treasury}`));
   console.log('');
 
   console.log(chalk.yellow('Supporting Contracts:'));
   console.log(chalk.white(`  Staking:     ${chalk.green(addresses.staking)}`));
-  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.staking}`));
   console.log(chalk.white(`  Estimator:   ${chalk.green(addresses.estimator)}`));
-  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.estimator}`));
   console.log(chalk.white(`  NameService: ${chalk.green(addresses.nameService)}`));
-  if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.nameService}`));
   if (addresses.p2pSwap) {
     console.log(chalk.white(`  P2PSwap:     ${chalk.green(addresses.p2pSwap)}`));
-    if (explorerBase) console.log(chalk.gray(`               ${explorerBase}${addresses.p2pSwap}`));
   }
 
   console.log(evvmGreen('\n═══════════════════════════════════════════════════════════\n'));
 }
 
 /**
- * Update frontend .env with deployed addresses
+ * Update frontend .env with deployed addresses (local chain only)
  */
-async function updateFrontendEnv(addresses: DeployedAddresses, network: string, evvmId?: string): Promise<void> {
+async function updateFrontendEnv(addresses: DeployedAddresses): Promise<void> {
   const envPath = join(PROJECT_ROOT, '.env');
 
   let envContent = '';
@@ -1222,11 +1024,6 @@ async function updateFrontendEnv(addresses: DeployedAddresses, network: string, 
   // Update or add EVVM address
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ADDRESS', addresses.evvm);
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CHAIN_ID', String(addresses.chainId));
-
-  // Add EVVM ID if provided
-  if (evvmId) {
-    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ID', evvmId);
-  }
 
   // Add config version timestamp to force frontend to reload from env
   // This invalidates any stale localStorage cache
@@ -1257,219 +1054,3 @@ function updateEnvVar(content: string, key: string, value: string): string {
   }
 }
 
-// EVVM Registry constants
-const REGISTRY_ADDRESS = '0x389dC8fb09211bbDA841D59f4a51160dA2377832';
-const REGISTRY_CHAIN = 'eth-sepolia';
-
-/**
- * Offer EVVM Registry registration after testnet deployment
- * Returns the EVVM ID if registration succeeds, undefined otherwise
- */
-async function offerEvvmRegistration(
-  addresses: DeployedAddresses,
-  config: FullStartConfig,
-  explorerUrl: string | null
-): Promise<string | undefined> {
-  divider();
-  console.log(chalk.cyan('                 EVVM REGISTRY REGISTRATION'));
-  divider();
-
-  info('Register your EVVM with the global registry to receive an official EVVM ID.');
-  console.log('');
-  dim('The EVVM Registry is deployed on Ethereum Sepolia.');
-  dim(`Registry: ${REGISTRY_ADDRESS}`);
-  console.log('');
-
-  warning('Note: Registration requires ETH Sepolia for gas fees.');
-  if (config.network !== 'eth-sepolia') {
-    warning(`Your EVVM is deployed on ${config.network}, but registration always happens on Ethereum Sepolia.`);
-  }
-  console.log('');
-
-  const registerResponse = await prompts({
-    type: 'confirm',
-    name: 'value',
-    message: 'Register your EVVM with the registry now?',
-    initial: true
-  });
-
-  if (!registerResponse.value) {
-    info('Skipping registration. You can register later using:');
-    dim('  npm run cli registry');
-    console.log('');
-    dim('Or register manually at https://www.evvm.info/registry');
-    return undefined;
-  }
-
-  // Check if we have Sepolia RPC
-  const sepoliaRpc = process.env.RPC_URL_ETH_SEPOLIA || 'https://1rpc.io/sepolia';
-
-  // Registration process
-  sectionHeader('Registering with EVVM Registry');
-
-  info('Registration requires 2 transactions:');
-  console.log(chalk.gray('  1. Call registerEvvm() on Registry contract'));
-  console.log(chalk.gray('  2. Call setEvvmID() on your EVVM contract'));
-  console.log('');
-
-  try {
-    // Step 1: Register with Registry using cast
-    info('Step 1: Registering with EVVM Registry...');
-
-    if (!config.wallet) {
-      error('No wallet available for registration.');
-      dim('Import a wallet: cast wallet import deployer --interactive');
-      return undefined;
-    }
-
-    // Use cast to call registerEvvm(chainId, evvmAddress)
-    const registerArgs = [
-      'send',
-      REGISTRY_ADDRESS,
-      'registerEvvm(uint256,address)',
-      String(addresses.chainId),
-      addresses.evvm,
-      '--rpc-url', sepoliaRpc,
-      '--account', config.wallet
-    ];
-
-    console.log(chalk.gray(`Calling registerEvvm(${addresses.chainId}, ${addresses.evvm})...`));
-
-    const registerResult = await execa('cast', registerArgs, {
-      stdio: 'inherit'
-    }).catch((err) => {
-      error(`Registry registration failed: ${err.message}`);
-      return null;
-    });
-
-    if (!registerResult) {
-      info('You can register manually at https://www.evvm.info/registry');
-      return undefined;
-    }
-
-    success('Registered with EVVM Registry!');
-
-    // Step 2: Get the assigned EVVM ID
-    info('Fetching assigned EVVM ID...');
-
-    // Get all public EVVM IDs and find ours by matching chain ID and address
-    const getIdsArgs = [
-      'call',
-      REGISTRY_ADDRESS,
-      'getPublicEvvmIdActive()(uint256[])',
-      '--rpc-url', sepoliaRpc
-    ];
-
-    const idsResult = await execa('cast', getIdsArgs, {
-      stdio: 'pipe'
-    });
-
-    // Parse the array output: [1000, 1001, 1002, ...]
-    const idsString = idsResult.stdout.trim();
-    const idsMatch = idsString.match(/\[([^\]]+)\]/);
-    if (!idsMatch) {
-      error('Failed to parse EVVM IDs from registry');
-      return undefined;
-    }
-
-    const ids = idsMatch[1].split(',').map(s => s.trim());
-
-    // Find our EVVM ID by checking metadata for each ID (start from end, most recent first)
-    let evvmId: string | null = null;
-    for (let i = ids.length - 1; i >= 0; i--) {
-      const id = ids[i];
-      try {
-        const metadataArgs = [
-          'call',
-          REGISTRY_ADDRESS,
-          'getEvvmIdMetadata(uint256)((uint256,address))',
-          id,
-          '--rpc-url', sepoliaRpc
-        ];
-
-        const metadataResult = await execa('cast', metadataArgs, { stdio: 'pipe' });
-        // Output format: (chainId, address)
-        const output = metadataResult.stdout.trim();
-
-        // Check if this matches our deployment
-        if (output.toLowerCase().includes(addresses.evvm.toLowerCase()) &&
-            output.includes(String(addresses.chainId))) {
-          evvmId = id;
-          break;
-        }
-      } catch {
-        // Skip if metadata fetch fails
-        continue;
-      }
-    }
-
-    if (!evvmId) {
-      error('Could not find EVVM ID in registry');
-      info('Registration may have succeeded. Check manually at https://www.evvm.info/registry');
-      return undefined;
-    }
-    success(`Assigned EVVM ID: ${chalk.green(evvmId)}`);
-
-    // Step 3: Set the EVVM ID on the deployed contract
-    info('Step 2: Setting EVVM ID on your contract...');
-
-    // Determine RPC for the deployed chain
-    const deployedRpc = config.network === 'eth-sepolia' ? sepoliaRpc
-      : config.network === 'arb-sepolia' ? (process.env.RPC_URL_ARB_SEPOLIA || 'https://sepolia-rollup.arbitrum.io/rpc')
-      : 'http://localhost:8545';
-
-    const setIdArgs = [
-      'send',
-      addresses.evvm,
-      'setEvvmID(uint256)',
-      evvmId,
-      '--rpc-url', deployedRpc,
-      '--account', config.wallet
-    ];
-
-    console.log(chalk.gray(`Calling setEvvmID(${evvmId}) on EVVM contract...`));
-
-    const setIdResult = await execa('cast', setIdArgs, {
-      stdio: 'inherit'
-    }).catch((err) => {
-      error(`Failed to set EVVM ID: ${err.message}`);
-      info(`You can set it manually: cast send ${addresses.evvm} "setEvvmID(uint256)" ${evvmId}`);
-      return null;
-    });
-
-    if (setIdResult) {
-      success('EVVM ID set successfully!');
-
-      // Update .env with EVVM ID and config version to invalidate frontend cache
-      const envPath = join(PROJECT_ROOT, '.env');
-      let envContent = existsSync(envPath) ? readFileSync(envPath, 'utf-8') : '';
-      envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ID', evvmId);
-      envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CONFIG_VERSION', String(Date.now()));
-      writeFileSync(envPath, envContent);
-
-      // Save deployment summary
-      await saveDeploymentSummary(addresses, config.network, evvmId);
-
-      divider();
-      console.log(chalk.green('Registration Complete!'));
-      console.log('');
-      console.log(chalk.yellow('Your EVVM Details:'));
-      console.log(`  EVVM ID:      ${chalk.green(evvmId)}`);
-      console.log(`  EVVM Address: ${chalk.green(addresses.evvm)}`);
-      console.log(`  Chain ID:     ${chalk.green(addresses.chainId)}`);
-      if (explorerUrl) {
-        console.log(`  Explorer:     ${chalk.gray(explorerUrl + addresses.evvm)}`);
-      }
-      divider();
-
-      return evvmId;
-    }
-
-    // setEvvmID failed but registration succeeded
-    return evvmId;
-  } catch (err: any) {
-    error(`Registration failed: ${err.message}`);
-    info('You can register manually at https://www.evvm.info/registry');
-    return undefined;
-  }
-}
