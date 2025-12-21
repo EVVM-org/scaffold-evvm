@@ -474,6 +474,17 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
       // Wait for chain to be ready
       await new Promise(resolve => setTimeout(resolve, 2000));
       success('Anvil running on http://localhost:8545');
+
+      // Fund keystore wallet if using one (not default Anvil key)
+      if (config.wallet && !config.useDefaultAnvilKey) {
+        sectionHeader('Funding Wallet');
+        const fundResult = await fundWalletFromAnvil(config.wallet);
+        if (!fundResult.success) {
+          warning('Could not automatically fund wallet. You may need to fund it manually.');
+          info('To fund manually, run:');
+          console.log(chalk.gray(`  cast send ${fundResult.address || '<wallet-address>'} --value 100ether --private-key ${DEFAULT_ANVIL_KEY} --rpc-url ${LOCAL_RPC_URL}`));
+        }
+      }
     } else {
       info('Starting Hardhat Network...');
       const hardhatDir = join(PROJECT_ROOT, 'packages', 'hardhat');
@@ -615,9 +626,13 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
     mkdirSync(inputDir, { recursive: true });
   }
 
-  // Generate Inputs.sol (new format used by Testnet-Contracts)
+  // Generate Inputs.sol with correct filename based on contract source
+  // Deploy scripts import from Inputs.testnet.sol or Inputs.playground.sol
   const inputsSol = generateInputsSol(config);
-  writeFileSync(join(inputDir, 'Inputs.sol'), inputsSol);
+  const inputFileName = config.contractSource === 'playground'
+    ? 'Inputs.playground.sol'
+    : 'Inputs.testnet.sol';
+  writeFileSync(join(inputDir, inputFileName), inputsSol);
 
   // Also write legacy JSON files for backwards compatibility
   // address.json
@@ -707,6 +722,106 @@ interface DeployedAddresses {
 
 // Default Anvil private key (well-known test key - DO NOT use in production)
 const DEFAULT_ANVIL_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+
+/**
+ * Fund a keystore wallet from Anvil's default account
+ * This is needed when using Foundry keystore wallets for local deployment
+ */
+async function fundWalletFromAnvil(walletName: string): Promise<{ success: boolean; address?: string }> {
+  try {
+    // Get the address of the keystore wallet
+    const addressResult = await execa('cast', ['wallet', 'address', '--account', walletName], {
+      stdio: 'pipe'
+    });
+    const walletAddress = addressResult.stdout.trim();
+
+    if (!walletAddress || !walletAddress.startsWith('0x')) {
+      error(`Could not get address for wallet: ${walletName}`);
+      return { success: false };
+    }
+
+    info(`Wallet address: ${walletAddress}`);
+
+    // Check if wallet already has sufficient balance
+    try {
+      const balanceResult = await execa('cast', [
+        'balance',
+        walletAddress,
+        '--rpc-url', LOCAL_RPC_URL
+      ], { stdio: 'pipe' });
+
+      const balance = BigInt(balanceResult.stdout.trim());
+      const oneEth = BigInt('1000000000000000000'); // 1 ETH in wei
+
+      if (balance >= oneEth) {
+        success(`Wallet already has ${Number(balance / oneEth)} ETH`);
+        return { success: true, address: walletAddress };
+      }
+    } catch {
+      // Balance check failed, try funding anyway
+    }
+
+    info('Funding keystore wallet from Anvil test account...');
+
+    // Send 100 ETH from Anvil's default account to the wallet
+    try {
+      const sendResult = await execa('cast', [
+        'send',
+        walletAddress,
+        '--value', '100ether',
+        '--private-key', DEFAULT_ANVIL_KEY,
+        '--rpc-url', LOCAL_RPC_URL,
+        '--gas-limit', '21000'
+      ], {
+        stdio: 'pipe'
+      });
+
+      if (sendResult.exitCode === 0 || sendResult.stdout.includes('transactionHash')) {
+        success('Wallet funded with 100 ETH');
+        return { success: true, address: walletAddress };
+      }
+    } catch (sendErr: any) {
+      // First attempt failed, try with curl as fallback
+      dim('  First funding method failed, trying alternative...');
+    }
+
+    // Fallback: Use eth_sendTransaction via curl (raw JSON-RPC)
+    try {
+      const txData = {
+        jsonrpc: '2.0',
+        method: 'eth_sendTransaction',
+        params: [{
+          from: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+          to: walletAddress,
+          value: '0x56bc75e2d63100000', // 100 ETH in hex
+          gas: '0x5208' // 21000 in hex
+        }],
+        id: 1
+      };
+
+      const curlResult = await execa('curl', [
+        '-s',
+        '-X', 'POST',
+        '-H', 'Content-Type: application/json',
+        '-d', JSON.stringify(txData),
+        LOCAL_RPC_URL
+      ], { stdio: 'pipe' });
+
+      const response = JSON.parse(curlResult.stdout);
+      if (response.result && response.result.startsWith('0x')) {
+        success('Wallet funded with 100 ETH');
+        return { success: true, address: walletAddress };
+      }
+    } catch {
+      // Curl fallback also failed
+    }
+
+    return { success: false, address: walletAddress };
+  } catch (err: any) {
+    error(`Fund transfer failed: ${err.message}`);
+    return { success: false };
+  }
+}
 
 /**
  * Deploy contracts (local chain only)

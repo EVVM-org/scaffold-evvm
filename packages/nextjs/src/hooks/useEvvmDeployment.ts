@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { EvvmDeployment } from '@/types/evvm';
 import { createPublicClient, http } from 'viem';
-import { sepolia, arbitrumSepolia } from 'viem/chains';
+import { sepolia, arbitrumSepolia, localhost } from 'viem/chains';
 import { EvvmABI } from '@evvm/viem-signature-library';
 import { loadEvvmConfig, clearEvvmConfig } from '@/lib/evvmConfigStorage';
 
@@ -142,7 +142,10 @@ export function useEvvmDeployment() {
         const chainId = parseInt(chainIdStr);
 
         // Select chain based on chainId
-        const chain = chainId === 11155111 ? sepolia : chainId === 421614 ? arbitrumSepolia : sepolia;
+        const chain = chainId === 31337 ? localhost
+          : chainId === 11155111 ? sepolia
+          : chainId === 421614 ? arbitrumSepolia
+          : sepolia;
 
         // Check if we have contract addresses from env (CLI deployment)
         const hasEnvAddresses = envStakingAddress && envStakingAddress !== ZERO_ADDRESS &&
@@ -169,10 +172,11 @@ export function useEvvmDeployment() {
           // Slow path: discover addresses from on-chain EVVM contract
           console.log('🔍 Discovering contract addresses from EVVM contract...');
 
-          // Create viem public client
+          // Create viem public client with appropriate RPC URL
+          const rpcUrl = chainId === 31337 ? 'http://127.0.0.1:8545' : undefined;
           const publicClient = createPublicClient({
             chain,
-            transport: http(),
+            transport: http(rpcUrl),
           });
 
           try {

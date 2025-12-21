@@ -15,6 +15,23 @@ if (!projectId) {
   throw new Error('Project ID is not defined')
 }
 
+// Localhost/Anvil/Hardhat Network configuration for local development
+const localhost: AppKitNetwork = {
+  id: 31337,
+  name: 'Localhost',
+  nativeCurrency: {
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ['http://127.0.0.1:8545'],
+    },
+  },
+  testnet: true,
+}
+
 // Custom Ethereum Sepolia configuration with multiple fast fallback RPCs
 // Based on performance testing: Tenderly (0.209s), DRPC (0.259s), Nodies (0.274s)
 const sepolia: AppKitNetwork = {
@@ -52,10 +69,14 @@ const arbitrumSepolia: AppKitNetwork = {
   },
 }
 
-export const networks = [
-  sepolia,
-  arbitrumSepolia,
-] as [AppKitNetwork, ...AppKitNetwork[]]
+// Determine which networks to expose based on environment
+// For local development (CHAIN_ID=31337), prioritize localhost
+const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '11155111');
+const isLocalDev = chainId === 31337;
+
+export const networks = isLocalDev
+  ? [localhost, sepolia, arbitrumSepolia] as [AppKitNetwork, ...AppKitNetwork[]]
+  : [sepolia, arbitrumSepolia, localhost] as [AppKitNetwork, ...AppKitNetwork[]]
 
 //Set up the Wagmi Adapter (Config)
 export const wagmiAdapter = new WagmiAdapter({
@@ -66,6 +87,10 @@ export const wagmiAdapter = new WagmiAdapter({
   projectId,
   networks,
   transports: {
+    [localhost.id]: http('http://127.0.0.1:8545', {
+      retryCount: 3,
+      retryDelay: 500,
+    }),
     [sepolia.id]: http(undefined, {
       retryCount: 5,
       retryDelay: 1000,
