@@ -580,9 +580,50 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
             config.wallet = undefined;
             info('Switched to default Anvil account for deployment');
           } else {
-            info('Continuing with keystore wallet');
-            info('To fund manually, run:');
-            console.log(chalk.gray(`  cast send ${fundResult.address || '<wallet-address>'} --value 100ether --private-key ${DEFAULT_ANVIL_KEY} --rpc-url ${LOCAL_RPC_URL}`));
+            // User wants to continue with keystore - try to get address and fund it
+            info('Retrying wallet funding...');
+            info(chalk.yellow('Please enter your wallet password correctly:'));
+            console.log('');
+
+            // Try again to get wallet address and fund it
+            const retryResult = await fundWalletFromAnvil(config.wallet!);
+            if (!retryResult.success) {
+              // Still failed - offer to switch to default or fund manually
+              warning('Funding still failed. The wallet needs ETH to deploy.');
+
+              const finalChoice = await prompts({
+                type: 'select',
+                name: 'action',
+                message: 'Deployment requires ETH. What would you like to do?',
+                choices: [
+                  {
+                    title: 'Use default Anvil account (recommended)',
+                    value: 'default',
+                    description: 'Deploy using the pre-funded Anvil test account'
+                  },
+                  {
+                    title: 'Cancel and fund manually',
+                    value: 'cancel',
+                    description: 'Exit and fund the wallet yourself'
+                  }
+                ]
+              });
+
+              if (finalChoice.action === 'cancel' || !finalChoice.action) {
+                info('To fund your wallet manually, run:');
+                console.log(chalk.gray(`  cast send ${retryResult.address || '<wallet-address>'} --value 100ether --private-key ${DEFAULT_ANVIL_KEY} --rpc-url ${LOCAL_RPC_URL}`));
+                info('Then run: npm run start:full');
+                if (chainProcess) chainProcess.kill();
+                return;
+              }
+
+              // Switch to default Anvil account
+              config.useDefaultAnvilKey = true;
+              config.wallet = undefined;
+              info('Switched to default Anvil account for deployment');
+            } else {
+              success('Wallet funded successfully on retry');
+            }
           }
         } else {
           success('Wallet funded successfully');
