@@ -1,6 +1,6 @@
 # Scaffold-EVVM
 
-**The complete local development and deployment environment for EVVM (Ethereum Virtual Virtual Machine) ecosystem.**
+**The complete offline-ready development and deployment environment for EVVM (Ethereum Virtual Virtual Machine) ecosystem.**
 
 EVVM is a virtual blockchain system that runs on existing blockchains, giving you your own blockchain without managing infrastructure. Deploy without validators or nodes, inherit security from underlying blockchains, and launch rapidly.
 
@@ -10,16 +10,20 @@ Scaffold-EVVM is your all-in-one toolkit for deploying, interacting with, and bu
 
 ## Features
 
+- **Offline-Ready** - All EVVM contracts are bundled, no internet required for deployment
 - **Dual Framework Support** - Choose Foundry or Hardhat for smart contract development
 - **Dual Contract Sources** - Deploy from Testnet-Contracts (production) or Playground-Contracts (experimental)
 - **Interactive CLI Wizard** - Guided setup for framework, contracts, and configuration
 - **Local Development Focus** - Deploy to local chains (Anvil/Hardhat Network) for rapid iteration
+- **Auto-Funding for Local Networks** - Automatically funds .env wallet from test accounts when balance is low
+- **Deployer Address Logging** - Clear display of deployer wallet and address in deployment summary
 - **Prerequisite Validation** - Automatic checks for Node.js 18+, Git, Foundry, and dependencies
 - **Deployment Summary** - Comprehensive output saved to `deployments/`
 - **Auto Config Sync** - Frontend automatically detects and loads new deployments
 - **Signature Constructor Frontend** - 23+ signature constructors for all EVVM operations
 - **Auto Contract Discovery** - Discovers Staking, NameService, Estimator from EVVM core
 - **Meta-Transaction Pattern** - EIP-191 gasless signatures submitted by executors
+- **Custom Service Development** - Build your own EVVM services using the `@scaffold-evvm/` namespace
 
 > **Note:** This version supports **local deployment only**. Testnet deployment (Ethereum Sepolia, Arbitrum Sepolia) will be available in a future release.
 
@@ -29,7 +33,7 @@ Scaffold-EVVM is your all-in-one toolkit for deploying, interacting with, and bu
 
 ### Fresh Clone Experience
 
-Any user can clone, install, and deploy locally:
+Any user can clone, install, and deploy locally - no internet required after initial clone:
 
 ```bash
 git clone https://github.com/EVVM-org/scaffold-evvm.git
@@ -40,13 +44,14 @@ npm run cli deploy
 
 The `npm run cli deploy` wizard will:
 1. **Check prerequisites** → Validate Node.js 18+, Git, Foundry/Hardhat
-2. **Detect missing contract sources** → Prompt to clone Testnet-Contracts or Playground-Contracts
-3. **Clone inside project** → `./Testnet-Contracts` or `./Playground-Contracts`
-4. **Initialize git submodules** automatically
-5. **Guide you through deployment** → Select framework, contracts, and configure EVVM
-6. **Start local chain** → Anvil (Foundry) or Hardhat Network
-7. **Deploy contracts** → All 6 EVVM contracts deployed locally
-8. **Update frontend** → Automatically configure `.env` with contract addresses
+2. **Use bundled contracts** → Testnet-Contracts and Playground-Contracts are included
+3. **Guide you through deployment** → Select framework, contracts, and configure EVVM
+4. **Start local chain** → Anvil (Foundry) or Hardhat Network
+5. **Deploy contracts** → All 6 EVVM contracts deployed locally
+6. **Display deployer info** → Shows wallet name and address in deployment summary
+7. **Update frontend** → Automatically configure `.env` with contract addresses
+
+> **Offline-Ready:** All EVVM contracts are bundled in `packages/foundry/testnet-contracts/` and `packages/foundry/playground-contracts/`. No internet connection needed for deployment.
 
 ### Prerequisites
 
@@ -81,13 +86,13 @@ npm run frontend
 
 The `npm run cli deploy` command will:
 1. Check prerequisites (Node.js, Git, Foundry/Hardhat)
-2. Check for latest contract updates from GitHub
-3. Select framework (Foundry/Hardhat)
-4. Select contracts (Testnet/Playground)
-5. Configure EVVM (admin addresses, token metadata)
-6. Sync and compile contracts
-7. Start local chain (Anvil/Hardhat Network)
-8. Deploy contracts
+2. Select framework (Foundry/Hardhat)
+3. Select contracts (Testnet/Playground) - bundled, no download needed
+4. Configure EVVM (admin addresses, token metadata)
+5. Compile contracts
+6. Start local chain (Anvil/Hardhat Network)
+7. Deploy contracts
+8. Display deployer wallet and address
 9. Update frontend configuration
 
 ### Troubleshooting
@@ -146,7 +151,7 @@ This runs everything including the frontend in a single terminal. Use this for q
 
 ### Supported Deployment Flows
 
-This version supports **local deployment only**:
+This version supports **local deployment only** with **offline-ready** bundled contracts:
 
 | Framework | Contracts | Network | Status |
 |-----------|-----------|---------|--------|
@@ -157,10 +162,13 @@ This version supports **local deployment only**:
 
 **Features verified:**
 - Prerequisite validation (Node.js 18+, Git, Foundry/Hardhat)
-- Contract source detection and cloning
+- Bundled contracts (offline-ready, no GitHub cloning needed)
 - Contract deployment with all 6 contracts (EVVM, Staking, Estimator, NameService, Treasury, P2PSwap)
 - Local chain management (Anvil/Hardhat Network)
+- Deployer wallet and address logging in deployment summary
+- Auto-funding for .env wallet on local networks (Hardhat)
 - Frontend configuration auto-update
+- Custom service development with `@scaffold-evvm/` namespace
 - `npm run cli flush` for troubleshooting
 
 **Tested workflow:**
@@ -281,6 +289,16 @@ Both Anvil and Hardhat Network use the same configuration:
 - Test account address: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
 - Test account balance: 10,000 ETH
 
+### Auto-Funding for .env Wallet (Hardhat)
+
+When using Hardhat with a `DEPLOYER_PRIVATE_KEY` in `.env` for local deployment, the deployer wallet may have no funds. The deploy script automatically:
+1. Detects if the deployer balance is below 1 ETH
+2. Funds the deployer from the default test account with 100 ETH
+3. Displays the transaction hash and new balance
+4. Continues with deployment
+
+This means you can use your own private key for local development without manually funding it first.
+
 > **Warning:** The default test account above is for **local development only**. These keys are publicly known and should never be used on any network with real value. For testnet deployments, always create and use your own dedicated testing wallet.
 
 ---
@@ -292,14 +310,20 @@ scaffold-evvm/
 ├── cli/                    # Interactive CLI wizard
 │   ├── commands/           # CLI commands (deploy, start, flush, sources)
 │   └── utils/              # CLI utilities and display helpers
-├── Testnet-Contracts/      # Cloned EVVM production contracts (git clone)
-├── Playground-Contracts/   # Cloned EVVM experimental contracts (git clone)
 ├── deployments/            # Deployment summaries (JSON)
 │   ├── latest.json         # Most recent deployment
 │   └── deployment-{network}-{chainId}.json
 ├── packages/
-│   ├── foundry/            # Foundry package (uses contracts from source repos)
-│   ├── hardhat/            # Hardhat package (uses contracts from source repos)
+│   ├── foundry/            # Foundry package
+│   │   ├── contracts/      # Your custom EVVM services
+│   │   │   └── services/   # Custom service contracts
+│   │   ├── testnet-contracts/    # Bundled production EVVM contracts
+│   │   ├── playground-contracts/ # Bundled experimental EVVM contracts
+│   │   ├── script/         # Deployment scripts
+│   │   └── lib/            # Foundry dependencies
+│   ├── hardhat/            # Hardhat package (uses Foundry artifacts)
+│   │   ├── scripts/        # Deployment scripts
+│   │   └── deployments/    # Hardhat deployment outputs
 │   └── nextjs/             # Frontend application
 │       ├── src/app/        # Next.js pages
 │       ├── src/components/ # Signature constructors
@@ -309,7 +333,7 @@ scaffold-evvm/
 └── scaffold.config.json    # Project configuration
 ```
 
-> **Note:** Contract source repositories (`Testnet-Contracts/`, `Playground-Contracts/`) are cloned inside the project by the CLI wizard. They are gitignored and not part of the scaffold-evvm repository.
+> **Note:** EVVM contracts are bundled in `packages/foundry/testnet-contracts/` and `packages/foundry/playground-contracts/`. No external cloning required - everything works offline.
 
 ---
 
@@ -318,7 +342,7 @@ scaffold-evvm/
 ### Main Commands (Recommended)
 
 ```bash
-npm run cli deploy      # Full deployment wizard (checks GitHub, configures, deploys)
+npm run cli deploy      # Full deployment wizard (configures, deploys, updates frontend)
 npm run frontend        # Start Next.js frontend dev server
 npm run cli flush       # Clear all caches and stop servers (use when troubleshooting)
 ```
@@ -327,7 +351,7 @@ npm run cli flush       # Clear all caches and stop servers (use when troublesho
 
 ```bash
 # Terminal 1: Deploy
-npm run cli deploy      # Interactive: GitHub check → config → deploy → registry
+npm run cli deploy      # Interactive: config → deploy → update frontend
 
 # Terminal 2: Frontend
 npm run frontend        # Start frontend (after deployment)
@@ -344,7 +368,6 @@ npm run frontend        # Restart frontend
 npm run wizard          # Alias for interactive setup
 npm run start:full      # All-in-one: deploy + frontend (single terminal)
 npm run cli chain       # Start local chain only (Anvil/Hardhat)
-npm run cli sources     # Check/update contract source repositories
 npm run cli config      # Update EVVM configuration only
 ```
 
@@ -372,22 +395,9 @@ npm run build           # Build for production
 npm run start           # Start production server
 ```
 
-### Contract Source Management
-
-```bash
-npm run sources         # Interactive: check, clone, or update contract repos
-npm run check-sources   # Same as above (alias)
-```
-
-The CLI automatically checks for contract source updates before deployment:
-- Fetches latest from remote to compare versions
-- Prompts to clone if repositories are missing
-- Warns if local repos are behind remote
-
 ### Utilities
 
 ```bash
-npm run sync-contracts  # Sync from Testnet/Playground to packages/
 npm run generate-abis   # Generate ABIs for frontend
 npm run flush           # Clear all caches and stop frontend server
 npm run frontend        # Start frontend server (alias for npm run dev)
@@ -467,26 +477,61 @@ After deployment, a summary is saved:
 
 ---
 
-## Contract Sources
+## Bundled Contract Sources
+
+All EVVM contracts are bundled in the repository for offline-ready deployment.
 
 ### Testnet-Contracts
 
-Production-ready EVVM contracts for testnet deployment:
+Production-ready EVVM contracts located at `packages/foundry/testnet-contracts/`:
 - 6 core contracts: Evvm, Staking, Estimator, NameService, Treasury, P2PSwap
 - Full test coverage
 - Optimized for deployment
 
 ### Playground-Contracts
 
-Experimental contracts for prototyping:
+Experimental contracts located at `packages/foundry/playground-contracts/`:
 - Same 6 core contracts (development versions)
 - Extensive unit and fuzz tests
 - Ideal for testing new features
 
-Sync contracts with:
-```bash
-npm run sync-contracts
+### Building Custom Services
+
+Create your own EVVM services in `packages/foundry/contracts/services/`:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import {IEvvm} from "@scaffold-evvm/testnet-contracts/interfaces/IEvvm.sol";
+
+contract MyService {
+    IEvvm public immutable evvm;
+
+    constructor(address _evvm) {
+        evvm = IEvvm(_evvm);
+    }
+
+    // Your service logic here
+}
 ```
+
+Available imports with `@scaffold-evvm/` namespace:
+```solidity
+// Testnet interfaces (production-ready)
+import {IEvvm} from "@scaffold-evvm/testnet-contracts/interfaces/IEvvm.sol";
+import {IStaking} from "@scaffold-evvm/testnet-contracts/interfaces/IStaking.sol";
+import {INameService} from "@scaffold-evvm/testnet-contracts/interfaces/INameService.sol";
+import {ITreasury} from "@scaffold-evvm/testnet-contracts/interfaces/ITreasury.sol";
+
+// Playground interfaces (experimental)
+import {IEvvm} from "@scaffold-evvm/playground-contracts/interfaces/IEvvm.sol";
+
+// Your custom services
+import {MyService} from "@scaffold-evvm/contracts/services/MyService.sol";
+```
+
+See `packages/foundry/contracts/services/ExampleService.sol` for a complete starter template.
 
 ---
 
@@ -574,11 +619,11 @@ This ensures the frontend always reflects the latest deployment without manual i
 
 ## Development
 
-### Adding a New Contract
+### Adding a Custom Service
 
-1. Add contract to source repository (Testnet or Playground)
-2. Run `npm run sync-contracts`
-3. Update deployment script in `packages/foundry/script/` or `packages/hardhat/deploy/`
+1. Create your service contract in `packages/foundry/contracts/services/`
+2. Import EVVM interfaces using `@scaffold-evvm/testnet-contracts/` or `@scaffold-evvm/playground-contracts/`
+3. Update deployment script in `packages/foundry/script/` if needed
 4. Run `npm run generate-abis` after compilation
 5. Add frontend components in `packages/nextjs/src/components/`
 
