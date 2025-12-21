@@ -1,0 +1,32 @@
+{
+  "name": "@scaffold-evvm/nextjs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@evvm/viem-signature-library": "^2.1.1",
+    "@reown/appkit": "1.7.5",
+    "@reown/appkit-adapter-wagmi": "1.7.5",
+    "@tanstack/react-query": "^5.59.20",
+    "@wagmi/core": "^2.22.1",
+    "dotenv": "^16.4.5",
+    "next": "^15.2.0",
+    "next-themes": "^0.4.6",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "viem": "^2.39.0",
+    "wagmi": "^2.12.31"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.3.0"
+  }
+}
