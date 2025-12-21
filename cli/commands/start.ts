@@ -538,11 +538,55 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
       // Fund keystore wallet if using one (not default Anvil key)
       if (config.wallet && !config.useDefaultAnvilKey) {
         sectionHeader('Funding Wallet');
+        info(`Using keystore wallet: ${chalk.cyan(config.wallet)}`);
+        info(chalk.yellow('You will be prompted to enter your wallet password.'));
+        console.log('');
+
         const fundResult = await fundWalletFromAnvil(config.wallet);
         if (!fundResult.success) {
-          warning('Could not automatically fund wallet. You may need to fund it manually.');
-          info('To fund manually, run:');
-          console.log(chalk.gray(`  cast send ${fundResult.address || '<wallet-address>'} --value 100ether --private-key ${DEFAULT_ANVIL_KEY} --rpc-url ${LOCAL_RPC_URL}`));
+          warning('Could not automatically fund wallet.');
+
+          const fundingChoice = await prompts({
+            type: 'select',
+            name: 'action',
+            message: 'How would you like to proceed?',
+            choices: [
+              {
+                title: 'Use default Anvil account (recommended)',
+                value: 'default',
+                description: 'Deploy using the pre-funded Anvil test account'
+              },
+              {
+                title: 'Continue with keystore wallet',
+                value: 'continue',
+                description: 'Proceed anyway (you can fund manually later)'
+              },
+              {
+                title: 'Cancel',
+                value: 'cancel',
+                description: 'Exit setup'
+              }
+            ]
+          });
+
+          if (fundingChoice.action === 'cancel' || !fundingChoice.action) {
+            error('Setup cancelled.');
+            if (chainProcess) chainProcess.kill();
+            return;
+          }
+
+          if (fundingChoice.action === 'default') {
+            config.useDefaultAnvilKey = true;
+            config.wallet = undefined;
+            info('Switched to default Anvil account for deployment');
+          } else {
+            info('Continuing with keystore wallet');
+            info('To fund manually, run:');
+            console.log(chalk.gray(`  cast send ${fundResult.address || '<wallet-address>'} --value 100ether --private-key ${DEFAULT_ANVIL_KEY} --rpc-url ${LOCAL_RPC_URL}`));
+          }
+        } else {
+          success('Wallet funded successfully');
+          info(chalk.yellow('\nNote: You will be prompted for your password again during deployment.'));
         }
       }
     } else {
