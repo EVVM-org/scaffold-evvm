@@ -404,11 +404,28 @@ interface DeploymentResult {
  * Main deploy command
  */
 export async function deployContracts(): Promise<void> {
-  sectionHeader('Contract Deployment');
+  console.log(evvmGreen(`
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║                    SCAFFOLD-EVVM                              ║
+║                  Contract Deployment                          ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+`));
 
   const projectRoot = process.cwd();
 
+  // Step 0: Check prerequisites
+  const { checkAllPrerequisites, checkFrameworkAvailable } = await import('../utils/prerequisites.js');
+  const prereqResult = await checkAllPrerequisites(projectRoot);
+
+  if (!prereqResult.passed) {
+    error('Cannot proceed with deployment due to missing prerequisites.');
+    return;
+  }
+
   // Check contract sources (fetches from GitHub to check for updates)
+  sectionHeader('Contract Sources');
   info('Checking contract source repositories...');
   const sourcesStatus = await checkContractSources(projectRoot);
 
@@ -518,18 +535,45 @@ export async function deployContracts(): Promise<void> {
   // Step 1: Framework Selection
   sectionHeader('Framework Selection');
 
+  // Filter framework choices based on availability
+  const frameworkChoices = [];
+  if (prereqResult.hasFoundry) {
+    frameworkChoices.push({ title: 'Foundry', value: 'foundry', description: 'Fast, Solidity-native testing (recommended)' });
+  }
+  if (prereqResult.hasHardhat) {
+    frameworkChoices.push({ title: 'Hardhat', value: 'hardhat', description: 'JavaScript/TypeScript ecosystem' });
+  }
+
+  if (frameworkChoices.length === 0) {
+    error('No smart contract framework available!');
+    info('Please install Foundry or Hardhat:');
+    console.log(chalk.gray('  Foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup'));
+    console.log(chalk.gray('  Hardhat: npm install --save-dev hardhat'));
+    return;
+  }
+
   const frameworkResponse = await prompts({
     type: 'select',
     name: 'framework',
     message: 'Select your smart contract framework:',
-    choices: [
-      { title: 'Foundry', value: 'foundry', description: 'Fast, Solidity-native testing (recommended)' },
-      { title: 'Hardhat', value: 'hardhat', description: 'JavaScript/TypeScript ecosystem' }
-    ],
-    initial: existingConfig?.framework === 'hardhat' ? 1 : 0
+    choices: frameworkChoices,
+    initial: existingConfig?.framework === 'hardhat' && prereqResult.hasHardhat ?
+      (prereqResult.hasFoundry ? 1 : 0) : 0
   });
   if (!frameworkResponse.framework) {
     error('Deployment cancelled.');
+    return;
+  }
+
+  // Verify selected framework is available
+  const frameworkAvailable = await checkFrameworkAvailable(frameworkResponse.framework, projectRoot);
+  if (!frameworkAvailable) {
+    error(`${frameworkResponse.framework === 'foundry' ? 'Foundry' : 'Hardhat'} is not properly installed.`);
+    if (frameworkResponse.framework === 'foundry') {
+      info('Install Foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup');
+    } else {
+      info('Install Hardhat: npm install --save-dev hardhat');
+    }
     return;
   }
 
