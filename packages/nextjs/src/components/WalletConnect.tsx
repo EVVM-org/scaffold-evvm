@@ -1,7 +1,7 @@
 'use client';
 
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
-import { useAccount, useChainId, useReconnect } from 'wagmi';
+import { useAppKit, useAppKitAccount, useAppKitState } from '@reown/appkit/react';
+import { useAccount, useChainId, useReconnect, useDisconnect } from 'wagmi';
 import styles from '@/styles/components/WalletConnect.module.css';
 import { useEffect, useState } from 'react';
 
@@ -25,9 +25,11 @@ const LOCAL_CHAIN = {
 
 export function WalletConnect() {
   const { open } = useAppKit();
+  const { appKit } = useAppKitState();
   const { address: appKitAddress, isConnected: appKitIsConnected } = useAppKitAccount();
   const { address: wagmiAddress, isConnected: wagmiIsConnected } = useAccount();
   const { reconnect } = useReconnect();
+  const { disconnect } = useDisconnect();
   const chainId = useChainId();
   const [mounted, setMounted] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -220,10 +222,13 @@ export function WalletConnect() {
           <div className={styles.network}>{getNetworkName()}</div>
         </div>
         <button
-          onClick={() => open?.({ view: 'Account' })}
+          onClick={() => {
+            disconnect();
+          }}
           className={styles.accountButton}
+          title="Disconnect wallet"
         >
-          Account
+          Disconnect
         </button>
       </div>
     </div>
