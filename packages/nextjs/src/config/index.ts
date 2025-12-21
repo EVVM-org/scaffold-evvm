@@ -15,10 +15,16 @@ if (!projectId) {
   throw new Error('Project ID is not defined')
 }
 
+// Determine environment
+const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '11155111')
+export const isLocalDev = chainId === 31337
+
 // Localhost/Anvil/Hardhat Network configuration for local development
+// Uses CAIP-2 format for chain identification (eip155:31337)
+// Reference: https://github.com/wevm/viem/blob/main/src/chains/definitions/anvil.ts
 const localhost: AppKitNetwork = {
   id: 31337,
-  name: 'Localhost',
+  name: 'Localhost (Anvil/Hardhat)',
   nativeCurrency: {
     name: 'Ether',
     symbol: 'ETH',
@@ -27,9 +33,12 @@ const localhost: AppKitNetwork = {
   rpcUrls: {
     default: {
       http: ['http://127.0.0.1:8545'],
+      webSocket: ['ws://127.0.0.1:8545'],
     },
   },
   testnet: true,
+  // CAIP-2 chain identifier for proper WalletConnect/AppKit support
+  chainNamespace: 'eip155' as const,
 }
 
 // Custom Ethereum Sepolia configuration with multiple fast fallback RPCs
@@ -71,9 +80,6 @@ const arbitrumSepolia: AppKitNetwork = {
 
 // Determine which networks to expose based on environment
 // For local development (CHAIN_ID=31337), prioritize localhost
-const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '11155111');
-const isLocalDev = chainId === 31337;
-
 export const networks = isLocalDev
   ? [localhost, sepolia, arbitrumSepolia] as [AppKitNetwork, ...AppKitNetwork[]]
   : [sepolia, arbitrumSepolia, localhost] as [AppKitNetwork, ...AppKitNetwork[]]

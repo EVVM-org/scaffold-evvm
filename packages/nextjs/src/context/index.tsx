@@ -1,6 +1,6 @@
 'use client'
 
-import { wagmiAdapter, projectId, networks } from '@/config'
+import { wagmiAdapter, projectId, networks, isLocalDev } from '@/config'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createAppKit } from '@reown/appkit/react'
 import React, { type ReactNode } from 'react'
@@ -9,15 +9,25 @@ import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
 // Set up queryClient
 const queryClient = new QueryClient()
 
-// Set up metadata
+// Determine the current URL for metadata
+// For localhost, use the actual localhost URL to avoid WalletConnect warnings
+const getMetadataUrl = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin
+  }
+  // SSR fallback - use localhost for local dev, production URL otherwise
+  return isLocalDev ? 'http://localhost:3000' : 'https://evvm.info'
+}
+
+// Set up metadata with dynamic URL
 const metadata = {
   name: 'EVVM Scaffold',
   description: 'A complete testing & debugging framework for EVVM virtual blockchains',
-  url: 'https://evvm.info',
+  url: getMetadataUrl(),
   icons: ['https://avatars.githubusercontent.com/u/179229932']
 }
 
-// Create the modal
+// Create the modal with environment-aware configuration
 export const modal = createAppKit({
   adapters: [wagmiAdapter],
   projectId,
@@ -25,13 +35,19 @@ export const modal = createAppKit({
   metadata,
   themeMode: 'light',
   features: {
-    analytics: true
+    // Disable analytics for localhost to prevent "Failed to fetch" errors
+    analytics: !isLocalDev,
+    // Enable email/social login only on production
+    email: !isLocalDev,
+    socials: isLocalDev ? [] : ['google', 'x', 'discord', 'github'],
   },
   themeVariables: {
     '--w3m-accent': '#000000',
   },
   // Disable default wallet button to avoid duplicates
-  enableWalletGuide: false
+  enableWalletGuide: false,
+  // Allow all wallets for local development (including injected like MetaMask)
+  allowUnsupportedChain: isLocalDev,
 })
 
 function ContextProvider({ children, cookies }: { children: ReactNode; cookies: string | null }) {
