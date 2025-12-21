@@ -13,14 +13,15 @@ Scaffold-EVVM is your all-in-one toolkit for deploying, interacting with, and bu
 - **Dual Framework Support** - Choose Foundry or Hardhat for smart contract development
 - **Dual Contract Sources** - Deploy from Testnet-Contracts (production) or Playground-Contracts (experimental)
 - **Interactive CLI Wizard** - Guided setup for framework, contracts, and configuration
-- **Full Deployment Pipeline** - Deploy to local chains, Ethereum Sepolia, or Arbitrum Sepolia
-- **Fallback RPC Support** - Automatic RPC failover with 9+ endpoints per network
-- **Deployment Summary** - Comprehensive output with explorer links saved to `deployments/`
+- **Local Development Focus** - Deploy to local chains (Anvil/Hardhat Network) for rapid iteration
+- **Prerequisite Validation** - Automatic checks for Node.js 18+, Git, Foundry, and dependencies
+- **Deployment Summary** - Comprehensive output saved to `deployments/`
 - **Auto Config Sync** - Frontend automatically detects and loads new deployments
 - **Signature Constructor Frontend** - 23+ signature constructors for all EVVM operations
 - **Auto Contract Discovery** - Discovers Staking, NameService, Estimator from EVVM core
 - **Meta-Transaction Pattern** - EIP-191 gasless signatures submitted by executors
-- **Registry Integration** - Register your EVVM instance in the global registry
+
+> **Note:** This version supports **local deployment only**. Testnet deployment (Ethereum Sepolia, Arbitrum Sepolia) will be available in a future release.
 
 ---
 
@@ -28,7 +29,7 @@ Scaffold-EVVM is your all-in-one toolkit for deploying, interacting with, and bu
 
 ### Fresh Clone Experience
 
-Any user can clone, install, and deploy with any combination of framework, contract source, and network:
+Any user can clone, install, and deploy locally:
 
 ```bash
 git clone https://github.com/EVVM-org/scaffold-evvm.git
@@ -38,22 +39,25 @@ npm run cli deploy
 ```
 
 The `npm run cli deploy` wizard will:
-1. **Detect missing contract sources** → Prompt to clone Testnet-Contracts or Playground-Contracts from GitHub
-2. **Clone to sibling directory** → `../Testnet-Contracts` or `../Playground-Contracts`
-3. **Initialize git submodules** automatically
-4. **Guide you through deployment** → Select framework, contracts, network, and configure EVVM
+1. **Check prerequisites** → Validate Node.js 18+, Git, Foundry/Hardhat
+2. **Detect missing contract sources** → Prompt to clone Testnet-Contracts or Playground-Contracts
+3. **Clone inside project** → `./Testnet-Contracts` or `./Playground-Contracts`
+4. **Initialize git submodules** automatically
+5. **Guide you through deployment** → Select framework, contracts, and configure EVVM
+6. **Start local chain** → Anvil (Foundry) or Hardhat Network
+7. **Deploy contracts** → All 6 EVVM contracts deployed locally
+8. **Update frontend** → Automatically configure `.env` with contract addresses
 
-### Prerequisites by Deployment Type
+### Prerequisites
 
-| Deployment | Requirements |
-|------------|--------------|
-| **Local (any framework)** | Node.js 18+, Git, Foundry (`foundryup`) |
-| **Testnet + Foundry** | Above + keystore wallet with testnet ETH |
-| **Testnet + Hardhat** | Node.js 18+, Git, `DEPLOYER_PRIVATE_KEY` in `.env` with testnet ETH |
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| **Node.js** | 18+ | Required for CLI and frontend |
+| **npm** | Latest | Package manager |
+| **Git** | Latest | For cloning contract sources |
+| **Foundry** | Latest | For Foundry framework (`foundryup`) |
 
-**For local deployments**, everything is fully automated - no wallet setup needed since test accounts are used.
-
-**For testnet deployments**, the only manual step is getting testnet ETH from faucets.
+> **Tip:** For local deployment, everything is fully automated - no wallet setup needed since test accounts are used.
 
 ### Install Foundry
 
@@ -76,14 +80,14 @@ npm run frontend
 ```
 
 The `npm run cli deploy` command will:
-1. Check for latest contract updates from GitHub
-2. Select framework (Foundry/Hardhat)
-3. Select contracts (Testnet/Playground)
-4. Configure EVVM (admin addresses, token metadata)
-5. Sync and compile contracts
-6. Select network (Local/Sepolia/Arbitrum)
-7. Deploy contracts
-8. Register with EVVM Registry (optional)
+1. Check prerequisites (Node.js, Git, Foundry/Hardhat)
+2. Check for latest contract updates from GitHub
+3. Select framework (Foundry/Hardhat)
+4. Select contracts (Testnet/Playground)
+5. Configure EVVM (admin addresses, token metadata)
+6. Sync and compile contracts
+7. Start local chain (Anvil/Hardhat Network)
+8. Deploy contracts
 9. Update frontend configuration
 
 ### Troubleshooting
@@ -140,44 +144,39 @@ This runs everything including the frontend in a single terminal. Use this for q
 
 ## Current Status
 
-### Fully Working Flows
+### Supported Deployment Flows
 
-All framework and contract combinations are fully tested and working:
+This version supports **local deployment only**:
 
 | Framework | Contracts | Network | Status |
 |-----------|-----------|---------|--------|
-| Foundry | Testnet-Contracts | Ethereum Sepolia | ✅ Working |
-| Foundry | Testnet-Contracts | Arbitrum Sepolia | ✅ Working |
 | Foundry | Testnet-Contracts | Local (Anvil) | ✅ Working |
-| Foundry | Playground-Contracts | Ethereum Sepolia | ✅ Working |
-| Foundry | Playground-Contracts | Arbitrum Sepolia | ✅ Working |
 | Foundry | Playground-Contracts | Local (Anvil) | ✅ Working |
-| Hardhat | Testnet-Contracts | Ethereum Sepolia | ✅ Working |
-| Hardhat | Testnet-Contracts | Arbitrum Sepolia | ✅ Working |
 | Hardhat | Testnet-Contracts | Local (Hardhat Network) | ✅ Working |
-| Hardhat | Playground-Contracts | Ethereum Sepolia | ✅ Working |
-| Hardhat | Playground-Contracts | Arbitrum Sepolia | ✅ Working |
 | Hardhat | Playground-Contracts | Local (Hardhat Network) | ✅ Working |
 
 **Features verified:**
+- Prerequisite validation (Node.js 18+, Git, Foundry/Hardhat)
+- Contract source detection and cloning
 - Contract deployment with all 6 contracts (EVVM, Staking, Estimator, NameService, Treasury, P2PSwap)
-- Automatic contract verification on block explorers (Etherscan/Arbiscan)
-- EVVM Registry registration with cross-chain support
+- Local chain management (Anvil/Hardhat Network)
 - Frontend configuration auto-update
 - `npm run cli flush` for troubleshooting
 
 **Tested workflow:**
 ```bash
-npm run cli deploy      # Select: Foundry/Hardhat → Testnet/Playground → Network → Configure EVVM
+npm run cli deploy      # Select: Foundry/Hardhat → Testnet/Playground → Configure EVVM → Deploy locally
 npm run frontend        # Start frontend in separate terminal
 npm run cli flush       # Use when encountering issues
 ```
 
-### In Development
+### Coming Soon
 
-Currently being developed:
+Planned for future releases:
 
-- **Additional network support** - Planned
+- **Testnet deployment** - Ethereum Sepolia, Arbitrum Sepolia
+- **EVVM Registry integration** - Cross-chain registration
+- **Contract verification** - Etherscan/Arbiscan verification
 
 ---
 
@@ -299,29 +298,26 @@ Both Anvil and Hardhat Network use the same configuration:
 ```
 scaffold-evvm/
 ├── cli/                    # Interactive CLI wizard
-│   ├── commands/           # CLI commands (init, deploy, chain, config, start, flush)
+│   ├── commands/           # CLI commands (deploy, start, flush, sources)
 │   └── utils/              # CLI utilities and display helpers
+├── Testnet-Contracts/      # Cloned EVVM production contracts (git clone)
+├── Playground-Contracts/   # Cloned EVVM experimental contracts (git clone)
 ├── deployments/            # Deployment summaries (JSON)
 │   ├── latest.json         # Most recent deployment
 │   └── deployment-{network}-{chainId}.json
 ├── packages/
-│   ├── foundry/            # Foundry smart contracts package
-│   │   ├── contracts/      # Synced from Testnet/Playground
-│   │   ├── script/         # Deployment scripts
-│   │   └── broadcast/      # Deployment artifacts
-│   ├── hardhat/            # Hardhat smart contracts package
-│   │   ├── contracts/      # Synced from Testnet/Playground
-│   │   ├── deploy/         # Hardhat-deploy scripts
-│   │   └── deployments/    # Deployment artifacts
+│   ├── foundry/            # Foundry package (uses contracts from source repos)
+│   ├── hardhat/            # Hardhat package (uses contracts from source repos)
 │   └── nextjs/             # Frontend application
 │       ├── src/app/        # Next.js pages
 │       ├── src/components/ # Signature constructors
 │       ├── src/hooks/      # React hooks
 │       └── src/lib/        # Utilities
-├── scripts/                # Build utilities
-├── input/                  # EVVM configuration files
+├── input/                  # EVVM configuration files (generated by CLI)
 └── scaffold.config.json    # Project configuration
 ```
+
+> **Note:** Contract source repositories (`Testnet-Contracts/`, `Playground-Contracts/`) are cloned inside the project by the CLI wizard. They are gitignored and not part of the scaffold-evvm repository.
 
 ---
 
