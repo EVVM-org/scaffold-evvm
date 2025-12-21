@@ -28,6 +28,7 @@ const metadata = {
 }
 
 // Create the modal with environment-aware configuration
+// For localhost: Only use injected wallets (MetaMask) since WalletConnect requires internet
 export const modal = createAppKit({
   adapters: [wagmiAdapter],
   projectId,
@@ -35,19 +36,25 @@ export const modal = createAppKit({
   metadata,
   themeMode: 'light',
   features: {
-    // Disable analytics for localhost to prevent "Failed to fetch" errors
-    analytics: !isLocalDev,
+    // Disable analytics to prevent "Failed to fetch" errors
+    analytics: false,
     // Enable email/social login only on production
     email: !isLocalDev,
-    socials: isLocalDev ? [] : ['google', 'x', 'discord', 'github'],
+    socials: isLocalDev ? false : ['google', 'x', 'discord', 'github'],
+    // Disable onramp
+    onramp: false,
+    // Disable swaps
+    swaps: false,
   },
   themeVariables: {
     '--w3m-accent': '#000000',
   },
   // Disable default wallet button to avoid duplicates
   enableWalletGuide: false,
-  // Allow all wallets for local development (including injected like MetaMask)
+  // Allow unsupported chains for local development
   allowUnsupportedChain: isLocalDev,
+  // For localhost, only show injected wallets (MetaMask, Brave, etc.)
+  featuredWalletIds: isLocalDev ? [] : undefined,
 })
 
 function ContextProvider({ children, cookies }: { children: ReactNode; cookies: string | null }) {
