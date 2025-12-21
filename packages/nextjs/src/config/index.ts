@@ -32,8 +32,8 @@ const localhost: AppKitNetwork = {
   },
   rpcUrls: {
     default: {
-      http: ['http://127.0.0.1:8545'],
-      webSocket: ['ws://127.0.0.1:8545'],
+      http: ['http://localhost:8545', 'http://127.0.0.1:8545'],
+      webSocket: ['ws://localhost:8545', 'ws://127.0.0.1:8545'],
     },
   },
   testnet: true,
@@ -93,7 +93,7 @@ export const wagmiAdapter = new WagmiAdapter({
   projectId,
   networks,
   transports: {
-    [localhost.id]: http('http://127.0.0.1:8545', {
+    [localhost.id]: http('http://localhost:8545', {
       retryCount: 3,
       retryDelay: 500,
     }),

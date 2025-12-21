@@ -117,11 +117,14 @@ export async function fullStart(): Promise<void> {
   // Step 2: Contract Source Selection
   sectionHeader('Step 2: Contract Sources');
 
+  // Define hasTestnet and hasPlayground at the top of the function
+  let hasTestnet: boolean;
+  let hasPlayground: boolean;
+
   // Check bundled contract sources
   info('Checking bundled EVVM contracts...');
-
-  const hasTestnet = existsSync(join(FOUNDRY_DIR, 'testnet-contracts', 'contracts'));
-  const hasPlayground = existsSync(join(FOUNDRY_DIR, 'playground-contracts', 'contracts'));
+  hasTestnet = existsSync(join(FOUNDRY_DIR, 'testnet-contracts', 'contracts'));
+  hasPlayground = existsSync(join(FOUNDRY_DIR, 'playground-contracts', 'contracts'));
 
   if (hasTestnet) {
     success('Testnet-Contracts (bundled)');
@@ -302,7 +305,7 @@ export async function fullStart(): Promise<void> {
       if (existsSync(envPath)) {
         const envContent = readFileSync(envPath, 'utf-8');
         const keyMatch = envContent.match(/^DEPLOYER_PRIVATE_KEY=(.+)$/m);
-        hasKey = keyMatch && keyMatch[1] && keyMatch[1].length > 10;
+        hasKey = Boolean(keyMatch && keyMatch[1] && keyMatch[1].length > 10);
       }
 
       if (!hasKey) {
@@ -521,6 +524,31 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     }
 
     success('Contracts compiled');
+
+    // Step 3: Clone and setup contract source repositories
+    sectionHeader('Cloning Contract Repositories');
+
+    // Check and clone missing repositories
+    const playgroundPath = join(PROJECT_ROOT, 'packages', 'Playground-Contracts');
+    const testnetPath = join(PROJECT_ROOT, 'packages', 'Testnet-Contracts');
+
+    if (!existsSync(playgroundPath)) {
+      info('Playground-Contracts not found. Cloning repository...');
+      await execa('git', ['clone', '--recursive', 'https://github.com/EVVM-org/Playground-Contracts', playgroundPath], { stdio: 'inherit' });
+      info('Installing dependencies for Playground-Contracts...');
+      await execa('npm', ['install'], { cwd: playgroundPath, stdio: 'inherit' });
+    } else {
+      info('Playground-Contracts already exists. Skipping clone.');
+    }
+
+    if (!existsSync(testnetPath)) {
+      info('Testnet-Contracts not found. Cloning repository...');
+      await execa('git', ['clone', '--recursive', 'https://github.com/EVVM-org/Testnet-Contracts', testnetPath], { stdio: 'inherit' });
+      info('Installing dependencies for Testnet-Contracts...');
+      await execa('npm', ['install'], { cwd: testnetPath, stdio: 'inherit' });
+    } else {
+      info('Testnet-Contracts already exists. Skipping clone.');
+    }
 
     // Step 4: Start local chain
     sectionHeader('Starting Local Chain');
@@ -746,6 +774,11 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
         success('Cache cleared');
       }
 
+      // Wait a moment for the filesystem to sync the .env changes
+      // This ensures Next.js reads the fresh environment variables
+      info('Waiting for configuration to be written...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       console.log(chalk.gray('\nThe frontend will open at http://localhost:3000\n'));
       console.log(chalk.yellow('Note: Keep this terminal open to maintain the local chain.'));
       console.log(chalk.gray('Press Ctrl+C to stop everything.\n'));
@@ -873,12 +906,12 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
 function generateInputsSol(config: FullStartConfig): string {
   // Select import path based on contract source
   const importPath = config.contractSource === 'playground'
-    ? '@scaffold-evvm/playground-contracts'
-    : '@scaffold-evvm/testnet-contracts';
+    ? 'packages/Playground-Contracts/input/BaseInputs.sol'
+    : 'packages/Testnet-Contracts/input/Inputs.sol';
 
   return `// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
-import {EvvmStructs} from "${importPath}/contracts/evvm/lib/EvvmStructs.sol";
+import {EvvmStructs} from "${importPath}";
 
 abstract contract Inputs {
     address admin = ${config.addresses.admin};
@@ -897,8 +930,7 @@ abstract contract Inputs {
             eraTokens: ${config.advancedMetadata.eraTokens},
             reward: ${config.advancedMetadata.reward}
         });
-}
-`;
+}`;
 }
 
 interface DeployedAddresses {
@@ -1022,17 +1054,22 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
   if (config.framework === 'foundry') {
     // Clean stale artifacts first
     info('Cleaning stale artifacts...');
+    
     await execa('forge', ['clean'], { cwd: FOUNDRY_DIR, stdio: 'pipe' }).catch(() => {});
 
     // Select the deployment script based on contract source
-    const scriptFile = config.contractSource === 'playground'
-      ? 'script/Deploy.playground.s.sol:DeployScript'
-      : 'script/Deploy.testnet.s.sol:DeployScript';
+    const scriptDir = config.contractSource === 'playground'
+      ? join(PROJECT_ROOT, 'packages', 'Playground-Contracts')
+      : join(PROJECT_ROOT, 'packages', 'Testnet-Contracts');
+    
+    const scriptFile = 'script/Deploy.s.sol:DeployScript';
 
+    console.log(`Deploying with Forge script... ${scriptFile}`);
     const args = [
       'script',
       scriptFile,
-      '--rpc-url', LOCAL_RPC_URL,
+      '--rpc-url', 
+      LOCAL_RPC_URL,
       '--broadcast',
       '--via-ir',
       '-vvvv'
@@ -1048,12 +1085,12 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
 
     try {
       await execa('forge', args, {
-        cwd: FOUNDRY_DIR,
+        cwd: scriptDir,
         stdio: 'inherit'
       });
 
-      // Parse deployment artifacts
-      return parseFoundryArtifacts(FOUNDRY_DIR);
+      // Parse deployment artifacts from the script directory
+      return parseFoundryArtifacts(scriptDir);
     } catch (err) {
       error('Deployment failed');
       return null;
@@ -1282,6 +1319,9 @@ async function updateFrontendEnv(addresses: DeployedAddresses): Promise<void> {
   if (addresses.p2pSwap) {
     envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_P2PSWAP_ADDRESS', addresses.p2pSwap);
   }
+
+  // Ensure RPC URL is configured for Anvil/Localhost
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_RPC_URL_LOCALHOST', LOCAL_RPC_URL);
 
   writeFileSync(envPath, envContent);
 }
