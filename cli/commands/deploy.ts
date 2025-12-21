@@ -576,22 +576,27 @@ export async function deployContracts(): Promise<void> {
         description: 'Deploy to local development chain'
       },
       {
-        title: 'Ethereum Sepolia',
-        value: 'eth-sepolia',
-        description: 'Deploy to Ethereum testnet'
+        title: chalk.gray('Ethereum Sepolia (coming soon)'),
+        value: 'eth-sepolia-disabled',
+        description: 'Testnet deployment not yet supported in this version',
+        disabled: true
       },
       {
-        title: 'Arbitrum Sepolia',
-        value: 'arb-sepolia',
-        description: 'Deploy to Arbitrum testnet'
-      },
-      {
-        title: 'Custom RPC',
-        value: 'custom',
-        description: 'Deploy to custom network'
+        title: chalk.gray('Arbitrum Sepolia (coming soon)'),
+        value: 'arb-sepolia-disabled',
+        description: 'Testnet deployment not yet supported in this version',
+        disabled: true
       }
     ]
   });
+
+  // Handle disabled options
+  if (networkResponse.network?.includes('-disabled')) {
+    warning('Testnet deployment is not yet supported in this version.');
+    info('This version of Scaffold-EVVM supports local development only.');
+    info('Testnet deployment will be available in a future release.');
+    return;
+  }
 
   if (!networkResponse.network) {
     error('Deployment cancelled.');
