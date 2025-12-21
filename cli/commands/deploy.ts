@@ -249,8 +249,9 @@ function displayTestAccounts(framework: 'foundry' | 'hardhat' = 'foundry'): void
 async function fundWalletFromAnvil(walletName: string, port: number = ANVIL_PORT): Promise<{ success: boolean; address?: string }> {
   try {
     // Get the address of the keystore wallet
+    // Use inherit for stdin to allow password input, pipe stdout to capture address
     const addressResult = await execa('cast', ['wallet', 'address', '--account', walletName], {
-      stdio: 'pipe'
+      stdio: ['inherit', 'pipe', 'inherit']
     });
     const walletAddress = addressResult.stdout.trim();
 

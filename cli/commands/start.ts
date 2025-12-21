@@ -730,8 +730,9 @@ const DEFAULT_ANVIL_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae7
 async function fundWalletFromAnvil(walletName: string): Promise<{ success: boolean; address?: string }> {
   try {
     // Get the address of the keystore wallet
+    // Use inherit for stdin to allow password input, pipe stdout to capture address
     const addressResult = await execa('cast', ['wallet', 'address', '--account', walletName], {
-      stdio: 'pipe'
+      stdio: ['inherit', 'pipe', 'inherit']
     });
     const walletAddress = addressResult.stdout.trim();
 
