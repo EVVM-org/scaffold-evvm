@@ -13,7 +13,6 @@ import { execa } from 'execa';
 import type { Address } from 'viem';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
 import { getAvailableWallets, commandExists } from '../utils/prerequisites.js';
-import { checkContractSources, displayContractSourcesStatus, pullLatest, ensureContractSources } from '../utils/contractSources.js';
 
 // Anvil configuration
 const ANVIL_PORT = 8545;
@@ -360,6 +359,26 @@ interface DeploymentResult {
   p2pSwapAddress?: Address;
   chainId: number;
   network: string;
+  deployerAddress?: string;
+  deployerWallet?: string;
+}
+
+/**
+ * Get wallet address from Foundry keystore
+ */
+async function getWalletAddress(walletName: string): Promise<string | null> {
+  try {
+    const result = await execa('cast', ['wallet', 'address', '--account', walletName], {
+      stdio: 'pipe'
+    });
+    const address = result.stdout.trim();
+    if (address && address.startsWith('0x')) {
+      return address;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -386,110 +405,36 @@ export async function deployContracts(): Promise<void> {
     return;
   }
 
-  // Check contract sources (fetches from GitHub to check for updates)
+  // Check bundled contract sources
   sectionHeader('Contract Sources');
-  info('Checking contract source repositories...');
-  const sourcesStatus = await checkContractSources(projectRoot);
+  info('Checking bundled EVVM contracts...');
 
-  const hasTestnet = sourcesStatus.testnet.exists;
-  const hasPlayground = sourcesStatus.playground.exists;
-  const testnetOutdated = hasTestnet && sourcesStatus.testnet.behind > 0;
-  const playgroundOutdated = hasPlayground && sourcesStatus.playground.behind > 0;
+  const foundryDir = join(projectRoot, 'packages', 'foundry');
+  const hasTestnet = existsSync(join(foundryDir, 'testnet-contracts', 'contracts'));
+  const hasPlayground = existsSync(join(foundryDir, 'playground-contracts', 'contracts'));
 
-  // Display status
-  displayContractSourcesStatus(sourcesStatus);
+  if (hasTestnet) {
+    success('Testnet-Contracts (bundled)');
+  } else {
+    warning('Testnet-Contracts not found');
+  }
 
-  // Handle missing repos
+  if (hasPlayground) {
+    success('Playground-Contracts (bundled)');
+  } else {
+    warning('Playground-Contracts not found');
+  }
+
+  // Handle missing bundled contracts
   if (!hasTestnet && !hasPlayground) {
-    error('No contract sources found!');
-    info('Run "npm run sources" to clone the repositories.');
-
-    const cloneResponse = await prompts({
-      type: 'confirm',
-      name: 'clone',
-      message: 'Would you like to clone contract repositories now?',
-      initial: true
-    });
-
-    if (cloneResponse.clone) {
-      const sourcesReady = await ensureContractSources(projectRoot, 'both');
-      if (!sourcesReady) {
-        error('Failed to clone repositories. Please try manually.');
-        return;
-      }
-    } else {
-      return;
-    }
+    error('No bundled contracts found!');
+    info('The contract sources should be included in packages/foundry/');
+    info('Please reinstall scaffold-evvm or restore the bundled contracts.');
+    return;
   }
 
-  // Handle outdated repos - strongly encourage updating to latest
-  if (testnetOutdated || playgroundOutdated) {
-    console.log(chalk.yellow.bold('\n⚠️  CONTRACT SOURCES ARE OUTDATED!\n'));
-
-    if (testnetOutdated) {
-      console.log(chalk.yellow(`   Testnet-Contracts: ${sourcesStatus.testnet.behind} commit(s) behind remote`));
-      console.log(chalk.gray(`   Local:  ${sourcesStatus.testnet.localCommit} → Remote: ${sourcesStatus.testnet.remoteCommit}`));
-    }
-    if (playgroundOutdated) {
-      console.log(chalk.yellow(`   Playground-Contracts: ${sourcesStatus.playground.behind} commit(s) behind remote`));
-      console.log(chalk.gray(`   Local:  ${sourcesStatus.playground.localCommit} → Remote: ${sourcesStatus.playground.remoteCommit}`));
-    }
-
-    console.log(chalk.cyan('\n   Updating ensures you deploy with the latest bug fixes and features.\n'));
-
-    const updateResponse = await prompts({
-      type: 'select',
-      name: 'action',
-      message: 'How would you like to proceed?',
-      choices: [
-        {
-          title: chalk.green('Update to latest (recommended)'),
-          value: 'update',
-          description: 'Pull latest changes from GitHub'
-        },
-        {
-          title: 'Continue with current version',
-          value: 'skip',
-          description: 'Use existing local contracts (not recommended)'
-        },
-        {
-          title: 'Cancel',
-          value: 'cancel',
-          description: 'Exit deployment'
-        }
-      ]
-    });
-
-    if (updateResponse.action === 'cancel' || !updateResponse.action) {
-      error('Deployment cancelled.');
-      return;
-    }
-
-    if (updateResponse.action === 'update') {
-      // Update outdated repos
-      if (testnetOutdated && sourcesStatus.testnet.path) {
-        if (sourcesStatus.testnet.hasUncommittedChanges) {
-          warning('Testnet-Contracts has uncommitted changes. Skipping update.');
-        } else {
-          info('Updating Testnet-Contracts...');
-          await pullLatest(sourcesStatus.testnet.path);
-        }
-      }
-      if (playgroundOutdated && sourcesStatus.playground.path) {
-        if (sourcesStatus.playground.hasUncommittedChanges) {
-          warning('Playground-Contracts has uncommitted changes. Skipping update.');
-        } else {
-          info('Updating Playground-Contracts...');
-          await pullLatest(sourcesStatus.playground.path);
-        }
-      }
-      success('Contract sources updated to latest!');
-    } else {
-      warning('Continuing with outdated contracts. You may be missing important updates.');
-    }
-  } else if (hasTestnet || hasPlayground) {
-    success('Contract sources are up to date!');
-  }
+  console.log(chalk.gray('\n   Contracts are bundled for offline deployment.'));
+  console.log(chalk.gray('   No internet connection required.\n'));
 
   // Load existing config for pre-selection
   const existingConfig = loadProjectConfig(projectRoot);
@@ -714,15 +659,11 @@ export async function deployContracts(): Promise<void> {
   info(`Network:   ${chalk.green(chainName)}`);
   console.log('');
 
-  // Sync contracts and generate Inputs.sol
-  sectionHeader('Syncing Contracts');
+  // Generate configuration files (contracts are now bundled - no sync needed)
+  sectionHeader('Generating Configuration');
 
-  const sourcePath = config.contractSource === 'testnet'
-    ? resolve(projectRoot, 'Testnet-Contracts')
-    : resolve(projectRoot, 'Playground-Contracts');
-
-  await syncContractsAndGenerateInputs(sourcePath, config.framework, projectRoot, evvmConfig, config.contractSource);
-  success('Contracts synced and configuration generated');
+  await generateDeploymentConfig(config.framework, projectRoot, evvmConfig, config.contractSource);
+  success('Configuration generated');
 
   // Save scaffold config
   writeFileSync(
@@ -1025,13 +966,28 @@ export async function deployContracts(): Promise<void> {
     return;
   }
 
+  // Ensure wallet is set
+  if (!wallet) {
+    error('No wallet selected for deployment.');
+    return;
+  }
+
+  // Get deployer address for logging
+  let deployerAddress: string | null = null;
+  if (useDefaultAnvilKey || useDefaultHardhatKey) {
+    deployerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+  } else if (config.framework === 'foundry' && wallet !== 'env') {
+    deployerAddress = await getWalletAddress(wallet);
+  }
+
   // Execute deployment
   const result = await executeDeployment(
     config,
     networkResponse.network,
     wallet,
     projectRoot,
-    useDefaultAnvilKey
+    useDefaultAnvilKey,
+    deployerAddress
   );
 
   if (result) {
@@ -1132,8 +1088,15 @@ async function executeDeployment(
   network: string,
   wallet: string,
   projectRoot: string,
-  useDefaultAnvilKey: boolean = false
+  useDefaultAnvilKey: boolean = false,
+  deployerAddress: string | null = null
 ): Promise<DeploymentResult | null> {
+  // Display deployer info before starting
+  if (deployerAddress) {
+    info(`Deployer wallet: ${chalk.cyan(wallet)}`);
+    info(`Deployer address: ${chalk.green(deployerAddress)}`);
+  }
+
   console.log(chalk.blue('\n🚀 Starting deployment...\n'));
 
   const packageDir = join(projectRoot, 'packages', config.framework);
@@ -1145,11 +1108,20 @@ async function executeDeployment(
   }
 
   try {
+    let result: DeploymentResult | null;
     if (config.framework === 'foundry') {
-      return await deployWithFoundry(wallet, packageDir, useDefaultAnvilKey);
+      result = await deployWithFoundry(wallet, packageDir, useDefaultAnvilKey);
     } else {
-      return await deployWithHardhat(packageDir);
+      result = await deployWithHardhat(packageDir);
     }
+
+    // Add deployer info to result
+    if (result) {
+      result.deployerAddress = deployerAddress || undefined;
+      result.deployerWallet = wallet;
+    }
+
+    return result;
   } catch (err: any) {
     error(`Deployment failed: ${err.message}`);
     return null;
@@ -1173,9 +1145,20 @@ async function deployWithFoundry(
   console.log(chalk.gray('Cleaning stale artifacts...'));
   await execa('forge', ['clean'], { cwd: packageDir, stdio: 'pipe' }).catch(() => {});
 
-  // Select the deployment script
-  // New Testnet-Contracts uses unified Deploy.s.sol
-  const scriptFile = 'script/Deploy.s.sol:DeployScript';
+  // Select the deployment script based on contract source
+  // Read scaffold.config.json to determine which contracts to use
+  const scaffoldConfigPath = join(packageDir, '..', '..', 'scaffold.config.json');
+  let contractSource = 'testnet'; // default
+  try {
+    const scaffoldConfig = JSON.parse(readFileSync(scaffoldConfigPath, 'utf-8'));
+    contractSource = scaffoldConfig.contractSource || 'testnet';
+  } catch {
+    // Use default
+  }
+
+  const scriptFile = contractSource === 'playground'
+    ? 'script/Deploy.playground.s.sol:DeployScript'
+    : 'script/Deploy.testnet.s.sol:DeployScript';
 
   const args = [
     'script',
@@ -1252,8 +1235,14 @@ async function deployWithHardhat(
 function parseFoundryArtifacts(packageDir: string): DeploymentResult | null {
   const chainId = ANVIL_CHAIN_ID;
 
-  // Try different script names (Deploy.s.sol is the new unified script)
-  const scriptNames = ['Deploy.s.sol', 'DeployTestnet.s.sol', 'DeployTestnetOnAnvil.s.sol'];
+  // Try different script names (new bundled scripts and legacy)
+  const scriptNames = [
+    'Deploy.testnet.s.sol',      // Bundled testnet contracts
+    'Deploy.playground.s.sol',   // Bundled playground contracts
+    'Deploy.s.sol',              // Generic deploy script
+    'DeployTestnet.s.sol',       // Legacy names
+    'DeployTestnetOnAnvil.s.sol'
+  ];
 
   let runLatestPath: string | null = null;
 
@@ -1358,6 +1347,18 @@ async function displayDeploymentResult(result: DeploymentResult, framework: 'fou
   console.log(evvmGreen('═══════════════════════════════════════════════════════════\n'));
 
   console.log(chalk.white(`Network: ${chalk.green(`Local (${chainName})`)} (Chain ID: ${result.chainId})\n`));
+
+  // Display deployer info
+  if (result.deployerWallet || result.deployerAddress) {
+    console.log(chalk.yellow('Deployer:'));
+    if (result.deployerWallet) {
+      console.log(chalk.white(`  Wallet:      ${chalk.cyan(result.deployerWallet)}`));
+    }
+    if (result.deployerAddress) {
+      console.log(chalk.white(`  Address:     ${chalk.green(result.deployerAddress)}`));
+    }
+    console.log('');
+  }
 
   console.log(chalk.yellow('Core Contracts:'));
   console.log(chalk.white(`  EVVM:        ${chalk.green(result.evvmAddress)}`));
@@ -1483,10 +1484,16 @@ async function displayDeploymentResult(result: DeploymentResult, framework: 'fou
 }
 
 /**
- * Sync contracts from source and generate Inputs.sol (or BaseInputs.sol for Playground)
+ * Generate deployment configuration files
+ *
+ * With the new bundled architecture, contracts are already in place:
+ * - testnet-contracts/ - Bundled from EVVM-org/Testnet-Contracts
+ * - playground-contracts/ - Bundled from EVVM-org/Playground-Contracts
+ * - contracts/ - User's custom services
+ *
+ * This function only generates the Inputs/BaseInputs.sol with user configuration.
  */
-async function syncContractsAndGenerateInputs(
-  sourcePath: string,
+async function generateDeploymentConfig(
   framework: 'foundry' | 'hardhat',
   projectRoot: string,
   evvmConfig: {
@@ -1496,75 +1503,19 @@ async function syncContractsAndGenerateInputs(
   },
   contractSource: 'testnet' | 'playground' = 'testnet'
 ): Promise<void> {
-  const sourceContractsPath = join(sourcePath, 'src');
-  const targetDir = join(projectRoot, 'packages', framework, 'contracts');
-
-  // Clear existing contracts
-  if (existsSync(targetDir)) {
-    rmSync(targetDir, { recursive: true, force: true });
-  }
-
-  // Copy contracts
-  if (existsSync(sourceContractsPath)) {
-    cpSync(sourceContractsPath, targetDir, { recursive: true });
-    info('Copied contracts');
-  }
-
-  // For Foundry, also sync lib and scripts
-  if (framework === 'foundry') {
-    const sourceLibPath = join(sourcePath, 'lib');
-    const targetLibPath = join(projectRoot, 'packages', 'foundry', 'lib');
-
-    if (existsSync(sourceLibPath)) {
-      // Include openzeppelin-contracts-upgradeable for Playground
-      const libs = contractSource === 'playground'
-        ? ['forge-std', 'openzeppelin-contracts', 'openzeppelin-contracts-upgradeable', 'solady']
-        : ['forge-std', 'openzeppelin-contracts', 'solady'];
-
-      for (const lib of libs) {
-        const srcLib = join(sourceLibPath, lib);
-        const dstLib = join(targetLibPath, lib);
-        if (existsSync(srcLib) && !existsSync(dstLib)) {
-          cpSync(srcLib, dstLib, { recursive: true });
-        }
-      }
-    }
-
-    // Copy deployment scripts (only Deploy.s.sol - skip cross-chain scripts that need extra inputs)
-    const sourceScriptPath = join(sourcePath, 'script');
-    const targetScriptPath = join(projectRoot, 'packages', 'foundry', 'script');
-    if (existsSync(sourceScriptPath)) {
-      // Clear existing scripts
-      if (existsSync(targetScriptPath)) {
-        rmSync(targetScriptPath, { recursive: true, force: true });
-      }
-      mkdirSync(targetScriptPath, { recursive: true });
-
-      // Only copy the main Deploy.s.sol script
-      const mainDeployScript = join(sourceScriptPath, 'Deploy.s.sol');
-      if (existsSync(mainDeployScript)) {
-        cpSync(mainDeployScript, join(targetScriptPath, 'Deploy.s.sol'));
-        info('Copied Deploy.s.sol');
-      } else {
-        // Fallback: copy all scripts if Deploy.s.sol doesn't exist
-        cpSync(sourceScriptPath, targetScriptPath, { recursive: true });
-        info('Copied deployment scripts');
-      }
-    }
-  }
-
   // Write configuration files
   const inputDir = join(projectRoot, 'input');
   if (!existsSync(inputDir)) {
     mkdirSync(inputDir, { recursive: true });
   }
 
-  // Generate Inputs.sol (or BaseInputs.sol for Playground)
+  // Generate Inputs.sol with bundled contract imports
+  // We need separate files for testnet and playground due to different struct imports
   const inputsSol = generateInputsSol(evvmConfig, contractSource);
-  const inputFileName = contractSource === 'playground' ? 'BaseInputs.sol' : 'Inputs.sol';
+  const inputFileName = contractSource === 'playground' ? 'Inputs.playground.sol' : 'Inputs.testnet.sol';
   writeFileSync(join(inputDir, inputFileName), inputsSol);
 
-  // Write legacy JSON files
+  // Write legacy JSON files for reference
   writeFileSync(
     join(inputDir, 'address.json'),
     JSON.stringify(evvmConfig.addresses, null, 2) + '\n'
@@ -1582,7 +1533,7 @@ async function syncContractsAndGenerateInputs(
     }, null, 2) + '\n'
   );
 
-  // Copy to framework package
+  // Copy to framework package input directory
   const frameworkInputDir = join(projectRoot, 'packages', framework, 'input');
   if (!existsSync(frameworkInputDir)) {
     mkdirSync(frameworkInputDir, { recursive: true });
@@ -1593,8 +1544,7 @@ async function syncContractsAndGenerateInputs(
 
 /**
  * Generate Inputs.sol content from configuration
- * For Testnet contracts: generates Inputs.sol with @evvm/testnet-contracts imports
- * For Playground contracts: generates BaseInputs.sol with @evvm/playground-contracts imports
+ * Uses the appropriate import path based on contract source (testnet or playground)
  */
 function generateInputsSol(
   config: {
@@ -1605,16 +1555,14 @@ function generateInputsSol(
   contractSource: 'testnet' | 'playground' = 'testnet'
 ): string {
   const importPath = contractSource === 'playground'
-    ? '@evvm/playground-contracts'
-    : '@evvm/testnet-contracts';
-
-  const contractName = contractSource === 'playground' ? 'BaseInputs' : 'Inputs';
+    ? '@scaffold-evvm/playground-contracts'
+    : '@scaffold-evvm/testnet-contracts';
 
   return `// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 import {EvvmStructs} from "${importPath}/contracts/evvm/lib/EvvmStructs.sol";
 
-abstract contract ${contractName} {
+abstract contract Inputs {
     address admin = ${config.addresses.admin};
     address goldenFisher = ${config.addresses.goldenFisher};
     address activator = ${config.addresses.activator};

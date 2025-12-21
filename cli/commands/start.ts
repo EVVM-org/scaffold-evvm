@@ -23,15 +23,13 @@ import chalk from 'chalk';
 import { execa, ExecaChildProcess } from 'execa';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
 import { commandExists, checkSubmodules, initializeSubmodules, getAvailableWallets } from '../utils/prerequisites.js';
-import { ensureContractSources, checkContractSources, displayContractSourcesStatus, pullLatest, initSubmodules as initContractSubmodules } from '../utils/contractSources.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Paths
 const PROJECT_ROOT = join(__dirname, '..', '..');
-const TESTNET_PATH = resolve(PROJECT_ROOT, 'Testnet-Contracts');
-const PLAYGROUND_PATH = resolve(PROJECT_ROOT, 'Playground-Contracts');
+const FOUNDRY_DIR = join(PROJECT_ROOT, 'packages', 'foundry');
 const DEPLOYMENTS_DIR = join(PROJECT_ROOT, 'deployments');
 
 // Local chain configuration
@@ -118,135 +116,47 @@ export async function fullStart(): Promise<void> {
   // Step 2: Contract Source Selection
   sectionHeader('Step 2: Contract Sources');
 
-  // Check contract sources status (fetches from remote to check for updates)
-  info('Checking contract source repositories...');
-  const sourcesStatus = await checkContractSources(PROJECT_ROOT);
+  // Check bundled contract sources
+  info('Checking bundled EVVM contracts...');
 
-  const hasTestnet = sourcesStatus.testnet.exists;
-  const hasPlayground = sourcesStatus.playground.exists;
-  const testnetOutdated = hasTestnet && sourcesStatus.testnet.behind > 0;
-  const playgroundOutdated = hasPlayground && sourcesStatus.playground.behind > 0;
+  const hasTestnet = existsSync(join(FOUNDRY_DIR, 'testnet-contracts', 'contracts'));
+  const hasPlayground = existsSync(join(FOUNDRY_DIR, 'playground-contracts', 'contracts'));
 
-  // Display status
-  displayContractSourcesStatus(sourcesStatus);
+  if (hasTestnet) {
+    success('Testnet-Contracts (bundled)');
+  } else {
+    warning('Testnet-Contracts not bundled');
+  }
 
-  // Handle missing repos
+  if (hasPlayground) {
+    success('Playground-Contracts (bundled)');
+  } else {
+    warning('Playground-Contracts not bundled');
+  }
+
+  // Handle missing bundled contracts
   if (!hasTestnet && !hasPlayground) {
-    error('No contract sources found!');
-    info('Run "npm run sources" to clone the repositories.');
-
-    const cloneResponse = await prompts({
-      type: 'confirm',
-      name: 'clone',
-      message: 'Would you like to clone contract repositories now?',
-      initial: true
-    });
-
-    if (cloneResponse.clone) {
-      const sourcesReady = await ensureContractSources(PROJECT_ROOT, 'both');
-      if (!sourcesReady) {
-        error('Failed to clone repositories. Please try manually.');
-        return;
-      }
-      // Re-check status after cloning
-      const newStatus = await checkContractSources(PROJECT_ROOT);
-      if (!newStatus.testnet.exists && !newStatus.playground.exists) {
-        error('Still no contract sources found after cloning.');
-        return;
-      }
-    } else {
-      return;
-    }
+    error('No bundled contracts found!');
+    info('The contract sources should be included in packages/foundry/');
+    info('Please reinstall scaffold-evvm or restore the bundled contracts.');
+    return;
   }
 
-  // Handle outdated repos - strongly encourage updating to latest
-  if (testnetOutdated || playgroundOutdated) {
-    console.log(chalk.yellow.bold('\n⚠️  CONTRACT SOURCES ARE OUTDATED!\n'));
+  console.log(chalk.gray('\n   Contracts are bundled for offline deployment.'));
+  console.log(chalk.gray('   No internet connection required.\n'));
 
-    if (testnetOutdated) {
-      console.log(chalk.yellow(`   Testnet-Contracts: ${sourcesStatus.testnet.behind} commit(s) behind remote`));
-      console.log(chalk.gray(`   Local:  ${sourcesStatus.testnet.localCommit} → Remote: ${sourcesStatus.testnet.remoteCommit}`));
-    }
-    if (playgroundOutdated) {
-      console.log(chalk.yellow(`   Playground-Contracts: ${sourcesStatus.playground.behind} commit(s) behind remote`));
-      console.log(chalk.gray(`   Local:  ${sourcesStatus.playground.localCommit} → Remote: ${sourcesStatus.playground.remoteCommit}`));
-    }
-
-    console.log(chalk.cyan('\n   Updating ensures you deploy with the latest bug fixes and features.\n'));
-
-    const updateResponse = await prompts({
-      type: 'select',
-      name: 'action',
-      message: 'How would you like to proceed?',
-      choices: [
-        {
-          title: chalk.green('Update to latest (recommended)'),
-          value: 'update',
-          description: 'Pull latest changes from GitHub'
-        },
-        {
-          title: 'Continue with current version',
-          value: 'skip',
-          description: 'Use existing local contracts (not recommended)'
-        },
-        {
-          title: 'Cancel',
-          value: 'cancel',
-          description: 'Exit setup'
-        }
-      ]
-    });
-
-    if (updateResponse.action === 'cancel' || !updateResponse.action) {
-      error('Setup cancelled.');
-      return;
-    }
-
-    if (updateResponse.action === 'update') {
-      // Update outdated repos
-      if (testnetOutdated && sourcesStatus.testnet.path) {
-        if (sourcesStatus.testnet.hasUncommittedChanges) {
-          warning('Testnet-Contracts has uncommitted changes. Skipping update.');
-        } else {
-          info('Updating Testnet-Contracts...');
-          await pullLatest(sourcesStatus.testnet.path);
-        }
-      }
-      if (playgroundOutdated && sourcesStatus.playground.path) {
-        if (sourcesStatus.playground.hasUncommittedChanges) {
-          warning('Playground-Contracts has uncommitted changes. Skipping update.');
-        } else {
-          info('Updating Playground-Contracts...');
-          await pullLatest(sourcesStatus.playground.path);
-        }
-      }
-      success('Contract sources updated to latest!');
-    } else {
-      warning('Continuing with outdated contracts. You may be missing important updates.');
-    }
-  } else if (hasTestnet || hasPlayground) {
-    success('Contract sources are up to date!');
-  }
-
-  // Re-check after any updates
-  const finalStatus = await checkContractSources(PROJECT_ROOT);
-  const finalHasTestnet = finalStatus.testnet.exists;
-  const finalHasPlayground = finalStatus.playground.exists;
-
-  // Build source choices based on available repos
+  // Build source choices based on available bundled contracts
   const sourceChoices = [];
-  if (finalHasTestnet) {
-    const suffix = finalStatus.testnet.localCommit ? ` (${finalStatus.testnet.localCommit})` : '';
+  if (hasTestnet) {
     sourceChoices.push({
-      title: `Testnet Contracts${suffix}`,
+      title: 'Testnet Contracts (bundled)',
       value: 'testnet',
-      description: 'Production-ready for testnet deployment'
+      description: 'Production-ready for local deployment'
     });
   }
-  if (finalHasPlayground) {
-    const suffix = finalStatus.playground.localCommit ? ` (${finalStatus.playground.localCommit})` : '';
+  if (hasPlayground) {
     sourceChoices.push({
-      title: `Playground Contracts${suffix}`,
+      title: 'Playground Contracts (bundled)',
       value: 'playground',
       description: 'Experimental for prototyping'
     });
@@ -527,28 +437,19 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
   let chainProcess: ExecaChildProcess | null = null;
 
   try {
-    // Step 1: Sync contracts
-    sectionHeader('Syncing Contracts');
-
-    const sourcePath = config.contractSource === 'testnet' ? TESTNET_PATH : PLAYGROUND_PATH;
-    await syncContractsFromSource(sourcePath, config.framework);
-    success('Contracts synced');
-
-    // Step 2: Write configuration files
-    sectionHeader('Writing Configuration');
+    // Step 1: Write configuration files (contracts are bundled - no sync needed)
+    sectionHeader('Generating Configuration');
 
     await writeConfigFiles(config);
     success('Configuration files written');
 
-    // Step 3: Install dependencies and compile
+    // Step 2: Compile contracts
     sectionHeader('Compiling Contracts');
 
     if (config.framework === 'foundry') {
-      const foundryDir = config.contractSource === 'testnet' ? TESTNET_PATH : PLAYGROUND_PATH; // Seleccionar ruta según la fuente
-
-      info(`Compiling with Forge in ${foundryDir}...`);
+      info('Compiling with Forge...');
       await execa('forge', ['build', '--via-ir'], {
-        cwd: foundryDir,
+        cwd: FOUNDRY_DIR,
         stdio: 'inherit'
       });
     } else {
@@ -761,11 +662,17 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
 
 /**
  * Generate Inputs.sol content from configuration
+ * Uses @scaffold-evvm/ namespace for bundled contracts
  */
 function generateInputsSol(config: FullStartConfig): string {
+  // Select import path based on contract source
+  const importPath = config.contractSource === 'playground'
+    ? '@scaffold-evvm/playground-contracts'
+    : '@scaffold-evvm/testnet-contracts';
+
   return `// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
-import {EvvmStructs} from "@evvm/testnet-contracts/contracts/evvm/lib/EvvmStructs.sol";
+import {EvvmStructs} from "${importPath}/contracts/evvm/lib/EvvmStructs.sol";
 
 abstract contract Inputs {
     address admin = ${config.addresses.admin};
@@ -805,17 +712,15 @@ const DEFAULT_ANVIL_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae7
  * Deploy contracts (local chain only)
  */
 async function deployContracts(config: FullStartConfig): Promise<DeployedAddresses | null> {
-  let packageDir: string;
   if (config.framework === 'foundry') {
-    packageDir = config.contractSource === 'testnet' ? TESTNET_PATH : PLAYGROUND_PATH;
-
     // Clean stale artifacts first
     info('Cleaning stale artifacts...');
-    await execa('forge', ['clean'], { cwd: packageDir, stdio: 'pipe' }).catch(() => {});
+    await execa('forge', ['clean'], { cwd: FOUNDRY_DIR, stdio: 'pipe' }).catch(() => {});
 
-    // Select the deployment script
-    // New Testnet-Contracts uses unified Deploy.s.sol
-    const scriptFile = 'script/Deploy.s.sol:DeployScript';
+    // Select the deployment script based on contract source
+    const scriptFile = config.contractSource === 'playground'
+      ? 'script/Deploy.playground.s.sol:DeployScript'
+      : 'script/Deploy.testnet.s.sol:DeployScript';
 
     const args = [
       'script',
@@ -836,18 +741,18 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
 
     try {
       await execa('forge', args, {
-        cwd: packageDir,
+        cwd: FOUNDRY_DIR,
         stdio: 'inherit'
       });
 
       // Parse deployment artifacts
-      return parseFoundryArtifacts(packageDir);
+      return parseFoundryArtifacts(FOUNDRY_DIR);
     } catch (err) {
       error('Deployment failed');
       return null;
     }
   } else {
-    packageDir = join(PROJECT_ROOT, 'packages', 'hardhat');
+    const packageDir = join(PROJECT_ROOT, 'packages', 'hardhat');
 
     try {
       await execa('npx', ['hardhat', 'deploy', '--network', 'localhost'], {
@@ -869,8 +774,14 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
 function parseFoundryArtifacts(packageDir: string): DeployedAddresses | null {
   const chainId = LOCAL_CHAIN_ID;
 
-  // Try different script names (Deploy.s.sol is the new unified script)
-  const scriptNames = ['Deploy.s.sol', 'DeployTestnet.s.sol', 'DeployTestnetOnAnvil.s.sol'];
+  // Try different script names (new bundled scripts and legacy)
+  const scriptNames = [
+    'Deploy.testnet.s.sol',      // Bundled testnet contracts
+    'Deploy.playground.s.sol',   // Bundled playground contracts
+    'Deploy.s.sol',              // Generic deploy script
+    'DeployTestnet.s.sol',       // Legacy names
+    'DeployTestnetOnAnvil.s.sol'
+  ];
 
   let runLatestPath: string | null = null;
 

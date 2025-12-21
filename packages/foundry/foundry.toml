@@ -6,11 +6,15 @@ remappings = [
     # OpenZeppelin
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
-    # EVVM self-referential imports (Testnet-Contracts style)
-    "@evvm/testnet-contracts/=contracts/",
-    "@evvm/playground-contracts/=contracts/",
-    # EVVM self-referential imports (Playground-Contracts style)
-    "@EVVM/playground/=contracts/",
+    # EVVM bundled contracts (offline-ready, part of scaffold-evvm)
+    # Both namespaces work - @scaffold-evvm/ is recommended for new code
+    "@scaffold-evvm/testnet-contracts/=testnet-contracts/",
+    "@scaffold-evvm/playground-contracts/=playground-contracts/",
+    # Legacy namespace (for internal imports in bundled contracts)
+    "@evvm/testnet-contracts/=testnet-contracts/",
+    "@evvm/playground-contracts/=playground-contracts/",
+    # User custom services
+    "@scaffold-evvm/contracts/=contracts/",
     # Solady utilities
     "@solady/=lib/solady/src/",
     # Forge standard library

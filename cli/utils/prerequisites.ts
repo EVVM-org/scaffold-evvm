@@ -60,23 +60,14 @@ function parseNodeMajorVersion(versionString: string): number {
 }
 
 /**
- * Check if contract source repository exists and has required structure
+ * Check if bundled contract source exists
+ * With the new architecture, contracts are bundled in packages/foundry/
  */
 export function checkContractSourceExists(projectRoot: string, source: 'testnet' | 'playground'): boolean {
-  const repoName = source === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts';
-  const repoPath = resolve(projectRoot, repoName);
+  const dirName = source === 'testnet' ? 'testnet-contracts' : 'playground-contracts';
+  const contractsPath = join(projectRoot, 'packages', 'foundry', dirName, 'contracts');
 
-  if (!existsSync(repoPath)) {
-    return false;
-  }
-
-  // Check for essential files/directories
-  const requiredPaths = [
-    join(repoPath, 'contracts'),
-    join(repoPath, 'foundry.toml'),
-  ];
-
-  return requiredPaths.every(p => existsSync(p));
+  return existsSync(contractsPath);
 }
 
 /**
@@ -206,25 +197,25 @@ export async function checkAllPrerequisites(projectRoot: string): Promise<Prereq
 
   // Check contract sources
   console.log('');
-  info('Contract Sources:');
+  info('Bundled Contracts:');
 
   result.hasTestnetContracts = checkContractSourceExists(projectRoot, 'testnet');
   if (result.hasTestnetContracts) {
-    success('Testnet-Contracts found');
+    success('Testnet-Contracts (bundled)');
   } else {
-    dim('   Testnet-Contracts not found');
+    dim('   Testnet-Contracts not bundled');
   }
 
   result.hasPlaygroundContracts = checkContractSourceExists(projectRoot, 'playground');
   if (result.hasPlaygroundContracts) {
-    success('Playground-Contracts found');
+    success('Playground-Contracts (bundled)');
   } else {
-    dim('   Playground-Contracts not found');
+    dim('   Playground-Contracts not bundled');
   }
 
   // Check if at least one contract source exists
   if (!result.hasTestnetContracts && !result.hasPlaygroundContracts) {
-    result.warnings.push('No contract sources found - will prompt to clone during deployment');
+    result.warnings.push('No bundled contracts found - reinstall scaffold-evvm');
   }
 
   // Check if at least one framework is available
