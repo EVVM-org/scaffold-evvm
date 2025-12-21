@@ -215,8 +215,41 @@ async function main() {
   const deployerAddress = await signer.getAddress();
   console.log(`Deployer: ${deployerAddress}`);
 
-  const balance = await provider.getBalance(deployerAddress);
+  let balance = await provider.getBalance(deployerAddress);
   console.log(`Balance: ${ethers.formatEther(balance)} ETH`);
+
+  // For local networks, auto-fund the deployer if balance is low
+  const MIN_BALANCE = ethers.parseEther("1"); // 1 ETH minimum for deployment
+  const FUND_AMOUNT = ethers.parseEther("100"); // Fund with 100 ETH
+
+  if (isLocalNetwork && balance < MIN_BALANCE) {
+    console.log(`\nBalance too low for deployment. Funding from default test account...`);
+
+    // Create signer from default test mnemonic
+    const testMnemonic = "test test test test test test test test test test test junk";
+    const fundingWallet = ethers.Wallet.fromPhrase(testMnemonic).connect(provider);
+    const fundingAddress = await fundingWallet.getAddress();
+
+    console.log(`  Funding wallet: ${fundingAddress}`);
+    console.log(`  Sending ${ethers.formatEther(FUND_AMOUNT)} ETH to ${deployerAddress}...`);
+
+    try {
+      const tx = await fundingWallet.sendTransaction({
+        to: deployerAddress,
+        value: FUND_AMOUNT,
+      });
+      await tx.wait();
+
+      // Update balance
+      balance = await provider.getBalance(deployerAddress);
+      console.log(`  ✓ Funded! New balance: ${ethers.formatEther(balance)} ETH`);
+    } catch (err: any) {
+      console.error(`  ✗ Funding failed: ${err.message}`);
+      console.error("  Make sure the local chain has funded test accounts.");
+      process.exit(1);
+    }
+  }
+
   console.log("");
 
   // Verify Foundry artifacts exist
