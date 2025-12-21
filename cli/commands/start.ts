@@ -56,6 +56,7 @@ interface FullStartConfig {
   };
   wallet?: string;
   useDefaultAnvilKey?: boolean;
+  useDefaultHardhatKey?: boolean;
 }
 
 /**
@@ -228,10 +229,11 @@ export async function fullStart(): Promise<void> {
   // Wallet selection
   let wallet: string | undefined;
   let useDefaultAnvilKey = false;
+  let useDefaultHardhatKey = false;
+
+  sectionHeader('Step 5: Wallet Selection');
 
   if (frameworkResponse.framework === 'foundry') {
-    sectionHeader('Step 5: Wallet Selection');
-
     // Offer choice between default Anvil key or keystore wallet
     const walletChoice = await prompts({
       type: 'select',
@@ -263,6 +265,55 @@ export async function fullStart(): Promise<void> {
       // Select from keystore
       wallet = await selectKeystoreWallet();
       if (!wallet) return;
+    }
+  } else {
+    // Hardhat wallet selection
+    const walletChoice = await prompts({
+      type: 'select',
+      name: 'choice',
+      message: 'Select wallet for local deployment:',
+      choices: [
+        {
+          title: 'Default Hardhat Account',
+          value: 'hardhat-default',
+          description: 'Use Hardhat\'s pre-funded test account (0xf39F...)'
+        },
+        {
+          title: 'Private Key from .env',
+          value: 'env',
+          description: 'Use DEPLOYER_PRIVATE_KEY from .env file'
+        }
+      ]
+    });
+
+    if (!walletChoice.choice) {
+      error('Setup cancelled.');
+      return;
+    }
+
+    if (walletChoice.choice === 'hardhat-default') {
+      useDefaultHardhatKey = true;
+      wallet = 'hardhat-default';
+      info('Using default Hardhat account for local deployment');
+    } else {
+      // Check for private key in .env
+      const envPath = join(PROJECT_ROOT, '.env');
+      let hasKey = false;
+      if (existsSync(envPath)) {
+        const envContent = readFileSync(envPath, 'utf-8');
+        const keyMatch = envContent.match(/^DEPLOYER_PRIVATE_KEY=(.+)$/m);
+        hasKey = keyMatch && keyMatch[1] && keyMatch[1].length > 10;
+      }
+
+      if (!hasKey) {
+        warning('DEPLOYER_PRIVATE_KEY not set in .env file.');
+        info('Falling back to default Hardhat account.');
+        useDefaultHardhatKey = true;
+        wallet = 'hardhat-default';
+      } else {
+        wallet = 'env';
+        success('Using private key from .env');
+      }
     }
   }
 
@@ -320,7 +371,8 @@ export async function fullStart(): Promise<void> {
     basicMetadata: basicResponse,
     advancedMetadata,
     wallet,
-    useDefaultAnvilKey
+    useDefaultAnvilKey,
+    useDefaultHardhatKey
   };
 
   // Display summary
@@ -391,6 +443,25 @@ function displaySummary(config: FullStartConfig): void {
   console.log(chalk.yellow('Contracts:    ') + chalk.green(config.contractSource === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts'));
   console.log(chalk.yellow('Network:      ') + chalk.green(`Local (${chainName})`));
   console.log('');
+
+  // Display deployer/wallet info
+  if (config.framework === 'foundry') {
+    if (config.useDefaultAnvilKey) {
+      console.log(chalk.yellow('Deployer:     ') + chalk.green('Default Anvil Account #0'));
+      console.log(chalk.yellow('Address:      ') + chalk.gray('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'));
+    } else if (config.wallet) {
+      console.log(chalk.yellow('Deployer:     ') + chalk.green(`Keystore: ${config.wallet}`));
+    }
+  } else {
+    if (config.useDefaultHardhatKey) {
+      console.log(chalk.yellow('Deployer:     ') + chalk.green('Default Hardhat Account #0'));
+      console.log(chalk.yellow('Address:      ') + chalk.gray('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'));
+    } else if (config.wallet === 'env') {
+      console.log(chalk.yellow('Deployer:     ') + chalk.green('Private Key from .env'));
+    }
+  }
+  console.log('');
+
   console.log(chalk.yellow('EVVM Name:    ') + chalk.green(config.basicMetadata.EvvmName));
   console.log(chalk.yellow('Token:        ') + chalk.green(`${config.basicMetadata.principalTokenName} (${config.basicMetadata.principalTokenSymbol})`));
   console.log('');
@@ -490,20 +561,48 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     sectionHeader('Deploying Contracts');
 
     // Display deployer info
-    if (config.wallet && !config.useDefaultAnvilKey) {
-      try {
-        const addressResult = await execa('cast', ['wallet', 'address', '--account', config.wallet], {
-          stdio: 'pipe'
-        });
-        const deployerAddress = addressResult.stdout.trim();
-        info(`Deployer wallet: ${chalk.cyan(config.wallet)}`);
-        info(`Deployer address: ${chalk.green(deployerAddress)}`);
-      } catch {
-        info(`Deployer wallet: ${chalk.cyan(config.wallet)}`);
+    if (config.framework === 'foundry') {
+      if (config.wallet && !config.useDefaultAnvilKey) {
+        try {
+          const addressResult = await execa('cast', ['wallet', 'address', '--account', config.wallet], {
+            stdio: 'pipe'
+          });
+          const deployerAddress = addressResult.stdout.trim();
+          info(`Deployer wallet: ${chalk.cyan(config.wallet)}`);
+          info(`Deployer address: ${chalk.green(deployerAddress)}`);
+        } catch {
+          info(`Deployer wallet: ${chalk.cyan(config.wallet)}`);
+        }
+      } else if (config.useDefaultAnvilKey) {
+        info(`Deployer: ${chalk.cyan('Default Anvil Account #0')}`);
+        info(`Address: ${chalk.green('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')}`);
       }
-    } else if (config.useDefaultAnvilKey) {
-      info(`Deployer: ${chalk.cyan('Default Anvil Account #0')}`);
-      info(`Address: ${chalk.green('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')}`);
+    } else {
+      // Hardhat deployer info
+      if (config.useDefaultHardhatKey) {
+        info(`Deployer: ${chalk.cyan('Default Hardhat Account #0')}`);
+        info(`Address: ${chalk.green('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')}`);
+      } else if (config.wallet === 'env') {
+        // Try to get address from DEPLOYER_PRIVATE_KEY
+        try {
+          const envPath = join(PROJECT_ROOT, '.env');
+          if (existsSync(envPath)) {
+            const envContent = readFileSync(envPath, 'utf-8');
+            const keyMatch = envContent.match(/^DEPLOYER_PRIVATE_KEY=(.+)$/m);
+            if (keyMatch && keyMatch[1]) {
+              const privateKey = keyMatch[1].trim();
+              const addressResult = await execa('cast', ['wallet', 'address', privateKey], {
+                stdio: 'pipe'
+              });
+              const deployerAddress = addressResult.stdout.trim();
+              info(`Deployer: ${chalk.cyan('Private Key from .env')}`);
+              info(`Address: ${chalk.green(deployerAddress)}`);
+            }
+          }
+        } catch {
+          info(`Deployer: ${chalk.cyan('Private Key from .env')}`);
+        }
+      }
     }
     console.log('');
 
