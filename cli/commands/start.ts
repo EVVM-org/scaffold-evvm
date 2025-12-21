@@ -184,29 +184,11 @@ export async function fullStart(): Promise<void> {
   // Step 4: EVVM Configuration
   sectionHeader('Step 4: EVVM Configuration');
 
-  info('Configure admin addresses for your EVVM instance.\n');
+  info('Configure admin addresses for your EVVM instance.');
+  info('These are the addresses that will control your EVVM deployment.\n');
 
-  // For local deployment, offer to use default test addresses
-  let addresses: FullStartConfig['addresses'];
-
-  const useDefaults = await prompts({
-    type: 'confirm',
-    name: 'value',
-    message: 'Use default test addresses for local deployment?',
-    initial: true
-  });
-
-  if (useDefaults.value) {
-    // Anvil's default test accounts
-    addresses = {
-      admin: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-      goldenFisher: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-      activator: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
-    };
-    success('Using default test addresses');
-  } else {
-    addresses = await promptAddresses();
-  }
+  // Always prompt for addresses - no defaults
+  const addresses = await promptAddresses();
 
   // Basic metadata
   console.log('');
@@ -499,6 +481,24 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
 
     // Step 5: Deploy contracts
     sectionHeader('Deploying Contracts');
+
+    // Display deployer info
+    if (config.wallet && !config.useDefaultAnvilKey) {
+      try {
+        const addressResult = await execa('cast', ['wallet', 'address', '--account', config.wallet], {
+          stdio: 'pipe'
+        });
+        const deployerAddress = addressResult.stdout.trim();
+        info(`Deployer wallet: ${chalk.cyan(config.wallet)}`);
+        info(`Deployer address: ${chalk.green(deployerAddress)}`);
+      } catch {
+        info(`Deployer wallet: ${chalk.cyan(config.wallet)}`);
+      }
+    } else if (config.useDefaultAnvilKey) {
+      info(`Deployer: ${chalk.cyan('Default Anvil Account #0')}`);
+      info(`Address: ${chalk.green('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')}`);
+    }
+    console.log('');
 
     const deployedAddresses = await deployContracts(config);
 
@@ -1050,6 +1050,9 @@ async function updateFrontendEnv(addresses: DeployedAddresses): Promise<void> {
   // Update or add EVVM address
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ADDRESS', addresses.evvm);
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CHAIN_ID', String(addresses.chainId));
+
+  // For local deployments, EVVM ID is always 0 (not registered with EVVM Registry)
+  envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ID', '0');
 
   // Add config version timestamp to force frontend to reload from env
   // This invalidates any stale localStorage cache

@@ -1422,6 +1422,12 @@ async function displayDeploymentResult(result: DeploymentResult, framework: 'fou
 
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ADDRESS', result.evvmAddress);
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CHAIN_ID', String(result.chainId));
+
+  // For local deployments, EVVM ID is always 0 (not registered with EVVM Registry)
+  if (result.chainId === 31337) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_EVVM_ID', '0');
+  }
+
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_CONFIG_VERSION', String(Date.now()));
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_STAKING_ADDRESS', result.stakingAddress);
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_ESTIMATOR_ADDRESS', result.estimatorAddress);

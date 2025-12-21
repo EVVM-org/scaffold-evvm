@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { NetworkBadge } from '@/components/NetworkBadge';
+import { LocalNetworkHelper } from '@/components/LocalNetworkHelper';
 import { loadDeployments } from '@/lib/evvmConfig';
 import type { EvvmDeployment } from '@/types/evvm';
 import styles from '@/styles/Home.module.css';
@@ -36,6 +37,9 @@ export default function Home() {
           Deploy, test, and interact with your EVVM instances seamlessly.
         </p>
       </section>
+
+      {/* Helper for connecting wallet on localhost */}
+      <LocalNetworkHelper />
 
       <section className={styles.deployments}>
         <h3>🚀 Deployed EVVM Instances</h3>
