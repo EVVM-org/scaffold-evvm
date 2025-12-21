@@ -1,12 +1,30 @@
 /**
  * Prerequisites checking for Scaffold-EVVM CLI
+ *
+ * Validates that all required tools are installed before deployment:
+ * - Node.js 18+
+ * - npm
+ * - Git
+ * - Foundry (forge, anvil, cast) for Foundry framework
+ * - Contract sources (Testnet-Contracts or Playground-Contracts)
  */
 
 import { execa } from 'execa';
 import { existsSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import chalk from 'chalk';
-import { success, error, warning, dim } from './display.js';
+import { success, error, warning, dim, info, sectionHeader } from './display.js';
+
+export interface PrerequisiteResult {
+  passed: boolean;
+  hasFoundry: boolean;
+  hasHardhat: boolean;
+  hasTestnetContracts: boolean;
+  hasPlaygroundContracts: boolean;
+  nodeVersion: string;
+  errors: string[];
+  warnings: string[];
+}
 
 /**
  * Check if a command exists in the system
@@ -31,6 +49,34 @@ export async function getVersion(command: string, versionFlag = '--version'): Pr
   } catch {
     return 'unknown';
   }
+}
+
+/**
+ * Parse Node.js version string to major version number
+ */
+function parseNodeMajorVersion(versionString: string): number {
+  const match = versionString.match(/v?(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Check if contract source repository exists and has required structure
+ */
+export function checkContractSourceExists(projectRoot: string, source: 'testnet' | 'playground'): boolean {
+  const repoName = source === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts';
+  const repoPath = resolve(projectRoot, repoName);
+
+  if (!existsSync(repoPath)) {
+    return false;
+  }
+
+  // Check for essential files/directories
+  const requiredPaths = [
+    join(repoPath, 'contracts'),
+    join(repoPath, 'foundry.toml'),
+  ];
+
+  return requiredPaths.every(p => existsSync(p));
 }
 
 /**
@@ -65,84 +111,165 @@ export function checkEnvConfig(): { configured: boolean; warnings: string[] } {
  * Check if required prerequisites are installed
  */
 export async function checkPrerequisites(): Promise<boolean> {
-  console.log(chalk.blue('\n🔍 Checking prerequisites...\n'));
+  const result = await checkAllPrerequisites(process.cwd());
+  return result.passed;
+}
 
-  let allPassed = true;
-  const checks = [
-    { name: 'Node.js', command: 'node', required: true },
-    { name: 'npm', command: 'npm', required: true },
-    { name: 'Git', command: 'git', required: true },
-    { name: 'Foundry (forge)', command: 'forge', required: false },
-    { name: 'Hardhat', command: 'npx hardhat', required: false, checkMethod: 'npx' }
-  ];
+/**
+ * Comprehensive prerequisite check with detailed results
+ */
+export async function checkAllPrerequisites(projectRoot: string): Promise<PrerequisiteResult> {
+  sectionHeader('Checking Prerequisites');
 
-  let hasFoundry = false;
-  let hasHardhat = false;
+  const result: PrerequisiteResult = {
+    passed: true,
+    hasFoundry: false,
+    hasHardhat: false,
+    hasTestnetContracts: false,
+    hasPlaygroundContracts: false,
+    nodeVersion: '',
+    errors: [],
+    warnings: [],
+  };
 
-  for (const check of checks) {
-    const exists = await commandExists(check.command.split(' ')[0]);
+  // Check Node.js
+  const hasNode = await commandExists('node');
+  if (hasNode) {
+    const nodeVersion = await getVersion('node');
+    result.nodeVersion = nodeVersion;
+    const majorVersion = parseNodeMajorVersion(nodeVersion);
 
-    if (exists) {
-      const version = await getVersion(check.command.split(' ')[0]);
-      success(`${check.name} ${chalk.gray(`(${version})`)}`);
-
-      if (check.name === 'Foundry (forge)') hasFoundry = true;
+    if (majorVersion >= 18) {
+      success(`Node.js ${chalk.gray(`(${nodeVersion})`)}`);
     } else {
-      if (check.required) {
-        error(`${check.name} not found`);
-        allPassed = false;
-      } else {
-        dim(`${check.name} not installed (optional)`);
-      }
+      error(`Node.js ${nodeVersion} - requires v18+`);
+      result.errors.push('Node.js 18+ is required');
+      result.passed = false;
     }
+  } else {
+    error('Node.js not found');
+    result.errors.push('Node.js is required');
+    result.passed = false;
   }
 
-  // Check for at least one framework
-  if (!hasFoundry) {
-    // Try to detect Hardhat in node_modules
-    const hardhatPath = join(process.cwd(), 'node_modules', 'hardhat');
-    hasHardhat = existsSync(hardhatPath);
-    if (hasHardhat) {
-      success('Hardhat (installed in project)');
-    }
+  // Check npm
+  const hasNpm = await commandExists('npm');
+  if (hasNpm) {
+    const npmVersion = await getVersion('npm');
+    success(`npm ${chalk.gray(`(${npmVersion})`)}`);
+  } else {
+    error('npm not found');
+    result.errors.push('npm is required');
+    result.passed = false;
   }
 
-  // Check .env configuration
-  const envCheck = checkEnvConfig();
-  if (envCheck.configured) {
-    if (envCheck.warnings.length === 0) {
-      success('Environment (.env) configured');
-    } else {
-      warning('Environment (.env) - has warnings:');
-      for (const w of envCheck.warnings) {
-        dim(`  - ${w}`);
+  // Check Git
+  const hasGit = await commandExists('git');
+  if (hasGit) {
+    const gitVersion = await getVersion('git');
+    success(`Git ${chalk.gray(`(${gitVersion})`)}`);
+  } else {
+    error('Git not found');
+    result.errors.push('Git is required');
+    result.passed = false;
+  }
+
+  // Check Foundry tools
+  const hasForge = await commandExists('forge');
+  const hasAnvil = await commandExists('anvil');
+  const hasCast = await commandExists('cast');
+
+  if (hasForge && hasAnvil && hasCast) {
+    const forgeVersion = await getVersion('forge');
+    success(`Foundry ${chalk.gray(`(${forgeVersion})`)}`);
+    dim('   forge, anvil, cast available');
+    result.hasFoundry = true;
+  } else if (hasForge || hasAnvil || hasCast) {
+    warning('Foundry partially installed');
+    if (!hasForge) dim('   Missing: forge');
+    if (!hasAnvil) dim('   Missing: anvil');
+    if (!hasCast) dim('   Missing: cast');
+    result.warnings.push('Foundry is partially installed - run: foundryup');
+  } else {
+    dim('Foundry not installed');
+    result.warnings.push('Foundry not installed - required for Foundry framework');
+  }
+
+  // Check Hardhat (in node_modules)
+  const hardhatPath = join(projectRoot, 'node_modules', 'hardhat');
+  if (existsSync(hardhatPath)) {
+    success('Hardhat (installed in project)');
+    result.hasHardhat = true;
+  } else {
+    dim('Hardhat not installed in project');
+  }
+
+  // Check contract sources
+  console.log('');
+  info('Contract Sources:');
+
+  result.hasTestnetContracts = checkContractSourceExists(projectRoot, 'testnet');
+  if (result.hasTestnetContracts) {
+    success('Testnet-Contracts found');
+  } else {
+    dim('   Testnet-Contracts not found');
+  }
+
+  result.hasPlaygroundContracts = checkContractSourceExists(projectRoot, 'playground');
+  if (result.hasPlaygroundContracts) {
+    success('Playground-Contracts found');
+  } else {
+    dim('   Playground-Contracts not found');
+  }
+
+  // Check if at least one contract source exists
+  if (!result.hasTestnetContracts && !result.hasPlaygroundContracts) {
+    result.warnings.push('No contract sources found - will prompt to clone during deployment');
+  }
+
+  // Check if at least one framework is available
+  if (!result.hasFoundry && !result.hasHardhat) {
+    result.warnings.push('No smart contract framework available');
+  }
+
+  // Summary
+  console.log('');
+  if (result.passed) {
+    if (result.errors.length === 0 && result.warnings.length === 0) {
+      success('All prerequisites satisfied');
+    } else if (result.warnings.length > 0) {
+      warning('Prerequisites passed with warnings:');
+      for (const w of result.warnings) {
+        dim(`   - ${w}`);
       }
     }
   } else {
-    dim('Environment (.env) not configured yet');
-    for (const w of envCheck.warnings) {
-      dim(`  - ${w}`);
+    error('Missing required prerequisites:');
+    for (const e of result.errors) {
+      dim(`   - ${e}`);
     }
+    console.log('');
+    info('Installation guides:');
+    console.log(chalk.gray('   Node.js: https://nodejs.org/'));
+    console.log(chalk.gray('   Git: https://git-scm.com/'));
+    console.log(chalk.gray('   Foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup'));
   }
 
-  // Final assessment
-  if (!allPassed) {
-    console.log(chalk.red('\n✖ Missing required dependencies.\n'));
-    console.log(chalk.yellow('Please install:'));
-    console.log(chalk.gray('  - Node.js: https://nodejs.org/'));
-    console.log(chalk.gray('  - Git: https://git-scm.com/'));
-    console.log(chalk.gray('  - (Optional) Foundry: https://getfoundry.sh/'));
-    return false;
-  }
+  return result;
+}
 
-  if (!hasFoundry && !hasHardhat) {
-    console.log(chalk.yellow('\n⚠ No smart contract framework detected.'));
-    console.log(chalk.gray('  Install Foundry: https://getfoundry.sh/'));
-    console.log(chalk.gray('  Or the wizard will set up Hardhat for you.\n'));
+/**
+ * Quick check for framework availability
+ */
+export async function checkFrameworkAvailable(framework: 'foundry' | 'hardhat', projectRoot: string): Promise<boolean> {
+  if (framework === 'foundry') {
+    const hasForge = await commandExists('forge');
+    const hasAnvil = await commandExists('anvil');
+    return hasForge && hasAnvil;
+  } else {
+    const hardhatPath = join(projectRoot, 'node_modules', 'hardhat');
+    return existsSync(hardhatPath);
   }
-
-  console.log(chalk.green('\n✓ Prerequisites check passed!\n'));
-  return true;
 }
 
 /**
