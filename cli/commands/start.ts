@@ -153,14 +153,14 @@ export async function fullStart(): Promise<void> {
   const sourceChoices = [];
   if (hasTestnet) {
     sourceChoices.push({
-      title: 'Testnet Contracts (bundled)',
+      title: 'Testnet Contracts',
       value: 'testnet',
       description: 'Production-ready for local deployment'
     });
   }
   if (hasPlayground) {
     sourceChoices.push({
-      title: 'Playground Contracts (bundled)',
+      title: 'Playground Contracts',
       value: 'playground',
       description: 'Experimental for prototyping'
     });

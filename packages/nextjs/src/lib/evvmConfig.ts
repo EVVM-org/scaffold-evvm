@@ -38,7 +38,10 @@ function isConfigStale(storedConfig: any): boolean {
 
 /**
  * Load EVVM deployments
- * Priority: Check config freshness, then localStorage > environment variables
+ * Priority: localStorage > /api/config > environment variables
+ * 
+ * The /api/config endpoint allows configuration changes without rebuilding.
+ * Environment variables are embedded at build time.
  */
 export async function loadDeployments(): Promise<EvvmDeployment[]> {
   try {
@@ -48,24 +51,57 @@ export async function loadDeployments(): Promise<EvvmDeployment[]> {
       // Check if the stored config is stale compared to env vars
       if (isConfigStale(storedConfig)) {
         clearEvvmConfig();
-        // Fall through to load from env
+        // Fall through to load from env/api
       } else {
         console.log('📦 Loading deployment from localStorage');
         return [storedConfig];
       }
     }
 
-    // 2. Fallback: Try to read from environment variables and build config
-    const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS;
-    const chainIdStr = process.env.NEXT_PUBLIC_CHAIN_ID;
-    const evvmIDStr = process.env.NEXT_PUBLIC_EVVM_ID;
+    // 2. Try to load from /api/config (runtime configuration)
+    // This allows updating .env without rebuilding
+    let evvmAddress: string | undefined;
+    let chainIdStr: string | undefined;
+    let evvmIDStr: string | undefined;
+    let stakingAddress: string | undefined;
+    let estimatorAddress: string | undefined;
+    let nameServiceAddress: string | undefined;
+    let treasuryAddress: string | undefined;
+    let p2pSwapAddress: string | undefined;
 
-    // Additional contract addresses from CLI deployment
-    const stakingAddress = process.env.NEXT_PUBLIC_STAKING_ADDRESS;
-    const estimatorAddress = process.env.NEXT_PUBLIC_ESTIMATOR_ADDRESS;
-    const nameServiceAddress = process.env.NEXT_PUBLIC_NAMESERVICE_ADDRESS;
-    const treasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS;
-    const p2pSwapAddress = process.env.NEXT_PUBLIC_P2PSWAP_ADDRESS;
+    try {
+      const configResponse = await fetch('/api/config', {
+        cache: 'no-store',
+      });
+
+      if (configResponse.ok) {
+        const apiConfig = await configResponse.json();
+        console.log('🔧 Loading deployment from /api/config');
+
+        evvmAddress = apiConfig.evvmAddress;
+        chainIdStr = apiConfig.chainId?.toString();
+        evvmIDStr = apiConfig.evvmId?.toString();
+        stakingAddress = apiConfig.stakingAddress;
+        estimatorAddress = apiConfig.estimatorAddress;
+        nameServiceAddress = apiConfig.nameServiceAddress;
+        treasuryAddress = apiConfig.treasuryAddress;
+        p2pSwapAddress = apiConfig.p2pSwapAddress;
+      }
+    } catch (apiError) {
+      console.log('ℹ️ /api/config not available, falling back to env vars');
+    }
+
+    // 3. Fallback: Try to read from environment variables (embedded at build time)
+    if (!evvmAddress || !chainIdStr) {
+      evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS;
+      chainIdStr = process.env.NEXT_PUBLIC_CHAIN_ID;
+      evvmIDStr = process.env.NEXT_PUBLIC_EVVM_ID;
+      stakingAddress = process.env.NEXT_PUBLIC_STAKING_ADDRESS;
+      estimatorAddress = process.env.NEXT_PUBLIC_ESTIMATOR_ADDRESS;
+      nameServiceAddress = process.env.NEXT_PUBLIC_NAMESERVICE_ADDRESS;
+      treasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS;
+      p2pSwapAddress = process.env.NEXT_PUBLIC_P2PSWAP_ADDRESS;
+    }
 
     if (!evvmAddress || !chainIdStr) {
       throw new Error(

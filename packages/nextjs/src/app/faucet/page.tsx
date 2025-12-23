@@ -321,7 +321,7 @@ export default function FaucetPage() {
           />
           <div className={styles.quickAmounts}>
             <button onClick={() => setAmount('1000')}>1,000</button>
-            <button onClick={() => setAmount('5083')}>5,083 (1 Fisher)</button>
+            <button onClick={() => setAmount('5083')}>5,083 (1 sMATE)</button>
             <button onClick={() => setAmount('10000')}>10,000</button>
             <button onClick={() => setAmount('50000')}>50,000</button>
           </div>
@@ -330,13 +330,13 @@ export default function FaucetPage() {
               <small>
                 📊 <strong>Will claim:</strong> {parseFloat(amount).toLocaleString()} {tokenAddress === MATE_TOKEN ? 'MATE' : 'ETH'} tokens
                 {parseFloat(amount) >= 5083 && tokenAddress === MATE_TOKEN && (
-                  <span> ({Math.floor(parseFloat(amount) / 5083)} Golden Fisher{Math.floor(parseFloat(amount) / 5083) > 1 ? 's' : ''})</span>
+                  <span> ({Math.floor(parseFloat(amount) / 5083)} sMATE{Math.floor(parseFloat(amount) / 5083) > 1 ? 's' : ''})</span>
                 )}
               </small>
             </div>
           )}
           <div className={styles.helper}>
-            <small>💡 Tip: 5,083 MATE = 1 Golden Fisher staking requirement</small>
+            <small>💡 Tip: The 5,083 MATE to stake (1 sMATE) is the minimum requirement for getting rewards as a fisher.</small>
           </div>
         </div>
 
