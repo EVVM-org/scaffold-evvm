@@ -1286,6 +1286,11 @@ function displayDeploymentSummary(addresses: DeployedAddresses, framework: 'foun
   }
 
   console.log(evvmGreen('\n═══════════════════════════════════════════════════════════\n'));
+
+  console.log(chalk.gray('Note: You need to import this private key into your wallet to give the accounts some local test ETH.'));
+  console.log(chalk.gray(`      Private Key: ${DEFAULT_ANVIL_KEY}`));
+  console.log(chalk.gray(`      RPC URL:     ${LOCAL_RPC_URL}\n`));
+  
 }
 
 /**
