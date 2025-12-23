@@ -29,7 +29,7 @@ export default async function RootLayout({
                 {children}
               </main>
               <footer className="app-footer">
-                <p>Built with Next.js, TypeScript & viem | EVVM Organization</p>
+                <p>By EVVM with ❤️</p>
               </footer>
             </div>
           </ContextProvider>
