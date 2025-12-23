@@ -256,17 +256,6 @@ export default function RegisterPage() {
         {success && !isSettingId && (
           <div className={styles.success}>
             <p>✅ {success}</p>
-            {txHash && deployment && (
-              <p>
-                <a
-                  href={getExplorerTxUrl(deployment.chainId, txHash)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View on Explorer →
-                </a>
-              </p>
-            )}
             <p className={styles.helper}>
               Check the transaction on the block explorer to find your assigned EVVM ID in the logs/events.
             </p>

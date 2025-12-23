@@ -357,17 +357,6 @@ export default function FaucetPage() {
         {success && (
           <div className={styles.success}>
             <p>✅ {success}</p>
-            {txHash && deployment && (
-              <p>
-                <a
-                  href={getExplorerTxUrl(deployment.chainId, txHash)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View on Explorer →
-                </a>
-              </p>
-            )}
           </div>
         )}
       </div>
