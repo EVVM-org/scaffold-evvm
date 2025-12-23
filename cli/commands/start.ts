@@ -724,6 +724,10 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     if (deployedAddresses) {
       success('Contracts deployed!');
 
+      // Fund admin addresses before showing summary
+      sectionHeader('Funding Admin Addresses');
+      await fundAdminAddresses(config.addresses);
+
       // Display comprehensive deployment summary
       displayDeploymentSummary(deployedAddresses, config.framework);
 
@@ -945,6 +949,43 @@ interface DeployedAddresses {
 
 // Default Anvil private key (well-known test key - DO NOT use in production)
 const DEFAULT_ANVIL_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+
+/**
+ * Fund admin addresses from Anvil's default account
+ * Sends 10 ETH to each admin, golden fisher, and activator address
+ */
+async function fundAdminAddresses(addresses: FullStartConfig['addresses']): Promise<void> {
+  const addressesToFund = [
+    { name: 'Admin', address: addresses.admin },
+    { name: 'Golden Fisher', address: addresses.goldenFisher },
+    { name: 'Activator', address: addresses.activator }
+  ];
+
+  for (const { name, address } of addressesToFund) {
+    try {
+      info(`Funding ${name} (${address})...`);
+
+      const result = await execa('cast', [
+        'send',
+        address,
+        '--value', '10ether',
+        '--private-key', DEFAULT_ANVIL_KEY,
+        '--rpc-url', LOCAL_RPC_URL,
+        '--gas-limit', '21000'
+      ], {
+        stdio: 'pipe'
+      });
+
+      if (result.exitCode === 0 || result.stdout.includes('transactionHash')) {
+        success(`${name} funded with 10 ETH`);
+      }
+    } catch (err: any) {
+      warning(`Failed to fund ${name}: ${err.message}`);
+    }
+  }
+
+  console.log('');
+}
 
 /**
  * Fund a keystore wallet from Anvil's default account
@@ -1290,7 +1331,7 @@ function displayDeploymentSummary(addresses: DeployedAddresses, framework: 'foun
   console.log(chalk.gray('Note: You need to import this private key into your wallet to give the accounts some local test ETH.'));
   console.log(chalk.gray(`      Private Key: ${DEFAULT_ANVIL_KEY}`));
   console.log(chalk.gray(`      RPC URL:     ${LOCAL_RPC_URL}\n`));
-  
+
 }
 
 /**
