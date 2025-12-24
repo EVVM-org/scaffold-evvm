@@ -171,7 +171,9 @@ Contributions are welcome!
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+EVVM Noncommercial License v1.0 - see [LICENSE](LICENSE) for details.
+
+For commercial use, contact: g@evvm.org
 
 ---
 

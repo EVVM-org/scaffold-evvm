@@ -1,16 +1,69 @@
-MIT License
+EVVM Noncommercial License v1.0
 
-Copyright (c) 2025 EVVM Organization & Scaffold-EVVM Contributors
+SPDX-Identifier: EVVM-NONCOMMERCIAL-1.0
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Copyright (c) 2025 MATE Labs Inc., a Delaware corporation.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+---
+
+BASE LICENSE
+
+EVVM is licensed under the PolyForm Noncommercial License 1.0.0, available at:
+https://polyformproject.org/licenses/noncommercial/1.0.0
+
+Commercial use requires a separate commercial license.
+Contact: g@evvm.org
+
+---
+
+TERMS
+
+Acceptance
+You must agree to all terms as strict obligations.
+
+Copyright License
+The licensor grants rights to use the software for permitted purposes, with
+distribution and modification governed by separate sections.
+
+Distribution License
+You may distribute copies with permitted changes and new works.
+
+Notices
+Recipients must receive license terms and any "Required Notice" lines provided.
+
+Changes and New Works License
+You may create modifications for permitted purposes.
+
+Patent License
+Coverage for patent claims the licensor can license.
+
+Permitted Uses
+- Noncommercial purposes
+- Personal use for "research, experiment, and testing for the benefit of
+  public knowledge"
+- Noncommercial organizations (charitable, educational, governmental)
+- Fair use rights under law
+
+Key Restrictions
+- No sublicensing or transfer rights
+- Patent defense clause: claims of infringement terminate your license
+- Violations allow 32 days to cure before all licenses terminate
+
+---
+
+ADDITIONAL SHARE-ALIKE TERMS
+
+1. Noncommercial modifications must be publicly released under this same
+   license within 90 days.
+
+2. "Publicly released" means source code freely accessible on platforms like
+   GitHub with attribution.
+
+3. These supplement the PolyForm terms.
+
+---
+
+DISCLAIMER
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
