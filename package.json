@@ -12,13 +12,13 @@
     "react-dom": "18.3.1"
   },
   "scripts": {
-    "wizard": "tsx cli/index.ts",
+    "wizard": "tsx cli/index.ts start",
     "frontend": "npm run -w @scaffold-evvm/nextjs dev",
     "dev": "npm run -w @scaffold-evvm/nextjs dev",
     "build": "npm run -w @scaffold-evvm/nextjs build",
     "start": "npm run -w @scaffold-evvm/nextjs start",
     "check-env": "node scripts/check-env.js",
-    "lint": "npm run -w @scaffold-evvm/nextjs lint",
+    "lint": "npm run -w @scaffold-evvm/nextjs lint"
   },
   "keywords": [
     "evvm",
