@@ -53,7 +53,7 @@ npm install
 **2. Start everything with a single command:**
 
 ```bash
-npm run start:full
+npm run wizard
 ```
 
 This command will:
@@ -92,7 +92,7 @@ If you encounter issues:
 
 ```bash
 npm run cli flush   # Clear all caches and stop servers
-npm run start:full  # Fresh start
+npm run wizard  # Fresh start
 ```
 
 Common issues solved by `flush`:
