@@ -15,12 +15,13 @@
 }
 
 .error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error-color, #991b1b);
   padding: var(--spacing-lg);
   border-radius: var(--border-radius);
   text-align: center;
   margin-bottom: var(--spacing-lg);
+  border: 1px solid var(--error-color, #ef4444);
 }
 
 .tabs {
@@ -134,40 +135,41 @@
 
 /* Fee display styles */
 .feeDisplay {
-  background: #e0f2fe;
-  border: 1px solid #0ea5e9;
+  background: rgba(0, 238, 150, 0.15);
+  border: 1px solid #00ee96;
   border-radius: var(--border-radius);
   padding: var(--spacing-sm);
   margin-top: var(--spacing-sm);
   font-size: 0.875rem;
-  color: #075985;
+  color: var(--color-text, #075985);
 }
 
 .feeDisplay strong {
-  color: #0c4a6e;
+  color: #00ee96;
 }
 
 /* Success message */
 .success {
-  background: #d1fae5;
-  color: #065f46;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success-color, #065f46);
   padding: var(--spacing-lg);
   border-radius: var(--border-radius);
   text-align: center;
   margin-bottom: var(--spacing-lg);
+  border: 1px solid var(--success-color, #10b981);
 }
 
 /* Info box */
 .infoBox {
-  background: #fef3c7;
-  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid var(--warning-color, #f59e0b);
   border-radius: var(--border-radius);
   padding: var(--spacing-md);
   margin-bottom: var(--spacing-md);
   font-size: 0.875rem;
-  color: #92400e;
+  color: var(--color-text, #92400e);
 }
 
 .infoBox strong {
-  color: #78350f;
+  color: var(--warning-color, #f59e0b);
 }

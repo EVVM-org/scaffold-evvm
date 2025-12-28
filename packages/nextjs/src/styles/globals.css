@@ -57,39 +57,50 @@
 
 /* Dark mode */
 .dark {
-  --color-bg: #1a1a1a;
-  --color-bg-secondary: #111111;
-  --color-bg-tertiary: #2a2a2a;
-  --color-text: #f0f0f0;
-  --color-text-secondary: #aaaaaa;
-  --color-border: #333333;
+  --color-bg: #0f172a;
+  --color-bg-secondary: #1e293b;
+  --color-bg-tertiary: #334155;
+  --color-text: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-border: #475569;
   --color-code-bg: #0f0f0f;
   --color-code-text: #e0e0e0;
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #111111;
-  --bg-tertiary: #2a2a2a;
-  --bg-hover: #2a2a2a;
-  --text-primary: #f0f0f0;
-  --text-secondary: #aaaaaa;
-  --border-color: #333333;
-  --accent-color: #60a5fa;
+  --bg-primary: #0f172a;
+  --bg-primary-dark: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-hover: #334155;
+  --bg-hover-dark: #334155;
+  --text-primary: #f1f5f9;
+  --text-primary-dark: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-secondary-dark: #94a3b8;
+  --border-color: #475569;
+  --border-color-dark: #475569;
+  --accent-color: #00ee96;
   --success-color: #10b981;
   --error-color: #ef4444;
   --warning-color: #f59e0b;
 
   /* Balances component dark mode variables */
-  --card-background: #1f2937;
-  --accent-color-dark: #3b82f6;
-  --button-background: #374151;
-  --button-hover: #4b5563;
-  --secondary-background: #111827;
-  --secondary-background-hover: #1f2937;
-  --skeleton-start: #374151;
-  --skeleton-middle: #4b5563;
+  --card-background: #1e293b;
+  --accent-color-dark: #00ee96;
+  --button-background: #334155;
+  --button-hover: #475569;
+  --secondary-background: #1e293b;
+  --secondary-background-hover: #334155;
+  --skeleton-start: #334155;
+  --skeleton-middle: #475569;
+
+  /* Input fields dark mode */
+  --input-bg: #1e293b;
+  --input-border: #475569;
+  --input-text: #f1f5f9;
+  --input-placeholder: #94a3b8;
 }
 
 /* Alternative dark mode using data-theme attribute */

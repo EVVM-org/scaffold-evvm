@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { NetworkBadge } from '@/components/NetworkBadge';
 import { LocalNetworkHelper } from '@/components/LocalNetworkHelper';
+import { BlockchainMonitor } from '@/components/BlockchainMonitor';
 import { loadDeployments } from '@/lib/evvmConfig';
 import type { EvvmDeployment } from '@/types/evvm';
 import styles from '@/styles/Home.module.css';
@@ -143,6 +144,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Blockchain Monitor - only shown on localhost */}
+      <BlockchainMonitor enabled={true} showConsole={true} />
     </div>
   );
 }

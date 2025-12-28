@@ -15,11 +15,12 @@
 }
 
 .error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error-color, #991b1b);
   padding: var(--spacing-lg);
   border-radius: var(--border-radius);
   text-align: center;
+  border: 1px solid var(--error-color, #ef4444);
 }
 
 .tabs {
