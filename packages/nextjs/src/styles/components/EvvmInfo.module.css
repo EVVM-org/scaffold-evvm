@@ -6,6 +6,7 @@
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-md);
   overflow: hidden;
+  max-width: 100%;
 }
 
 .header {
@@ -130,6 +131,8 @@
   font-size: 1rem;
   font-weight: 500;
   color: var(--color-text);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Address List */
@@ -147,6 +150,8 @@
   background: var(--color-bg-secondary);
   border-radius: 4px;
   transition: background-color 0.2s ease;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
 }
 
 .addressRow:hover {
@@ -164,6 +169,8 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .address {
