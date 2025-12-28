@@ -118,7 +118,7 @@ body {
   background: var(--color-bg-secondary);
   overflow-x: hidden;
   overflow-y: auto;
-  height: 100%;
+  min-height: 100%;
 }
 
 html {
@@ -271,4 +271,36 @@ appkit-button,
 w3m-modal,
 w3m-network-button {
   display: none !important;
+}
+
+/* Fix scrolling when wallet modal is open or connected */
+/* AppKit/WalletConnect may inject styles that block scrolling - override them */
+html.w3m-active,
+body.w3m-active,
+html[data-w3m-active],
+body[data-w3m-active] {
+  overflow: auto !important;
+  overflow-y: auto !important;
+  position: static !important;
+  height: auto !important;
+}
+
+/* Ensure the body can always scroll */
+body {
+  overflow-y: auto !important;
+  min-height: 100vh;
+}
+
+/* Prevent any fixed/absolute positioned modal overlays from blocking interaction */
+.w3m-overlay,
+[class*="w3m-overlay"],
+[class*="appkit-overlay"] {
+  pointer-events: none !important;
+}
+
+/* Allow clicks on the actual modal content */
+.w3m-overlay > *,
+[class*="w3m-overlay"] > *,
+[class*="appkit-overlay"] > * {
+  pointer-events: auto !important;
 }

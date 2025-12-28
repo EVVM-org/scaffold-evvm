@@ -13,6 +13,7 @@
   },
   "scripts": {
     "wizard": "tsx cli/index.ts start",
+    "cli": "tsx cli/index.ts",
     "frontend": "npm run -w @scaffold-evvm/nextjs dev",
     "dev": "npm run -w @scaffold-evvm/nextjs dev",
     "build": "npm run -w @scaffold-evvm/nextjs build",
