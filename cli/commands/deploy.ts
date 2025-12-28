@@ -1169,6 +1169,7 @@ async function deployWithFoundry(
   useDefaultAnvilKey: boolean = false
 ): Promise<DeploymentResult | null> {
   const rpcUrl = LOCAL_RPC_URL;
+  const projectRoot = join(packageDir, '..', '..');
 
   // Clean stale artifacts first
   console.log(chalk.gray('Cleaning stale artifacts...'));
@@ -1176,7 +1177,7 @@ async function deployWithFoundry(
 
   // Select the deployment script based on contract source
   // Read scaffold.config.json to determine which contracts to use
-  const scaffoldConfigPath = join(packageDir, '..', '..', 'scaffold.config.json');
+  const scaffoldConfigPath = join(projectRoot, 'scaffold.config.json');
   let contractSource = 'testnet'; // default
   try {
     const scaffoldConfig = JSON.parse(readFileSync(scaffoldConfigPath, 'utf-8'));
@@ -1185,9 +1186,85 @@ async function deployWithFoundry(
     // Use default
   }
 
-  const scriptFile = contractSource === 'playground'
-    ? 'script/Deploy.playground.s.sol:DeployScript'
-    : 'script/Deploy.testnet.s.sol:DeployScript';
+  // Determine the script directory - deploy scripts are in the cloned repos
+  const scriptDir = contractSource === 'playground'
+    ? join(projectRoot, 'packages', 'Playground-Contracts')
+    : join(projectRoot, 'packages', 'Testnet-Contracts');
+
+  // Check if the repos are cloned, if not clone them
+  if (!existsSync(scriptDir)) {
+    const repoName = contractSource === 'playground' ? 'Playground-Contracts' : 'Testnet-Contracts';
+    info(`${repoName} not found. Cloning repository...`);
+    try {
+      await execa('git', ['clone', '--recursive', `https://github.com/EVVM-org/${repoName}`, scriptDir], { stdio: 'inherit' });
+      info(`Installing dependencies for ${repoName}...`);
+      await execa('npm', ['install'], { cwd: scriptDir, stdio: 'inherit' });
+    } catch (err: any) {
+      error(`Failed to clone ${repoName}: ${err.message}`);
+      return null;
+    }
+  }
+
+  // Copy the user's configuration to the script directory's input folder
+  // The deploy script imports from ../input/BaseInputs.sol
+  const sourceInputDir = join(projectRoot, 'input');
+  const targetInputDir = join(scriptDir, 'input');
+
+  if (existsSync(sourceInputDir)) {
+    // Read the user configuration and generate BaseInputs.sol for the script
+    const addressPath = join(sourceInputDir, 'address.json');
+    const basicPath = join(sourceInputDir, 'evvmBasicMetadata.json');
+    const advancedPath = join(sourceInputDir, 'evvmAdvancedMetadata.json');
+
+    if (existsSync(addressPath) && existsSync(basicPath)) {
+      try {
+        const addresses = JSON.parse(readFileSync(addressPath, 'utf-8'));
+        const basicMeta = JSON.parse(readFileSync(basicPath, 'utf-8'));
+        const advancedMeta = existsSync(advancedPath)
+          ? JSON.parse(readFileSync(advancedPath, 'utf-8'))
+          : { totalSupply: '2033333333000000000000000000', eraTokens: '1016666666500000000000000000', reward: '5000000000000000000' };
+
+        // Generate BaseInputs.sol with the user's configuration
+        const importPath = contractSource === 'playground'
+          ? '@evvm/playground-contracts/contracts/evvm/lib/EvvmStructs.sol'
+          : '@evvm/testnet-contracts/contracts/evvm/lib/EvvmStructs.sol';
+
+        const baseInputsSol = `// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+import {EvvmStructs} from "${importPath}";
+
+abstract contract BaseInputs {
+    address admin = ${addresses.admin};
+    address goldenFisher = ${addresses.goldenFisher};
+    address activator = ${addresses.activator};
+
+    EvvmStructs.EvvmMetadata inputMetadata =
+        EvvmStructs.EvvmMetadata({
+            EvvmName: "${basicMeta.EvvmName}",
+            EvvmID: 0,
+            principalTokenName: "${basicMeta.principalTokenName}",
+            principalTokenSymbol: "${basicMeta.principalTokenSymbol}",
+            principalTokenAddress: 0x0000000000000000000000000000000000000001,
+            totalSupply: ${advancedMeta.totalSupply},
+            eraTokens: ${advancedMeta.eraTokens},
+            reward: ${advancedMeta.reward}
+        });
+}
+`;
+
+        if (!existsSync(targetInputDir)) {
+          mkdirSync(targetInputDir, { recursive: true });
+        }
+        writeFileSync(join(targetInputDir, 'BaseInputs.sol'), baseInputsSol);
+        info('Updated deployment configuration');
+      } catch (configErr: any) {
+        warning(`Could not copy configuration: ${configErr.message}`);
+      }
+    }
+  }
+
+  // The deploy script is at script/Deploy.s.sol in both repos
+  const scriptFile = 'script/Deploy.s.sol:DeployScript';
 
   const args = [
     'script',
@@ -1207,12 +1284,12 @@ async function deployWithFoundry(
   }
 
   await execa('forge', args, {
-    cwd: packageDir,
+    cwd: scriptDir,
     stdio: 'inherit'
   });
 
-  // Parse deployment artifacts
-  return parseFoundryArtifacts(packageDir);
+  // Parse deployment artifacts from the script directory
+  return parseFoundryArtifacts(scriptDir);
 }
 
 /**
