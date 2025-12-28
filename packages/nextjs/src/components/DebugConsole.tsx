@@ -47,10 +47,26 @@ export function DebugConsole({
 
   const formatPayload = (payload: any): string => {
     if (typeof payload === 'string') return payload;
+    const seen = new WeakSet();
     try {
-      return JSON.stringify(payload, (key, value) =>
-        typeof value === 'bigint' ? value.toString() + 'n' : value
-      , 2);
+      return JSON.stringify(payload, (key, value) => {
+        // Handle BigInt
+        if (typeof value === 'bigint') {
+          return value.toString() + 'n';
+        }
+        // Handle circular references
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            return '[Circular]';
+          }
+          seen.add(value);
+        }
+        // Skip functions
+        if (typeof value === 'function') {
+          return '[Function]';
+        }
+        return value;
+      }, 2);
     } catch {
       return String(payload);
     }

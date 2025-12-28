@@ -21,6 +21,38 @@ const DebugContext = createContext<DebugContextType | null>(null);
 
 const MAX_ENTRIES = 200;
 
+/**
+ * Safe JSON stringify that handles circular references
+ */
+function safeStringify(obj: any): string {
+  const seen = new WeakSet();
+  try {
+    return JSON.stringify(obj, (key, value) => {
+      // Handle BigInt
+      if (typeof value === 'bigint') {
+        return value.toString() + 'n';
+      }
+      // Handle circular references
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return '[Circular]';
+        }
+        seen.add(value);
+      }
+      // Skip functions and symbols
+      if (typeof value === 'function') {
+        return '[Function]';
+      }
+      if (typeof value === 'symbol') {
+        return value.toString();
+      }
+      return value;
+    });
+  } catch {
+    return String(obj);
+  }
+}
+
 export function DebugProvider({ children }: { children: React.ReactNode }) {
   const [entries, setEntries] = useState<DebugEntry[]>([]);
 
@@ -37,7 +69,7 @@ export function DebugProvider({ children }: { children: React.ReactNode }) {
       originalConsoleLog.apply(console, args);
       // Optionally capture logs with [DEBUG] prefix
       const message = args.map(arg =>
-        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+        typeof arg === 'object' ? safeStringify(arg) : String(arg)
       ).join(' ');
 
       if (message.startsWith('[EVVM]') || message.startsWith('[DEBUG]')) {
@@ -56,7 +88,7 @@ export function DebugProvider({ children }: { children: React.ReactNode }) {
     console.error = (...args) => {
       originalConsoleError.apply(console, args);
       const message = args.map(arg =>
-        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+        typeof arg === 'object' ? safeStringify(arg) : String(arg)
       ).join(' ');
 
       setEntries(prev => {
@@ -73,7 +105,7 @@ export function DebugProvider({ children }: { children: React.ReactNode }) {
     console.warn = (...args) => {
       originalConsoleWarn.apply(console, args);
       const message = args.map(arg =>
-        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+        typeof arg === 'object' ? safeStringify(arg) : String(arg)
       ).join(' ');
 
       if (message.startsWith('[EVVM]') || message.startsWith('[WARN]')) {
