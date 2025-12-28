@@ -1155,6 +1155,7 @@ async function deployWithFoundry(
   useDefaultAnvilKey: boolean = false
 ): Promise<DeploymentResult | null> {
   const rpcUrl = LOCAL_RPC_URL;
+  const projectRoot = join(packageDir, '..', '..');
 
   // Clean stale artifacts first
   console.log(chalk.gray('Cleaning stale artifacts...'));
@@ -1162,7 +1163,7 @@ async function deployWithFoundry(
 
   // Select the deployment script based on contract source
   // Read scaffold.config.json to determine which contracts to use
-  const scaffoldConfigPath = join(packageDir, '..', '..', 'scaffold.config.json');
+  const scaffoldConfigPath = join(projectRoot, 'scaffold.config.json');
   let contractSource = 'testnet'; // default
   try {
     const scaffoldConfig = JSON.parse(readFileSync(scaffoldConfigPath, 'utf-8'));
@@ -1195,7 +1196,7 @@ async function deployWithFoundry(
     stdio: 'inherit'
   });
 
-  // Parse deployment artifacts
+  // Parse deployment artifacts from the package directory
   return parseFoundryArtifacts(packageDir);
 }
 
