@@ -116,6 +116,9 @@ export function useEvvmDeployment() {
         const envNameServiceAddress = process.env.NEXT_PUBLIC_NAMESERVICE_ADDRESS as `0x${string}` | undefined;
         const envTreasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS as `0x${string}` | undefined;
         const envP2pSwapAddress = process.env.NEXT_PUBLIC_P2PSWAP_ADDRESS as `0x${string}` | undefined;
+        const envAdminAddress = process.env.NEXT_PUBLIC_ADMIN_ADDRESS as `0x${string}` | undefined;
+        const envGoldenFisherAddress = process.env.NEXT_PUBLIC_GOLDEN_FISHER_ADDRESS as `0x${string}` | undefined;
+        const envActivatorAddress = process.env.NEXT_PUBLIC_ACTIVATOR_ADDRESS as `0x${string}` | undefined;
 
         // Debug: Log all env vars
         console.log('🔧 useEvvmDeployment: Environment variables:', {
@@ -239,9 +242,9 @@ export function useEvvmDeployment() {
           evvmID: evvmID || 0,
           evvmName: undefined,
           registry: undefined,
-          admin: undefined,
-          goldenFisher: undefined,
-          activator: undefined,
+          admin: envAdminAddress,
+          goldenFisher: envGoldenFisherAddress,
+          activator: envActivatorAddress,
         };
 
         console.log('✅ useEvvmDeployment: Deployment loaded successfully:', {

@@ -204,7 +204,7 @@ export async function readStakedAmount(
   const amount = await publicClient.readContract({
     address: stakingAddress,
     abi: StakingABI,
-    functionName: 'getStakedAmount',
+    functionName: 'getUserAmountStaked',
     args: [account],
   });
 
@@ -213,15 +213,16 @@ export async function readStakedAmount(
 
 /**
  * Check if address is a staker
+ * Note: isAddressStaker is on the EVVM contract, not the Staking contract
  */
 export async function readIsStaker(
   publicClient: PublicClient,
-  stakingAddress: `0x${string}`,
+  evvmAddress: `0x${string}`,
   account: `0x${string}`
 ): Promise<boolean> {
   const isStaker = await publicClient.readContract({
-    address: stakingAddress,
-    abi: StakingABI,
+    address: evvmAddress,
+    abi: EvvmABI,
     functionName: 'isAddressStaker',
     args: [account],
   });

@@ -11,6 +11,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 238, 150, 0.3);
+  padding: 0;
 }
 
 .toggle:hover {
@@ -26,16 +27,23 @@
 .icon {
   width: 1.5rem;
   height: 1.5rem;
-  color: #15803d;
-  transition: color 0.3s ease;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.toggle:hover .icon {
+  transform: rotate(15deg);
 }
 
 .togglePlaceholder {
   width: 2.75rem;
   height: 2.75rem;
+  border-radius: 12px;
+  background: rgba(0, 238, 150, 0.1);
+  border: 2px solid transparent;
 }
 
-/* Dark mode styles - Moon icon with night theme */
+/* Dark mode styles */
 :global(.dark) .toggle {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   border-color: #00ee96;
@@ -47,6 +55,6 @@
   box-shadow: 0 4px 16px rgba(0, 238, 150, 0.35), 0 0 30px rgba(0, 238, 150, 0.15);
 }
 
-:global(.dark) .icon {
-  color: #00ee96;
+:global(.dark) .togglePlaceholder {
+  background: rgba(0, 238, 150, 0.05);
 }

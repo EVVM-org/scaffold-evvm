@@ -1422,6 +1422,32 @@ async function displayDeploymentResult(result: DeploymentResult, framework: 'fou
     envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_P2PSWAP_ADDRESS', result.p2pSwapAddress);
   }
 
+  // Read admin addresses from address.json (generated during deployment config)
+  const addressJsonPath = join(projectRoot, 'packages', 'Testnet-Contracts', 'input', 'address.json');
+  const playgroundAddressJsonPath = join(projectRoot, 'packages', 'Playground-Contracts', 'input', 'address.json');
+
+  let adminAddresses: { admin?: string; goldenFisher?: string; activator?: string } = {};
+
+  try {
+    if (existsSync(addressJsonPath)) {
+      adminAddresses = JSON.parse(readFileSync(addressJsonPath, 'utf-8'));
+    } else if (existsSync(playgroundAddressJsonPath)) {
+      adminAddresses = JSON.parse(readFileSync(playgroundAddressJsonPath, 'utf-8'));
+    }
+  } catch {
+    // Ignore if can't read
+  }
+
+  if (adminAddresses.admin) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_ADMIN_ADDRESS', adminAddresses.admin);
+  }
+  if (adminAddresses.goldenFisher) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_GOLDEN_FISHER_ADDRESS', adminAddresses.goldenFisher);
+  }
+  if (adminAddresses.activator) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_ACTIVATOR_ADDRESS', adminAddresses.activator);
+  }
+
   writeFileSync(envPath, envContent);
 
   // Clear Next.js cache so new env vars are loaded on next dev server start

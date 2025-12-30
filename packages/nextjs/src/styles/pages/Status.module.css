@@ -111,3 +111,64 @@
 .loadButton:hover:not(:disabled) {
   background: var(--color-primary-hover);
 }
+
+/* Contract Missing State */
+.contractMissing {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(234, 179, 8, 0.05));
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-lg);
+}
+
+.warningIcon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.missingContent {
+  flex: 1;
+}
+
+.missingTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #b45309;
+  margin: 0 0 0.5rem 0;
+}
+
+.missingText {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.missingHint {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 0.5rem 0;
+}
+
+.codeBlock {
+  display: block;
+  background: #1e293b;
+  color: #00ee96;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+}
+
+/* Dark mode for contract missing */
+:global(.dark) .contractMissing {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05));
+}
+
+:global(.dark) .missingTitle {
+  color: #fbbf24;
+}

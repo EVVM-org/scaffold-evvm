@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { config } from "@/config/index";
-import { getWalletClient, getAccount } from "@wagmi/core";
+import { getWalletClient, getAccount, writeContract } from "@wagmi/core";
 import { usePublicClient } from "wagmi";
 import {
   TitleAndLink,
@@ -25,6 +25,7 @@ import {
   PresaleStakingInputData,
   PublicStakingInputData,
   StakingSignatureBuilder,
+  StakingABI,
 } from "@evvm/viem-signature-library";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import { NetworkWarning } from "@/components/NetworkWarning";
@@ -173,10 +174,12 @@ function GoldenStakingComponent({
   deployment: any;
 }) {
   const [isStaking, setIsStaking] = useState(true);
-  const [priority, setPriority] = useState("low");
+  // Golden Staking ALWAYS uses sync (low priority) per documentation
+  const priority = "low"; // Fixed - not changeable for Golden Staking
   const [dataToGet, setDataToGet] = useState<GoldenStakingData | null>(null);
   const [evvmBalance, setEvvmBalance] = useState<string | null>(null);
   const [currentNonce, setCurrentNonce] = useState<string | null>(null);
+  const [nonceLoading, setNonceLoading] = useState(true);
   const [account, setAccount] = useState<`0x${string}` | null>(null);
   const publicClient = usePublicClient();
 
@@ -211,8 +214,10 @@ function GoldenStakingComponent({
         // Read next nonce
         const nonce = await readNextNonce(publicClient, deployment.evvm as `0x${string}`, walletData.address as `0x${string}`);
         setCurrentNonce(nonce.toString());
+        setNonceLoading(false);
       } catch (error) {
         console.error("Failed to load user data:", error);
+        setNonceLoading(false);
       }
     }
 
@@ -226,11 +231,17 @@ function GoldenStakingComponent({
       return;
     }
 
+    // Golden Staking uses the auto-fetched sync nonce - it MUST match what contract will use
+    if (!currentNonce) {
+      alert("Nonce not loaded yet. Please wait for the nonce to be fetched.");
+      return;
+    }
+
     const getValue = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
 
     const formData = {
       evvmID: evvmID,
-      nonce: getValue("nonceInput_GoldenStaking"),
+      nonce: currentNonce, // Use auto-fetched sync nonce, not user input
       stakingAddress: stakingAddress,
       amountOfStaking: Number(getValue("amountOfStakingInput_GoldenStaking")),
     };
@@ -243,17 +254,26 @@ function GoldenStakingComponent({
 
     const amountOfToken = BigInt(formData.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
+    console.log("🔐 Golden Staking Signature Details:");
+    console.log("  EVVM ID:", formData.evvmID);
+    console.log("  Staking Address:", formData.stakingAddress);
+    console.log("  Amount of Fishers:", formData.amountOfStaking);
+    console.log("  Total MATE (wei):", amountOfToken.toString());
+    console.log("  Sync Nonce (from contract):", formData.nonce);
+    console.log("  Priority: sync (low) - fixed for Golden Staking");
+
     // Sign and set data
     try {
       const walletClient = await getWalletClient(config);
       const signatureBuilder = new (StakingSignatureBuilder as any)(walletClient, walletData);
 
+      // Golden Staking ALWAYS uses sync (false) for priority
       const signaturePay = await signatureBuilder.signGoldenStaking(
         BigInt(formData.evvmID),
         formData.stakingAddress as `0x${string}`,
         amountOfToken,
         BigInt(formData.nonce),
-        priority === "high"
+        false  // Always sync (low priority) for Golden Staking
       );
 
       setDataToGet({
@@ -265,13 +285,13 @@ function GoldenStakingComponent({
           amount: amountOfToken,
           priorityFee: BigInt(0),
           nonce: BigInt(formData.nonce),
-          priority: priority === "high",
+          priority: false, // Golden Staking always uses sync (low priority)
           executor: formData.stakingAddress as `0x${string}`,
           signature: signaturePay,
         },
         GoldenStakingInputData: {
           isStaking: isStaking,
-          amountOfStaking: BigInt(formData.amountOfStaking),
+          amountOfStaking: BigInt(formData.amountOfStaking),  // Number of staking tokens (fishers), contract multiplies by PRICE_OF_STAKING
           signature_EVVM: signaturePay,
         },
       } as GoldenStakingData);
@@ -302,6 +322,23 @@ function GoldenStakingComponent({
         title="Golden Staking (Become a Golden Fisher)"
         link="https://www.evvm.info/docs/SignatureStructures/SMate/StakingUnstakingStructure"
       />
+
+      <div style={{
+        marginBottom: "1.5rem",
+        padding: "1rem",
+        background: "linear-gradient(135deg, #dc2626 0%, #ef4444 100%)",
+        border: "2px solid #b91c1c",
+        borderRadius: "8px",
+        color: "#fff"
+      }}>
+        <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700" }}>⚠️ Golden Fisher Only</h4>
+        <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
+          This function is <strong>EXCLUSIVE</strong> to the designated Golden Fisher address.
+        </p>
+        <p style={{ margin: "0", fontSize: "0.85rem" }}>
+          Regular users should use <strong>Public Staking</strong> tab instead.
+        </p>
+      </div>
 
       <div style={{
         marginBottom: "1.5rem",
@@ -362,33 +399,37 @@ function GoldenStakingComponent({
       <StakingActionSelector onChange={setIsStaking} />
 
       <NumberInputField
-        label={isStaking ? "Amount of MATE to stake" : "Amount of MATE to unstake (sMATE)"}
+        label={isStaking ? "Number of Golden Fishers to stake" : "Number of Golden Fishers to unstake"}
         inputId="amountOfStakingInput_GoldenStaking"
-        placeholder="Enter amount"
+        placeholder="Enter number of fishers (e.g., 1, 2, 3)"
       />
 
-      <PrioritySelector onPriorityChange={setPriority} />
-
-      <NumberInputWithGenerator
-        label="Nonce"
-        inputId="nonceInput_GoldenStaking"
-        placeholder="Enter nonce"
-        showRandomBtn={priority !== "low"}
-      />
-
-      <div>
-        {priority === "low" && (
-          <HelperInfo label="How to find my sync nonce?">
-            <div>
-              You can retrieve your next sync nonce from the EVVM contract using
-              the <code>getNextCurrentSyncNonce</code> function.
-            </div>
-          </HelperInfo>
-        )}
+      {/* Golden Staking info - nonce is auto-fetched */}
+      <div style={{
+        marginTop: "1rem",
+        padding: "1rem",
+        background: "var(--color-bg-secondary)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "8px"
+      }}>
+        <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "0.25rem" }}>
+          Sync Nonce (auto-fetched from contract)
+        </div>
+        <div style={{ fontSize: "1.25rem", fontWeight: "700", fontFamily: "monospace" }}>
+          {nonceLoading ? "Loading..." : currentNonce || "N/A"}
+        </div>
+        <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.25rem" }}>
+          Golden Staking always uses sync (low priority). The nonce is fetched automatically.
+        </div>
       </div>
 
-      <button onClick={makeSig} className={styles.submitButton} style={{ marginTop: "1rem" }}>
-        Create signature
+      <button
+        onClick={makeSig}
+        className={styles.submitButton}
+        style={{ marginTop: "1rem" }}
+        disabled={nonceLoading || !currentNonce}
+      >
+        {nonceLoading ? "Loading nonce..." : "Create signature"}
       </button>
 
       <DataDisplayWithClear dataToGet={dataToGet} onClear={() => setDataToGet(null)} onExecute={execute} />
@@ -554,6 +595,154 @@ function PublicStakingComponent({
   const [isStaking, setIsStaking] = useState(true);
   const [priority, setPriority] = useState("low");
   const [dataToGet, setDataToGet] = useState<PublicStakingData | null>(null);
+  const [account, setAccount] = useState<`0x${string}` | null>(null);
+  const [publicStakingStatus, setPublicStakingStatus] = useState<{
+    isEnabled: boolean;
+    timeToAccept: bigint;
+    isPending: boolean;
+  } | null>(null);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const publicClient = usePublicClient();
+
+  // Check if connected wallet is admin
+  const isAdmin = account && deployment.admin &&
+    account.toLowerCase() === deployment.admin.toLowerCase();
+
+  // Load account and public staking status
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const walletData = await getAccountWithRetry(config);
+        if (walletData?.address) {
+          setAccount(walletData.address as `0x${string}`);
+        }
+
+        if (publicClient && stakingAddress) {
+          // Check public staking status
+          const status = await publicClient.readContract({
+            address: stakingAddress,
+            abi: StakingABI,
+            functionName: 'getAllDataOfAllowPublicStaking',
+          }) as { flag: boolean; timeToAccept: bigint };
+
+          setPublicStakingStatus({
+            isEnabled: status.flag,
+            timeToAccept: status.timeToAccept,
+            isPending: status.timeToAccept > 0n,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load data:", error);
+      }
+    }
+
+    loadData();
+  }, [publicClient, stakingAddress, deployment]);
+
+  // Admin function to prepare public staking change
+  const preparePublicStakingChange = async () => {
+    if (!isAdmin) return;
+    setAdminLoading(true);
+
+    try {
+      const hash = await writeContract(config, {
+        abi: StakingABI,
+        address: stakingAddress,
+        functionName: 'prepareChangeAllowPublicStaking',
+      });
+      console.log("Prepare public staking change tx:", hash);
+      alert("Public staking change prepared! Wait for timelock period, then confirm.");
+
+      // Refresh status
+      if (publicClient) {
+        const status = await publicClient.readContract({
+          address: stakingAddress,
+          abi: StakingABI,
+          functionName: 'getAllDataOfAllowPublicStaking',
+        }) as { flag: boolean; timeToAccept: bigint };
+        setPublicStakingStatus({
+          isEnabled: status.flag,
+          timeToAccept: status.timeToAccept,
+          isPending: status.timeToAccept > 0n,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to prepare public staking change:", error);
+      alert(`Failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  // Admin function to confirm public staking change
+  const confirmPublicStakingChange = async () => {
+    if (!isAdmin) return;
+    setAdminLoading(true);
+
+    try {
+      const hash = await writeContract(config, {
+        abi: StakingABI,
+        address: stakingAddress,
+        functionName: 'confirmChangeAllowPublicStaking',
+      });
+      console.log("Confirm public staking change tx:", hash);
+      alert("Public staking change confirmed!");
+
+      // Refresh status
+      if (publicClient) {
+        const status = await publicClient.readContract({
+          address: stakingAddress,
+          abi: StakingABI,
+          functionName: 'getAllDataOfAllowPublicStaking',
+        }) as { flag: boolean; timeToAccept: bigint };
+        setPublicStakingStatus({
+          isEnabled: status.flag,
+          timeToAccept: status.timeToAccept,
+          isPending: status.timeToAccept > 0n,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to confirm public staking change:", error);
+      alert(`Failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  // Admin function to cancel public staking change
+  const cancelPublicStakingChange = async () => {
+    if (!isAdmin) return;
+    setAdminLoading(true);
+
+    try {
+      const hash = await writeContract(config, {
+        abi: StakingABI,
+        address: stakingAddress,
+        functionName: 'cancelChangeAllowPublicStaking',
+      });
+      console.log("Cancel public staking change tx:", hash);
+      alert("Public staking change cancelled!");
+
+      // Refresh status
+      if (publicClient) {
+        const status = await publicClient.readContract({
+          address: stakingAddress,
+          abi: StakingABI,
+          functionName: 'getAllDataOfAllowPublicStaking',
+        }) as { flag: boolean; timeToAccept: bigint };
+        setPublicStakingStatus({
+          isEnabled: status.flag,
+          timeToAccept: status.timeToAccept,
+          isPending: status.timeToAccept > 0n,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to cancel public staking change:", error);
+      alert(`Failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
 
   const makeSig = async () => {
     const walletData = await getAccountWithRetry(config);
@@ -646,8 +835,135 @@ function PublicStakingComponent({
         title="Public Staking"
         link="https://www.evvm.info/docs/SignatureStructures/SMate/StakingUnstakingStructure"
       />
+
+      {/* Public Staking Status */}
+      <div style={{
+        marginBottom: "1rem",
+        padding: "1rem",
+        background: publicStakingStatus?.isEnabled
+          ? "linear-gradient(135deg, #10b981 0%, #34d399 100%)"
+          : "linear-gradient(135deg, #ef4444 0%, #f87171 100%)",
+        border: publicStakingStatus?.isEnabled ? "2px solid #059669" : "2px solid #dc2626",
+        borderRadius: "8px",
+        color: "#fff"
+      }}>
+        <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700" }}>
+          {publicStakingStatus?.isEnabled ? "✓ Public Staking Enabled" : "✗ Public Staking Disabled"}
+        </h4>
+        <p style={{ margin: "0", fontSize: "0.85rem" }}>
+          {publicStakingStatus?.isEnabled
+            ? "Public staking is currently enabled. Users can stake freely."
+            : "Public staking is currently disabled. Only admin can enable it."}
+        </p>
+        {publicStakingStatus?.isPending && (
+          <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.85rem", fontStyle: "italic" }}>
+            ⏳ A change is pending. Time to accept: {new Date(Number(publicStakingStatus.timeToAccept) * 1000).toLocaleString()}
+          </p>
+        )}
+      </div>
+
+      {/* Admin Panel - Only visible to admin */}
+      {isAdmin && (
+        <div style={{
+          marginBottom: "1.5rem",
+          padding: "1rem",
+          background: "linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)",
+          border: "2px solid #7c3aed",
+          borderRadius: "8px",
+          color: "#fff"
+        }}>
+          <h4 style={{ margin: "0 0 0.75rem 0", fontWeight: "700" }}>🔐 Admin Controls</h4>
+          <p style={{ margin: "0 0 1rem 0", fontSize: "0.85rem" }}>
+            As the contract admin, you can toggle public staking on/off.
+            This is a 2-step process with a timelock for security.
+          </p>
+
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            {!publicStakingStatus?.isPending ? (
+              <button
+                onClick={preparePublicStakingChange}
+                disabled={adminLoading}
+                style={{
+                  background: "#1e293b",
+                  color: "#fff",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "6px",
+                  border: "none",
+                  cursor: adminLoading ? "not-allowed" : "pointer",
+                  opacity: adminLoading ? 0.6 : 1,
+                }}
+              >
+                {adminLoading ? "Processing..." : publicStakingStatus?.isEnabled ? "Prepare to Disable" : "Prepare to Enable"}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={confirmPublicStakingChange}
+                  disabled={adminLoading}
+                  style={{
+                    background: "#10b981",
+                    color: "#fff",
+                    padding: "0.5rem 1rem",
+                    borderRadius: "6px",
+                    border: "none",
+                    cursor: adminLoading ? "not-allowed" : "pointer",
+                    opacity: adminLoading ? 0.6 : 1,
+                  }}
+                >
+                  {adminLoading ? "Processing..." : "Confirm Change"}
+                </button>
+                <button
+                  onClick={cancelPublicStakingChange}
+                  disabled={adminLoading}
+                  style={{
+                    background: "#ef4444",
+                    color: "#fff",
+                    padding: "0.5rem 1rem",
+                    borderRadius: "6px",
+                    border: "none",
+                    cursor: adminLoading ? "not-allowed" : "pointer",
+                    opacity: adminLoading ? 0.6 : 1,
+                  }}
+                >
+                  {adminLoading ? "Processing..." : "Cancel Change"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Warning for non-admin users */}
+      {!isAdmin && !publicStakingStatus?.isEnabled && (
+        <div style={{
+          marginBottom: "1rem",
+          padding: "1rem",
+          background: "linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)",
+          border: "2px solid #d97706",
+          borderRadius: "8px",
+          color: "#000"
+        }}>
+          <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700" }}>⚠️ Public Staking Disabled</h4>
+          <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
+            Public staking is currently <strong>disabled</strong>. Only the contract admin can enable it.
+          </p>
+          {deployment.admin && (
+            <p style={{ margin: "0", fontSize: "0.85rem" }}>
+              Admin address: <code style={{ background: "rgba(0,0,0,0.1)", padding: "0.2rem 0.4rem", borderRadius: "4px" }}>
+                {deployment.admin.substring(0, 6)}...{deployment.admin.substring(38)}
+              </code>
+            </p>
+          )}
+          {!deployment.admin && (
+            <p style={{ margin: "0", fontSize: "0.85rem", fontStyle: "italic" }}>
+              Admin address not configured. Run <code>npm run wizard</code> to set it up.
+            </p>
+          )}
+        </div>
+      )}
+
       <p style={{ marginBottom: "1rem", color: "var(--color-text-secondary)" }}>
-        Public staking allows any user to stake variable amounts. Amount is multiplied by 5083.
+        Public staking allows any user to stake variable amounts. Each unit = 5,083 MATE tokens.
       </p>
 
       <StakingActionSelector onChange={setIsStaking} />
@@ -659,9 +975,9 @@ function PublicStakingComponent({
       />
 
       <NumberInputField
-        label={isStaking ? "Amount of MATE to stake" : "Amount of MATE to unstake (sMATE)"}
+        label={isStaking ? "Number of sMATE to stake" : "Number of sMATE to unstake"}
         inputId="amountOfStakingInput_PublicStaking"
-        placeholder="Enter amount"
+        placeholder="Enter number of sMATE (e.g., 1, 2, 3)"
       />
 
       <NumberInputField

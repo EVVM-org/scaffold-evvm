@@ -24,7 +24,7 @@ const executeGoldenStaking = async (
     return Promise.reject("No data to execute payment");
   }
 
-  writeContract(config, {
+  return writeContract(config, {
     abi: StakingABI,
     address: stakingAddress,
     functionName: "goldenStaking",
@@ -38,6 +38,7 @@ const executeGoldenStaking = async (
       return Promise.resolve();
     })
     .catch((error) => {
+      console.error("Golden staking transaction failed:", error);
       return Promise.reject(error);
     });
 };

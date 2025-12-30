@@ -7,7 +7,7 @@ import { Balances } from '@/components/Balances';
 import { EvvmInfo } from '@/components/EvvmInfo';
 import { getExplorerUrl } from '@/lib/evvmConfig';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
-import { getPublicClient, getCurrentChainId } from '@/lib/viemClients';
+import { getPublicClient, getCurrentChainId, isContractDeployed } from '@/lib/viemClients';
 import { readBalance, readNextNonce as readNonce, readStakedAmount, readIsStaker } from '@/lib/evvmExecutors';
 import styles from '@/styles/pages/Status.module.css';
 
@@ -20,6 +20,8 @@ export default function StatusPage() {
   const [stakedAmount, setStakedAmount] = useState<bigint | null>(null);
   const [isStaker, setIsStaker] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [contractMissing, setContractMissing] = useState(false);
 
   useEffect(() => {
     checkWalletConnection();
@@ -44,7 +46,19 @@ export default function StatusPage() {
     if (!deployment || !account || !chainId) return;
 
     setLoading(true);
+    setDataError(null);
+    setContractMissing(false);
+
     try {
+      // First check if contracts exist
+      const evvmExists = await isContractDeployed(chainId, deployment.evvm);
+      if (!evvmExists) {
+        setContractMissing(true);
+        setDataError('EVVM contract not found. The blockchain may have been reset. Please redeploy using "npm run wizard".');
+        setLoading(false);
+        return;
+      }
+
       const publicClient = getPublicClient(chainId);
 
       // Read balance (MATE token - 0x...001)
@@ -56,14 +70,24 @@ export default function StatusPage() {
       const userNonce = await readNonce(publicClient, deployment.evvm, account);
       setNonce(userNonce);
 
-      // Read staking info
-      const staked = await readStakedAmount(publicClient, deployment.staking, account);
-      setStakedAmount(staked);
+      // Read staking info (check if staking contract exists first)
+      const stakingExists = await isContractDeployed(chainId, deployment.staking);
+      if (stakingExists) {
+        const staked = await readStakedAmount(publicClient, deployment.staking, account);
+        setStakedAmount(staked);
 
-      const stakerStatus = await readIsStaker(publicClient, deployment.staking, account);
-      setIsStaker(stakerStatus);
+        // Note: isAddressStaker is on the EVVM contract, not the Staking contract
+        const stakerStatus = await readIsStaker(publicClient, deployment.evvm, account);
+        setIsStaker(stakerStatus);
+      }
     } catch (error: any) {
       console.error('Failed to load user data:', error);
+      if (error.message?.includes('returned no data') || error.message?.includes('0x')) {
+        setContractMissing(true);
+        setDataError('Contract not found. The blockchain may have been reset. Please redeploy using "npm run wizard".');
+      } else {
+        setDataError(error.message || 'Failed to load data');
+      }
     } finally {
       setLoading(false);
     }
@@ -112,7 +136,29 @@ export default function StatusPage() {
             {loading ? 'Loading...' : 'Load My Data'}
           </button>
 
-          {(balance !== null || nonce !== null) && (
+          {contractMissing && (
+            <div className={styles.contractMissing}>
+              <span className={styles.warningIcon}>⚠️</span>
+              <div className={styles.missingContent}>
+                <p className={styles.missingTitle}>EVVM Contracts Not Found</p>
+                <p className={styles.missingText}>
+                  The contracts are not deployed at the configured address.
+                  This usually happens when the local blockchain (Anvil/Hardhat) has been reset.
+                </p>
+                <p className={styles.missingHint}>To fix this, run in your terminal:</p>
+                <code className={styles.codeBlock}>npm run wizard</code>
+                <p className={styles.missingHint}>Then select &quot;Deploy contracts&quot; to redeploy.</p>
+              </div>
+            </div>
+          )}
+
+          {dataError && !contractMissing && (
+            <div className={styles.error}>
+              <span>⚠️ {dataError}</span>
+            </div>
+          )}
+
+          {!contractMissing && (balance !== null || nonce !== null) && (
             <div className={styles.infoGrid}>
               {balance !== null && (
                 <div className={styles.infoItem}>

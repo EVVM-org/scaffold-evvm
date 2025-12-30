@@ -128,3 +128,34 @@ export async function getCurrentChainId(): Promise<number> {
 
   return parseInt(chainIdHex, 16);
 }
+
+/**
+ * Check if a contract exists at the given address
+ * Returns true if there's bytecode at the address, false otherwise
+ */
+export async function isContractDeployed(
+  chainId: number,
+  address: `0x${string}`
+): Promise<boolean> {
+  try {
+    const publicClient = getPublicClient(chainId);
+    const bytecode = await publicClient.getBytecode({ address });
+    return bytecode !== undefined && bytecode !== '0x' && bytecode.length > 2;
+  } catch (error) {
+    console.error('Error checking contract deployment:', error);
+    return false;
+  }
+}
+
+/**
+ * Custom error class for contract not found errors
+ */
+export class ContractNotFoundError extends Error {
+  constructor(contractName: string, address: string) {
+    super(
+      `Contract "${contractName}" not found at address ${address}. ` +
+      `The local blockchain may have been reset. Please redeploy contracts using "npm run wizard" or "npm run cli deploy".`
+    );
+    this.name = 'ContractNotFoundError';
+  }
+}

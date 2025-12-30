@@ -13,7 +13,7 @@ import styles from '@/styles/components/Balances.module.css';
  */
 export function Balances() {
   const { address, isConnected } = useAccount();
-  const { balances, loading, error, refresh } = useBalances();
+  const { balances, loading, error, contractMissing, refresh } = useBalances();
 
   // Format address for display
   const shortAddress = useMemo(() => {
@@ -40,6 +40,35 @@ export function Balances() {
         <div className={styles.card}>
           <h2 className={styles.title}>Balances</h2>
           <p className={styles.notConnected}>Connect your wallet to view balances</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show special message when contracts are not deployed
+  if (contractMissing) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.card}>
+          <h2 className={styles.title}>Balances</h2>
+          <div className={styles.contractMissing}>
+            <span className={styles.warningIcon}>⚠️</span>
+            <div className={styles.missingContent}>
+              <p className={styles.missingTitle}>EVVM Contracts Not Found</p>
+              <p className={styles.missingText}>
+                The EVVM contracts are not deployed at the configured address.
+                This usually happens when the local blockchain (Anvil/Hardhat) has been reset.
+              </p>
+              <div className={styles.missingActions}>
+                <p className={styles.missingHint}>To fix this, run in your terminal:</p>
+                <code className={styles.codeBlock}>npm run wizard</code>
+                <p className={styles.missingHint}>Then select &quot;Deploy contracts&quot; to redeploy.</p>
+              </div>
+              <button onClick={refresh} className={styles.retryButton}>
+                Retry Connection
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -76,7 +105,7 @@ export function Balances() {
           </button>
         </div>
 
-        {error && (
+        {error && !contractMissing && (
           <div className={styles.error}>
             <span className={styles.errorIcon}>⚠️</span>
             <span>{error}</span>

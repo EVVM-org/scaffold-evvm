@@ -8,7 +8,7 @@
  */
 
 import chalk from 'chalk';
-import { createPublicClient, http, formatEther, type Block } from 'viem';
+import { createPublicClient, http, formatEther, formatGwei, type Block, type Transaction, decodeFunctionData, type Hex } from 'viem';
 import { hardhat } from 'viem/chains';
 import { evvmGreen, sectionHeader, info, success, error, divider } from '../utils/display.js';
 
@@ -19,8 +19,35 @@ interface MonitorState {
   lastBlockNumber: bigint | null;
   blockCount: number;
   txCount: number;
+  contractDeployments: number;
   isRunning: boolean;
 }
+
+// Common function signatures for decoding
+const KNOWN_SIGNATURES: { [key: string]: string } = {
+  // EVVM functions
+  '0x': 'Native Transfer',
+  '0xa9059cbb': 'transfer(address,uint256)',
+  '0x23b872dd': 'transferFrom(address,address,uint256)',
+  '0x095ea7b3': 'approve(address,uint256)',
+  '0x70a08231': 'balanceOf(address)',
+  '0x18160ddd': 'totalSupply()',
+  '0xdd62ed3e': 'allowance(address,address)',
+  // EVVM specific
+  '0x0b5b1870': 'pay(...)',
+  '0x7e0cd9d0': 'dispersePay(...)',
+  '0x1e83409a': 'claim(address)',
+  '0xa694fc3a': 'stake(uint256)',
+  '0x2e1a7d4d': 'unstake(uint256)',
+  '0x3a4b66f1': 'stakePublic(...)',
+  // NameService
+  '0x3121db1c': 'registerIdentity(...)',
+  '0x47e7ef24': 'deposit(address,uint256)',
+  '0x2e17de78': 'withdraw(uint256)',
+  // Faucet
+  '0x2e1a7d4d': 'withdraw(uint256)',
+  '0xd0e30db0': 'deposit()',
+};
 
 /**
  * Format timestamp for display
@@ -37,9 +64,37 @@ function timestamp(): string {
 /**
  * Format address (truncated)
  */
-function formatAddress(address: string | null): string {
+function formatAddress(address: string | null, full: boolean = false): string {
   if (!address) return chalk.magenta('Contract Creation');
+  if (full) return chalk.cyan(address);
   return chalk.cyan(address.slice(0, 10) + '...' + address.slice(-6));
+}
+
+/**
+ * Get function name from calldata
+ */
+function getFunctionName(data: string | undefined): string {
+  if (!data || data === '0x' || data.length < 10) {
+    return chalk.gray('Native Transfer');
+  }
+  const selector = data.slice(0, 10).toLowerCase();
+  const known = KNOWN_SIGNATURES[selector];
+  if (known) {
+    return chalk.yellow(known);
+  }
+  return chalk.gray(`fn:${selector}`);
+}
+
+/**
+ * Format gas info
+ */
+function formatGas(gas: bigint, gasPrice?: bigint): string {
+  const gasStr = gas.toLocaleString();
+  if (gasPrice) {
+    const gweiPrice = formatGwei(gasPrice);
+    return chalk.gray(`${gasStr} gas @ ${gweiPrice} gwei`);
+  }
+  return chalk.gray(`${gasStr} gas`);
 }
 
 /**
@@ -83,7 +138,9 @@ function displayStats(state: MonitorState): void {
     `\n${status}  |  ` +
     chalk.white(`Blocks: ${evvmGreen(state.blockCount.toString())}`) +
     `  |  ` +
-    chalk.white(`Transactions: ${evvmGreen(state.txCount.toString())}`) +
+    chalk.white(`TXs: ${evvmGreen(state.txCount.toString())}`) +
+    `  |  ` +
+    chalk.white(`Deploys: ${chalk.magenta(state.contractDeployments.toString())}`) +
     `  |  ` +
     chalk.gray(`Last: #${state.lastBlockNumber?.toString() || '---'}`)
   );
@@ -91,44 +148,94 @@ function displayStats(state: MonitorState): void {
 }
 
 /**
- * Log a new block
+ * Log a new block (minimal for empty blocks, detailed for blocks with txs)
  */
-function logBlock(block: Block): void {
+function logBlock(block: Block, hasTransactions: boolean): void {
   const txCount = block.transactions?.length || 0;
-  const gasUsed = block.gasUsed?.toString() || '0';
 
+  if (!hasTransactions || txCount === 0) {
+    // Minimal output for empty blocks
+    console.log(
+      chalk.gray(`${timestamp()} `) +
+      chalk.gray('BLOCK') +
+      chalk.gray(` #${block.number}`) +
+      chalk.gray(` (empty)`)
+    );
+    return;
+  }
+
+  // Detailed output for blocks with transactions
+  const gasUsed = block.gasUsed?.toLocaleString() || '0';
+  console.log('');
   console.log(
     `${timestamp()} ` +
-    chalk.blue('BLOCK') +
-    chalk.white(` #${block.number}`) +
-    chalk.gray(` | ${txCount} tx | ${gasUsed} gas | `) +
-    chalk.gray(block.hash?.slice(0, 18) + '...')
+    chalk.blue.bold('═══ BLOCK') +
+    chalk.white.bold(` #${block.number} `) +
+    chalk.blue.bold('═══')
+  );
+  console.log(
+    chalk.gray(`           `) +
+    chalk.gray(`${txCount} transaction${txCount > 1 ? 's' : ''} | `) +
+    chalk.gray(`${gasUsed} gas used | `) +
+    chalk.gray(block.hash?.slice(0, 22) + '...')
   );
 }
 
 /**
- * Log a transaction
+ * Log a transaction with detailed information
  */
-function logTransaction(tx: any, index: number): void {
+function logTransaction(tx: any, index: number, state: MonitorState): void {
   const isContractDeploy = !tx.to;
-  const type = isContractDeploy ? chalk.magenta('DEPLOY') : evvmGreen('TX    ');
+  const type = isContractDeploy
+    ? chalk.magenta.bold('DEPLOY')
+    : evvmGreen.bold('TX    ');
 
+  // Main transaction line
   console.log(
     `${timestamp()} ` +
     type +
-    ` ${formatAddress(tx.from)}` +
+    chalk.gray(` [${index + 1}] `) +
+    formatAddress(tx.from) +
     chalk.gray(' → ') +
     formatAddress(tx.to) +
     ` ${formatValue(tx.value)}`
   );
 
-  // Show more details for contract deployments
-  if (isContractDeploy) {
+  // Function call info (for non-deployments)
+  if (!isContractDeploy && tx.input && tx.input !== '0x') {
     console.log(
       chalk.gray(`           `) +
-      chalk.gray(`Hash: ${tx.hash}`)
+      chalk.gray('Function: ') +
+      getFunctionName(tx.input) +
+      chalk.gray(` | Data: ${tx.input.length} bytes`)
     );
   }
+
+  // Gas info
+  console.log(
+    chalk.gray(`           `) +
+    formatGas(tx.gas, tx.gasPrice) +
+    chalk.gray(` | Nonce: ${tx.nonce}`)
+  );
+
+  // Contract deployment details
+  if (isContractDeploy) {
+    state.contractDeployments++;
+    console.log(
+      chalk.gray(`           `) +
+      chalk.magenta('Contract deployment') +
+      chalk.gray(` | Bytecode: ${tx.input?.length || 0} bytes`)
+    );
+  }
+
+  // Hash (truncated for regular txs, full for deploys)
+  console.log(
+    chalk.gray(`           `) +
+    chalk.gray('Hash: ') +
+    (isContractDeploy
+      ? chalk.magenta(tx.hash)
+      : chalk.gray(tx.hash.slice(0, 22) + '...' + tx.hash.slice(-8)))
+  );
 }
 
 /**
@@ -150,9 +257,11 @@ async function monitorLoop(state: MonitorState): Promise<void> {
         state.isRunning = true;
         console.log(
           `${timestamp()} ` +
-          chalk.green('CONNECTED') +
+          chalk.green.bold('CONNECTED') +
           chalk.gray(` to local blockchain at block #${currentBlockNumber}`)
         );
+        console.log(chalk.gray(`           Ready to monitor transactions...`));
+        console.log('');
         continue;
       }
 
@@ -165,17 +274,19 @@ async function monitorLoop(state: MonitorState): Promise<void> {
           });
 
           state.blockCount++;
-          logBlock(block);
+          const hasTxs = block.transactions && block.transactions.length > 0;
+          logBlock(block, hasTxs);
 
           // Log transactions in the block
-          if (block.transactions && block.transactions.length > 0) {
+          if (hasTxs) {
             for (let j = 0; j < block.transactions.length; j++) {
               const tx = block.transactions[j];
               if (typeof tx === 'object') {
                 state.txCount++;
-                logTransaction(tx, j);
+                logTransaction(tx, j, state);
               }
             }
+            console.log(''); // Space after block with transactions
           }
         }
         state.lastBlockNumber = currentBlockNumber;
@@ -187,7 +298,7 @@ async function monitorLoop(state: MonitorState): Promise<void> {
         // Was connected, now disconnected
         console.log(
           `${timestamp()} ` +
-          chalk.red('DISCONNECTED') +
+          chalk.red.bold('DISCONNECTED') +
           chalk.gray(' - waiting for blockchain...')
         );
         state.isRunning = false;
@@ -209,6 +320,7 @@ export async function monitor(): Promise<void> {
     lastBlockNumber: null,
     blockCount: 0,
     txCount: 0,
+    contractDeployments: 0,
     isRunning: false
   };
 
