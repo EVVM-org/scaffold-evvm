@@ -3,7 +3,7 @@
  *
  * Guides users through:
  * 1. Framework selection (Foundry vs Hardhat)
- * 2. Contract source selection (Testnet vs Playground)
+ * 2. Contract source selection (Testnet)
  * 3. EVVM configuration (addresses, metadata)
  */
 
@@ -22,7 +22,7 @@ const __dirname = dirname(__filename);
 // Types
 interface ProjectConfig {
   framework: 'foundry' | 'hardhat';
-  contractSource: 'testnet' | 'playground';
+  contractSource: 'testnet';
   addresses: {
     admin: string;
     goldenFisher: string;
@@ -38,7 +38,7 @@ interface ProjectConfig {
     eraTokens: string;
     reward: string;
   };
-}
+} 
 
 // Validation
 function validateAddress(address: string): boolean {
@@ -96,7 +96,7 @@ export async function initProject(): Promise<void> {
     }
   }
 
-  // Step 2: Select contract source
+  // Step 2: Select contract source (Testnet only)
   const contractResponse = await prompts({
     type: 'select',
     name: 'contractSource',
@@ -106,11 +106,6 @@ export async function initProject(): Promise<void> {
         title: 'Testnet Contracts',
         value: 'testnet',
         description: 'Production-ready contracts for testnet deployment'
-      },
-      {
-        title: 'Playground Contracts',
-        value: 'playground',
-        description: 'Experimental contracts for prototyping and testing'
       }
     ]
   });
@@ -272,7 +267,7 @@ function displayConfigSummary(config: ProjectConfig): void {
   divider();
 
   console.log(chalk.yellow('Framework:'), chalk.green(config.framework.toUpperCase()));
-  console.log(chalk.yellow('Contracts:'), chalk.green(config.contractSource === 'testnet' ? 'Testnet Contracts' : 'Playground Contracts'));
+  console.log(chalk.yellow('Contracts:'), chalk.green('Testnet Contracts'));
 
   console.log(chalk.yellow('\nAddresses:'));
   console.log(`  Admin:         ${chalk.green(config.addresses.admin)}`);

@@ -347,7 +347,7 @@ async function fundWalletFromAnvil(walletName: string, port: number = ANVIL_PORT
 
 interface ScaffoldConfig {
   framework: 'foundry' | 'hardhat';
-  contractSource: 'testnet' | 'playground';
+  contractSource: 'testnet';
   initialized: boolean;
 }
 
@@ -437,24 +437,13 @@ export async function deployContracts(): Promise<void> {
 
   const foundryDir = join(projectRoot, 'packages', 'foundry');
   const hasTestnet = existsSync(join(foundryDir, 'testnet-contracts', 'contracts'));
-  const hasPlayground = existsSync(join(foundryDir, 'playground-contracts', 'contracts'));
 
   if (hasTestnet) {
     success('Testnet-Contracts (bundled)');
   } else {
     warning('Testnet-Contracts not found');
-  }
-
-  if (hasPlayground) {
-    success('Playground-Contracts (bundled)');
-  } else {
-    warning('Playground-Contracts not found');
-  }
-
-  // Handle missing bundled contracts
-  if (!hasTestnet && !hasPlayground) {
-    error('No bundled contracts found!');
-    info('The contract sources should be included in packages/foundry/');
+    error('No bundled Testnet contracts found!');
+    info('The Testnet contract source should be included in packages/foundry/');
     info('Please reinstall scaffold-evvm or restore the bundled contracts.');
     return;
   }
@@ -517,16 +506,13 @@ export async function deployContracts(): Promise<void> {
   if (hasTestnet) {
     sourceChoices.push({ title: 'Testnet Contracts', value: 'testnet', description: 'Production-ready for testnet' });
   }
-  if (hasPlayground) {
-    sourceChoices.push({ title: 'Playground Contracts', value: 'playground', description: 'Experimental for prototyping' });
-  }
 
   const sourceResponse = await prompts({
     type: 'select',
     name: 'contractSource',
     message: 'Select contract source:',
     choices: sourceChoices,
-    initial: existingConfig?.contractSource === 'playground' ? (hasTestnet ? 1 : 0) : 0
+    initial: 0
   });
   if (!sourceResponse.contractSource) {
     error('Deployment cancelled.');
@@ -681,7 +667,7 @@ export async function deployContracts(): Promise<void> {
   // Display summary
   console.log('');
   info(`Framework: ${chalk.green(config.framework.toUpperCase())}`);
-  info(`Contracts: ${chalk.green(config.contractSource === 'testnet' ? 'Testnet' : 'Playground')}`);
+  info(`Contracts: ${chalk.green('Testnet')}`);
   info(`Network:   ${chalk.green(chainName)}`);
   console.log('');
 
@@ -1185,9 +1171,7 @@ async function deployWithFoundry(
     // Use default
   }
 
-  const scriptFile = contractSource === 'playground'
-    ? 'script/Deploy.playground.s.sol:DeployScript'
-    : 'script/Deploy.testnet.s.sol:DeployScript';
+  const scriptFile = 'script/Deploy.testnet.s.sol:DeployScript';
 
   const args = [
     'script',
@@ -1267,7 +1251,6 @@ function parseFoundryArtifacts(packageDir: string): DeploymentResult | null {
   // Try different script names (new bundled scripts and legacy)
   const scriptNames = [
     'Deploy.testnet.s.sol',      // Bundled testnet contracts
-    'Deploy.playground.s.sol',   // Bundled playground contracts
     'Deploy.s.sol',              // Generic deploy script
     'DeployTestnet.s.sol',       // Legacy names
     'DeployTestnetOnAnvil.s.sol'
@@ -1523,7 +1506,6 @@ async function displayDeploymentResult(result: DeploymentResult, framework: 'fou
  *
  * With the new bundled architecture, contracts are already in place:
  * - testnet-contracts/ - Bundled from EVVM-org/Testnet-Contracts
- * - playground-contracts/ - Bundled from EVVM-org/Playground-Contracts
  * - contracts/ - User's custom services
  *
  * This function only generates the Inputs/BaseInputs.sol with user configuration.
@@ -1536,7 +1518,7 @@ async function generateDeploymentConfig(
     basicMetadata: { EvvmName: string; principalTokenName: string; principalTokenSymbol: string };
     advancedMetadata: { totalSupply: string; eraTokens: string; reward: string };
   },
-  contractSource: 'testnet' | 'playground' = 'testnet'
+  contractSource: 'testnet' = 'testnet'
 ): Promise<void> {
   // Write configuration files
   const inputDir = join(projectRoot, 'input');
@@ -1545,9 +1527,8 @@ async function generateDeploymentConfig(
   }
 
   // Generate Inputs.sol with bundled contract imports
-  // We need separate files for testnet and playground due to different struct imports
-  const inputsSol = generateInputsSol(evvmConfig, contractSource);
-  const inputFileName = contractSource === 'playground' ? 'Inputs.playground.sol' : 'Inputs.testnet.sol';
+  const inputsSol = generateInputsSol(evvmConfig, 'testnet');
+  const inputFileName = 'Inputs.testnet.sol';
   writeFileSync(join(inputDir, inputFileName), inputsSol);
 
   // Write legacy JSON files for reference
@@ -1579,7 +1560,7 @@ async function generateDeploymentConfig(
 
 /**
  * Generate Inputs.sol content from configuration
- * Uses the appropriate import path based on contract source (testnet or playground)
+ * Uses the appropriate import path based on contract source (testnet)
  */
 function generateInputsSol(
   config: {
@@ -1587,11 +1568,9 @@ function generateInputsSol(
     basicMetadata: { EvvmName: string; principalTokenName: string; principalTokenSymbol: string };
     advancedMetadata: { totalSupply: string; eraTokens: string; reward: string };
   },
-  contractSource: 'testnet' | 'playground' = 'testnet'
+  contractSource: 'testnet' = 'testnet'
 ): string {
-  const importPath = contractSource === 'playground'
-    ? '@scaffold-evvm/playground-contracts'
-    : '@scaffold-evvm/testnet-contracts';
+  const importPath = '@scaffold-evm/testnet-contracts';
 
   return `// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;

@@ -9,10 +9,9 @@ remappings = [
     # EVVM bundled contracts (offline-ready, part of scaffold-evvm)
     # Both namespaces work - @scaffold-evvm/ is recommended for new code
     "@scaffold-evvm/testnet-contracts/=testnet-contracts/",
-    "@scaffold-evvm/playground-contracts/=playground-contracts/",
     # Legacy namespace (for internal imports in bundled contracts)
     "@evvm/testnet-contracts/=testnet-contracts/",
-    "@evvm/playground-contracts/=playground-contracts/",
+
     # User custom services
     "@scaffold-evvm/contracts/=contracts/",
     # Solady utilities

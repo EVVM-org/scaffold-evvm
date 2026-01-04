@@ -2,7 +2,7 @@
  * Contract Sources Command
  *
  * Manages EVVM contract source repositories:
- * - Check status of Testnet-Contracts and Playground-Contracts
+ * - Check status of Testnet-Contracts
  * - Clone missing repositories
  * - Update to latest versions
  */
@@ -53,49 +53,13 @@ export async function manageSources(): Promise<void> {
       description: 'Clone production-ready contracts from GitHub',
     });
   }
-  if (!status.playground.exists) {
-    choices.push({
-      title: chalk.green('Clone Playground-Contracts'),
-      value: 'clone-playground',
-      description: 'Clone experimental contracts from GitHub',
-    });
-  }
 
-  // Update options for existing repos
+  // Update options for existing repo
   if (status.testnet.exists && status.testnet.behind > 0) {
     choices.push({
       title: chalk.yellow(`Update Testnet-Contracts (${status.testnet.behind} behind)`),
       value: 'update-testnet',
       description: 'Pull latest changes from remote',
-    });
-  }
-  if (status.playground.exists && status.playground.behind > 0) {
-    choices.push({
-      title: chalk.yellow(`Update Playground-Contracts (${status.playground.behind} behind)`),
-      value: 'update-playground',
-      description: 'Pull latest changes from remote',
-    });
-  }
-
-  // Clone both if neither exists
-  if (!status.testnet.exists && !status.playground.exists) {
-    choices.unshift({
-      title: evvmGreen('Clone Both Repositories'),
-      value: 'clone-both',
-      description: 'Clone both Testnet and Playground contracts',
-    });
-  }
-
-  // Update all if both need updates
-  if (
-    status.testnet.exists &&
-    status.playground.exists &&
-    (status.testnet.behind > 0 || status.playground.behind > 0)
-  ) {
-    choices.unshift({
-      title: evvmGreen('Update All'),
-      value: 'update-all',
-      description: 'Pull latest changes for all repositories',
     });
   }
 
@@ -127,38 +91,9 @@ export async function manageSources(): Promise<void> {
 
   // Execute selected action
   switch (response.action) {
-    case 'clone-both':
-      await cloneRepo(PROJECT_ROOT, 'testnet');
-      await initSubmodules(join(PROJECT_ROOT, '..', 'Testnet-Contracts'));
-      await cloneRepo(PROJECT_ROOT, 'playground');
-      await initSubmodules(join(PROJECT_ROOT, '..', 'Playground-Contracts'));
-      break;
-
     case 'clone-testnet':
       await cloneRepo(PROJECT_ROOT, 'testnet');
       await initSubmodules(join(PROJECT_ROOT, '..', 'Testnet-Contracts'));
-      break;
-
-    case 'clone-playground':
-      await cloneRepo(PROJECT_ROOT, 'playground');
-      await initSubmodules(join(PROJECT_ROOT, '..', 'Playground-Contracts'));
-      break;
-
-    case 'update-all':
-      if (status.testnet.exists && status.testnet.behind > 0) {
-        if (status.testnet.hasUncommittedChanges) {
-          warning('Testnet-Contracts has uncommitted changes. Skipping update.');
-        } else {
-          await pullLatest(status.testnet.path!);
-        }
-      }
-      if (status.playground.exists && status.playground.behind > 0) {
-        if (status.playground.hasUncommittedChanges) {
-          warning('Playground-Contracts has uncommitted changes. Skipping update.');
-        } else {
-          await pullLatest(status.playground.path!);
-        }
-      }
       break;
 
     case 'update-testnet':
@@ -166,14 +101,6 @@ export async function manageSources(): Promise<void> {
         warning('Testnet-Contracts has uncommitted changes. Please commit or stash first.');
       } else {
         await pullLatest(status.testnet.path!);
-      }
-      break;
-
-    case 'update-playground':
-      if (status.playground.hasUncommittedChanges) {
-        warning('Playground-Contracts has uncommitted changes. Please commit or stash first.');
-      } else {
-        await pullLatest(status.playground.path!);
       }
       break;
 
@@ -203,15 +130,14 @@ export async function checkSources(): Promise<boolean> {
   displayContractSourcesStatus(status);
 
   const hasTestnet = status.testnet.exists;
-  const hasPlayground = status.playground.exists;
 
-  if (!hasTestnet && !hasPlayground) {
+  if (!hasTestnet) {
     error('No contract sources found!');
     info('Run "npm run cli sources" to clone repositories.');
     return false;
   }
 
-  if (status.testnet.behind > 0 || status.playground.behind > 0) {
+  if (status.testnet.behind > 0) {
     warning('Some repositories are behind remote.');
     info('Run "npm run cli sources" to update.');
   }

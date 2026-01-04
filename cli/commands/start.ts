@@ -3,7 +3,7 @@
  *
  * One command to rule them all:
  * 1. Select framework (Foundry/Hardhat)
- * 2. Select contract source (Testnet/Playground)
+ * 2. Select contract source (Testnet)
  * 3. Configure EVVM (addresses, metadata)
  * 4. Sync contracts from source
  * 5. Compile contracts
@@ -38,7 +38,7 @@ const LOCAL_CHAIN_ID = 31337;
 
 interface FullStartConfig {
   framework: 'foundry' | 'hardhat';
-  contractSource: 'testnet' | 'playground';
+  contractSource: 'testnet';
   addresses: {
     admin: string;
     goldenFisher: string;
@@ -117,14 +117,12 @@ export async function fullStart(): Promise<void> {
   // Step 2: Contract Source Selection
   sectionHeader('Step 2: Contract Sources');
 
-  // Define hasTestnet and hasPlayground at the top of the function
+  // Define hasTestnet at the top of the function
   let hasTestnet: boolean;
-  let hasPlayground: boolean;
 
   // Check bundled contract sources
   info('Checking bundled EVVM contracts...');
   hasTestnet = existsSync(join(FOUNDRY_DIR, 'testnet-contracts', 'contracts'));
-  hasPlayground = existsSync(join(FOUNDRY_DIR, 'playground-contracts', 'contracts'));
 
   if (hasTestnet) {
     success('Testnet-Contracts (bundled)');
@@ -132,16 +130,10 @@ export async function fullStart(): Promise<void> {
     warning('Testnet-Contracts not bundled');
   }
 
-  if (hasPlayground) {
-    success('Playground-Contracts (bundled)');
-  } else {
-    warning('Playground-Contracts not bundled');
-  }
-
   // Handle missing bundled contracts
-  if (!hasTestnet && !hasPlayground) {
-    error('No bundled contracts found!');
-    info('The contract sources should be included in packages/foundry/');
+  if (!hasTestnet) {
+    error('No bundled Testnet contracts found!');
+    info('The Testnet contract source should be included in packages/foundry/');
     info('Please reinstall scaffold-evvm or restore the bundled contracts.');
     return;
   }
@@ -158,13 +150,6 @@ export async function fullStart(): Promise<void> {
       description: 'Production-ready for local deployment'
     });
   }
-  if (hasPlayground) {
-    sourceChoices.push({
-      title: 'Playground Contracts',
-      value: 'playground',
-      description: 'Experimental for prototyping'
-    });
-  }
 
   const sourceResponse = await prompts({
     type: 'select',
@@ -178,7 +163,7 @@ export async function fullStart(): Promise<void> {
     return;
   }
 
-  success(`Selected: ${sourceResponse.contractSource === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts'}`);
+  success('Selected: Testnet-Contracts');
 
   // Network is always local
   sectionHeader('Step 3: Network');
@@ -443,7 +428,7 @@ function displaySummary(config: FullStartConfig): void {
   divider();
 
   console.log(chalk.yellow('Framework:    ') + chalk.green(config.framework.toUpperCase()));
-  console.log(chalk.yellow('Contracts:    ') + chalk.green(config.contractSource === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts'));
+  console.log(chalk.yellow('Contracts:    ') + chalk.green('Testnet-Contracts'));
   console.log(chalk.yellow('Network:      ') + chalk.green(`Local (${chainName})`));
   console.log('');
 
@@ -475,7 +460,7 @@ function displaySummary(config: FullStartConfig): void {
   divider();
 
   console.log(chalk.cyan('This will:'));
-  console.log(chalk.gray('  1. Sync contracts from ' + (config.contractSource === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts')));
+  console.log(chalk.gray('  1. Sync contracts from Testnet-Contracts'));
   console.log(chalk.gray('  2. Write configuration files'));
   console.log(chalk.gray('  3. Compile contracts'));
   console.log(chalk.gray(`  4. Start local chain (${chainName})`));
@@ -528,18 +513,8 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     // Step 3: Clone and setup contract source repositories
     sectionHeader('Cloning Contract Repositories');
 
-    // Check and clone missing repositories
-    const playgroundPath = join(PROJECT_ROOT, 'packages', 'Playground-Contracts');
+    // Check and clone Testnet repository
     const testnetPath = join(PROJECT_ROOT, 'packages', 'Testnet-Contracts');
-
-    if (!existsSync(playgroundPath)) {
-      info('Playground-Contracts not found. Cloning repository...');
-      await execa('git', ['clone', '--recursive', 'https://github.com/EVVM-org/Playground-Contracts', playgroundPath], { stdio: 'inherit' });
-      info('Installing dependencies for Playground-Contracts...');
-      await execa('npm', ['install'], { cwd: playgroundPath, stdio: 'inherit' });
-    } else {
-      info('Playground-Contracts already exists. Skipping clone.');
-    }
 
     if (!existsSync(testnetPath)) {
       info('Testnet-Contracts not found. Cloning repository...');
@@ -855,11 +830,9 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
   }
 
   // Generate Inputs.sol with correct filename based on contract source
-  // Deploy scripts import from Inputs.testnet.sol or Inputs.playground.sol
+  // Deploy scripts import from Inputs.testnet.sol
   const inputsSol = generateInputsSol(config);
-  const inputFileName = config.contractSource === 'playground'
-    ? 'Inputs.playground.sol'
-    : 'Inputs.testnet.sol';
+  const inputFileName = 'Inputs.testnet.sol';
   writeFileSync(join(inputDir, inputFileName), inputsSol);
 
   // Also write legacy JSON files for backwards compatibility
@@ -908,10 +881,8 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
  * Uses @scaffold-evvm/ namespace for bundled contracts
  */
 function generateInputsSol(config: FullStartConfig): string {
-  // Select import path based on contract source
-  const importPath = config.contractSource === 'playground'
-    ? 'packages/Playground-Contracts/input/BaseInputs.sol'
-    : 'packages/Testnet-Contracts/input/Inputs.sol';
+  // Select import path (Testnet only)
+  const importPath = 'packages/Testnet-Contracts/input/Inputs.sol';
 
   return `// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
@@ -1098,10 +1069,8 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
     
     await execa('forge', ['clean'], { cwd: FOUNDRY_DIR, stdio: 'pipe' }).catch(() => {});
 
-    // Select the deployment script based on contract source
-    const scriptDir = config.contractSource === 'playground'
-      ? join(PROJECT_ROOT, 'packages', 'Playground-Contracts')
-      : join(PROJECT_ROOT, 'packages', 'Testnet-Contracts');
+    // Use Testnet contract package for deployment scripts
+    const scriptDir = join(PROJECT_ROOT, 'packages', 'Testnet-Contracts');
     
     const scriptFile = 'script/Deploy.s.sol:DeployScript';
 
@@ -1165,7 +1134,6 @@ function parseFoundryArtifacts(packageDir: string): DeployedAddresses | null {
   // Try different script names (new bundled scripts and legacy)
   const scriptNames = [
     'Deploy.testnet.s.sol',      // Bundled testnet contracts
-    'Deploy.playground.s.sol',   // Bundled playground contracts
     'Deploy.s.sol',              // Generic deploy script
     'DeployTestnet.s.sol',       // Legacy names
     'DeployTestnetOnAnvil.s.sol'

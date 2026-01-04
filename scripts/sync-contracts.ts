@@ -3,11 +3,11 @@
 /**
  * Contract Sync Utility
  *
- * Synchronizes EVVM contracts from Testnet-Contracts or Playground-Contracts
+ * Synchronizes EVVM contracts from Testnet-Contracts
  * into the scaffold-evvm packages (Foundry or Hardhat).
  *
  * This allows scaffold-evvm to deploy the actual EVVM contracts
- * from either the production-ready Testnet or experimental Playground sources.
+ * from the production-ready Testnet source.
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, readdirSync, symlinkSync, lstatSync } from 'fs';
@@ -30,12 +30,7 @@ const TESTNET_SEARCH_PATHS = [
   resolve(PROJECT_ROOT, '..', '..', 'TestnetContracts', 'Testnet-Contracts'),
 ];
 
-const PLAYGROUND_SEARCH_PATHS = [
-  resolve(PROJECT_ROOT, '..', 'Playground-Contracts'),
-  resolve(PROJECT_ROOT, '..', 'PlaygroundContracts', 'Playground-Contracts'),
-  resolve(PROJECT_ROOT, '..', '..', 'Playground-Contracts'),
-  resolve(PROJECT_ROOT, '..', '..', 'PlaygroundContracts', 'Playground-Contracts'),
-];
+
 
 /**
  * Find the first existing path from a list of candidates
@@ -50,13 +45,12 @@ function findExistingPath(paths: string[]): string | null {
 }
 
 const TESTNET_CONTRACTS_PATH = findExistingPath(TESTNET_SEARCH_PATHS);
-const PLAYGROUND_CONTRACTS_PATH = findExistingPath(PLAYGROUND_SEARCH_PATHS);
 
 // EVVM Brand Color
 const evvmGreen = chalk.rgb(1, 240, 148);
 
 interface SyncConfig {
-  source: 'testnet' | 'playground';
+  source: 'testnet';
   framework: 'foundry' | 'hardhat' | 'both';
 }
 
@@ -66,34 +60,25 @@ interface SyncConfig {
 async function main(): Promise<void> {
   console.log(evvmGreen('\n📦 EVVM Contract Sync Utility\n'));
 
-  // Check if contract sources exist
+  // Check if Testnet contract source exists
   const hasTestnet = TESTNET_CONTRACTS_PATH !== null;
-  const hasPlayground = PLAYGROUND_CONTRACTS_PATH !== null;
 
-  if (!hasTestnet && !hasPlayground) {
-    console.log(chalk.red('✖ No contract sources found.'));
+  if (!hasTestnet) {
+    console.log(chalk.red('✖ No Testnet-Contracts found.'));
     console.log(chalk.gray('  Searched for Testnet-Contracts in:'));
     for (const p of TESTNET_SEARCH_PATHS) {
       console.log(chalk.gray(`    - ${p}`));
     }
-    console.log(chalk.gray('  Searched for Playground-Contracts in:'));
-    for (const p of PLAYGROUND_SEARCH_PATHS) {
-      console.log(chalk.gray(`    - ${p}`));
-    }
-    console.log(chalk.gray('\n  Make sure Testnet-Contracts or Playground-Contracts'));
-    console.log(chalk.gray('  exists in one of the above locations.\n'));
+    console.log(chalk.gray('\n  Make sure Testnet-Contracts exists in one of the above locations.\n'));
     process.exit(1);
   }
 
   if (hasTestnet) {
     console.log(chalk.gray(`Found Testnet-Contracts at: ${TESTNET_CONTRACTS_PATH}`));
   }
-  if (hasPlayground) {
-    console.log(chalk.gray(`Found Playground-Contracts at: ${PLAYGROUND_CONTRACTS_PATH}`));
-  }
 
   // Load existing config or prompt
-  const config = await getOrPromptConfig(hasTestnet, hasPlayground);
+  const config = await getOrPromptConfig(hasTestnet);
 
   // Perform sync
   await syncContracts(config);
@@ -102,14 +87,14 @@ async function main(): Promise<void> {
 /**
  * Get existing config or prompt user
  */
-async function getOrPromptConfig(hasTestnet: boolean, hasPlayground: boolean): Promise<SyncConfig> {
+async function getOrPromptConfig(hasTestnet: boolean): Promise<SyncConfig> {
   const configPath = join(PROJECT_ROOT, 'scaffold.config.json');
 
-  // Check for existing config
+  // Check for existing config (only accept testnet)
   if (existsSync(configPath)) {
     try {
       const existingConfig = JSON.parse(readFileSync(configPath, 'utf-8'));
-      if (existingConfig.contractSource && existingConfig.framework) {
+      if (existingConfig.contractSource === 'testnet' && existingConfig.framework) {
         console.log(chalk.gray(`Using existing config: ${existingConfig.contractSource} + ${existingConfig.framework}\n`));
 
         const useExisting = await prompts({
@@ -121,7 +106,7 @@ async function getOrPromptConfig(hasTestnet: boolean, hasPlayground: boolean): P
 
         if (useExisting.value) {
           return {
-            source: existingConfig.contractSource,
+            source: 'testnet',
             framework: existingConfig.framework
           };
         }
@@ -131,20 +116,13 @@ async function getOrPromptConfig(hasTestnet: boolean, hasPlayground: boolean): P
     }
   }
 
-  // Build source choices
+  // Build source choices (Testnet only)
   const sourceChoices = [];
   if (hasTestnet) {
     sourceChoices.push({
       title: 'Testnet Contracts',
       value: 'testnet',
       description: 'Production-ready contracts for testnet deployment'
-    });
-  }
-  if (hasPlayground) {
-    sourceChoices.push({
-      title: 'Playground Contracts',
-      value: 'playground',
-      description: 'Experimental contracts for prototyping'
     });
   }
 
@@ -186,12 +164,10 @@ async function getOrPromptConfig(hasTestnet: boolean, hasPlayground: boolean): P
  * Sync contracts to target framework(s)
  */
 async function syncContracts(config: SyncConfig): Promise<void> {
-  const sourcePath = config.source === 'testnet'
-    ? TESTNET_CONTRACTS_PATH
-    : PLAYGROUND_CONTRACTS_PATH;
+  const sourcePath = TESTNET_CONTRACTS_PATH;
 
   if (!sourcePath) {
-    console.log(chalk.red(`✖ Source path for ${config.source} contracts not found.`));
+    console.log(chalk.red('✖ Source path for testnet contracts not found.'));
     process.exit(1);
   }
 
@@ -199,7 +175,7 @@ async function syncContracts(config: SyncConfig): Promise<void> {
   const sourceLibPath = join(sourcePath, 'lib');
   const sourceInputPath = join(sourcePath, 'input');
 
-  console.log(chalk.blue(`\nSyncing from: ${chalk.green(config.source === 'testnet' ? 'Testnet-Contracts' : 'Playground-Contracts')}\n`));
+  console.log(chalk.blue(`\nSyncing from: ${chalk.green('Testnet-Contracts')}\n`));
 
   // Sync to Foundry
   if (config.framework === 'foundry' || config.framework === 'both') {

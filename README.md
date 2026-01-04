@@ -8,7 +8,7 @@ Built using NextJS, Foundry/Hardhat, Wagmi, Viem, and TypeScript.
 
 - ✅ **Auto-Setup** - Contracts automatically cloned and configured on first run
 - 🔧 **Dual Framework** - Choose Foundry or Hardhat for smart contract development
-- 📦 **Dual Contract Sources** - Testnet-Contracts (production) or Playground-Contracts (experimental)
+- 📦 **Contract Source** - Testnet-Contracts
 - 🧙 **Interactive CLI Wizard** - Guided setup for framework, contracts, and configuration
 - ⛓️ **Local Development** - Deploy to Anvil or Hardhat Network for rapid iteration
 - 💰 **Auto-Funding** - Automatically funds wallets from test accounts
@@ -49,7 +49,7 @@ npm run wizard
 This command will:
 - ✅ Check all prerequisites
 - 🔧 Guide you through framework selection (Foundry/Hardhat)
-- 📦 Select contract source (Testnet/Playground)
+- 📦 Select contract source (Testnet)
 - ⚙️ Configure EVVM (admin addresses, token metadata)
 - 🔨 Compile contracts
 - ⛓️ Start local chain (Anvil or Hardhat Network)
@@ -127,7 +127,6 @@ scaffold-evvm/
 ├── packages/
 │   ├── foundry/            # Foundry package
 │   │   ├── testnet-contracts/    # Production EVVM contracts (auto-cloned)
-│   │   ├── playground-contracts/ # Experimental EVVM contracts (auto-cloned)
 │   │   └── contracts/            # Your custom services
 │   ├── hardhat/            # Hardhat package
 │   └── nextjs/             # Frontend application

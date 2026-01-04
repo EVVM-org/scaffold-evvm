@@ -4,8 +4,7 @@
  * Scaffold-EVVM CLI
  *
  * The unified development environment for EVVM ecosystem.
- * Supports both Foundry and Hardhat frameworks with
- * Testnet-Contracts and Playground-Contracts sources.
+ * Supports Foundry and Hardhat frameworks with Testnet-Contracts source.
  */
 
 import chalk from 'chalk';
@@ -73,7 +72,7 @@ async function interactiveWizard(): Promise<void> {
       {
         title: 'Manage contract sources',
         value: 'sources',
-        description: 'Check/clone/update Testnet & Playground contracts'
+        description: 'Check/clone/update Testnet contracts'
       },
       {
         title: 'Exit',
@@ -206,7 +205,7 @@ ${chalk.yellow('Frontend Commands:')}
   npm run start               Start production server
 
 ${chalk.yellow('Utility Commands:')}
-  npm run sync-contracts      Sync contracts from Testnet/Playground
+  npm run sync-contracts      Sync contracts from Testnet
   npm run generate-abis       Generate ABIs for frontend
   npm run flush               Clear all caches and stop frontend server
   npm run frontend            Start frontend server (after deployment)

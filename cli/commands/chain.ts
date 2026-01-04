@@ -15,7 +15,7 @@ import { commandExists } from '../utils/prerequisites.js';
 
 interface ScaffoldConfig {
   framework: 'foundry' | 'hardhat';
-  contractSource: 'testnet' | 'playground';
+  contractSource: 'testnet';
   initialized: boolean;
 }
 

@@ -1,7 +1,7 @@
 /**
  * Contract Sources Utility
  *
- * Manages EVVM contract source repositories (Testnet-Contracts and Playground-Contracts).
+ * Manages EVVM contract source repository (Testnet-Contracts).
  * Provides functionality to:
  * - Check if repos exist locally
  * - Clone repos if missing
@@ -23,13 +23,7 @@ const REPOS = {
     url: 'git@github.com:EVVM-org/Testnet-Contracts.git',
     httpsUrl: 'https://github.com/EVVM-org/Testnet-Contracts.git',
     description: 'Production-ready contracts for testnet deployment',
-  },
-  playground: {
-    name: 'Playground-Contracts',
-    url: 'git@github.com:EVVM-org/Playground-Contracts.git',
-    httpsUrl: 'https://github.com/EVVM-org/Playground-Contracts.git',
-    description: 'Experimental contracts for prototyping',
-  },
+  }
 };
 
 export interface RepoStatus {
@@ -46,7 +40,6 @@ export interface RepoStatus {
 
 export interface ContractSourcesStatus {
   testnet: RepoStatus;
-  playground: RepoStatus;
 }
 
 /**
@@ -158,7 +151,7 @@ async function getAheadBehind(repoPath: string, branch: string): Promise<{ ahead
 /**
  * Get detailed status of a contract repository
  */
-async function getRepoStatus(projectRoot: string, repoKey: 'testnet' | 'playground'): Promise<RepoStatus> {
+async function getRepoStatus(projectRoot: string, repoKey: 'testnet'): Promise<RepoStatus> {
   const repoInfo = REPOS[repoKey];
   const repoPath = findContractPath(projectRoot, repoInfo.name);
 
@@ -202,12 +195,9 @@ async function getRepoStatus(projectRoot: string, repoKey: 'testnet' | 'playgrou
  * Get status of both contract repositories
  */
 export async function checkContractSources(projectRoot: string): Promise<ContractSourcesStatus> {
-  const [testnet, playground] = await Promise.all([
-    getRepoStatus(projectRoot, 'testnet'),
-    getRepoStatus(projectRoot, 'playground'),
-  ]);
+  const testnet = await getRepoStatus(projectRoot, 'testnet');
 
-  return { testnet, playground };
+  return { testnet };
 }
 
 /**
@@ -252,7 +242,7 @@ export function displayContractSourcesStatus(status: ContractSourcesStatus): voi
  */
 export async function cloneRepo(
   projectRoot: string,
-  repoKey: 'testnet' | 'playground'
+  repoKey: 'testnet'
 ): Promise<boolean> {
   const repoInfo = REPOS[repoKey];
   const clonePath = getDefaultClonePath(projectRoot, repoInfo.name);
@@ -336,16 +326,15 @@ export async function showRecentCommits(repoPath: string, count: number = 5): Pr
  */
 export async function ensureContractSources(
   projectRoot: string,
-  requiredSource: 'testnet' | 'playground' | 'both' = 'both'
+  requiredSource: 'testnet' | 'both' = 'testnet'
 ): Promise<boolean> {
   console.log(chalk.cyan('\n=== Checking Contract Sources ===\n'));
 
   const status = await checkContractSources(projectRoot);
   let allReady = true;
 
-  // Check each required source
-  const sourcesToCheck: ('testnet' | 'playground')[] =
-    requiredSource === 'both' ? ['testnet', 'playground'] : [requiredSource];
+  // Only Testnet is supported now
+  const sourcesToCheck: ('testnet')[] = ['testnet'];
 
   for (const sourceKey of sourcesToCheck) {
     const repoStatus = status[sourceKey];
@@ -418,9 +407,6 @@ export async function quickCheckContractSources(
 
   if (!status.testnet.exists) missing.push('Testnet-Contracts');
   else if (status.testnet.behind > 0) outdated.push('Testnet-Contracts');
-
-  if (!status.playground.exists) missing.push('Playground-Contracts');
-  else if (status.playground.behind > 0) outdated.push('Playground-Contracts');
 
   return {
     ready: missing.length === 0,

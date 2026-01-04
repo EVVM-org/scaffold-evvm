@@ -6,7 +6,7 @@
  * - npm
  * - Git
  * - Foundry (forge, anvil, cast) for Foundry framework
- * - Contract sources (Testnet-Contracts or Playground-Contracts)
+ * - Contract sources (Testnet-Contracts)
  */
 
 import { execa } from 'execa';
@@ -20,11 +20,10 @@ export interface PrerequisiteResult {
   hasFoundry: boolean;
   hasHardhat: boolean;
   hasTestnetContracts: boolean;
-  hasPlaygroundContracts: boolean;
   nodeVersion: string;
   errors: string[];
   warnings: string[];
-}
+} 
 
 /**
  * Check if a command exists in the system
@@ -63,12 +62,12 @@ function parseNodeMajorVersion(versionString: string): number {
  * Check if bundled contract source exists
  * With the new architecture, contracts are bundled in packages/foundry/
  */
-export function checkContractSourceExists(projectRoot: string, source: 'testnet' | 'playground'): boolean {
-  const dirName = source === 'testnet' ? 'testnet-contracts' : 'playground-contracts';
+export function checkContractSourceExists(projectRoot: string, source: 'testnet'): boolean {
+  const dirName = 'testnet-contracts';
   const contractsPath = join(projectRoot, 'packages', 'foundry', dirName, 'contracts');
 
   return existsSync(contractsPath);
-}
+} 
 
 /**
  * Check environment file configuration
@@ -117,7 +116,6 @@ export async function checkAllPrerequisites(projectRoot: string): Promise<Prereq
     hasFoundry: false,
     hasHardhat: false,
     hasTestnetContracts: false,
-    hasPlaygroundContracts: false,
     nodeVersion: '',
     errors: [],
     warnings: [],
@@ -204,18 +202,7 @@ export async function checkAllPrerequisites(projectRoot: string): Promise<Prereq
     success('Testnet-Contracts (bundled)');
   } else {
     dim('   Testnet-Contracts not bundled');
-  }
-
-  result.hasPlaygroundContracts = checkContractSourceExists(projectRoot, 'playground');
-  if (result.hasPlaygroundContracts) {
-    success('Playground-Contracts (bundled)');
-  } else {
-    dim('   Playground-Contracts not bundled');
-  }
-
-  // Check if at least one contract source exists
-  if (!result.hasTestnetContracts && !result.hasPlaygroundContracts) {
-    result.warnings.push('No bundled contracts found - reinstall scaffold-evvm');
+    result.warnings.push('No bundled Testnet contracts found - reinstall scaffold-evvm');
   }
 
   // Check if at least one framework is available
