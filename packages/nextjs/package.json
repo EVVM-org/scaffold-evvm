@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@evvm/evvm-js": "file:../../../../evvm-js",
     "@evvm/viem-signature-library": "^2.1.1",
     "@reown/appkit": "1.7.5",
     "@reown/appkit-adapter-wagmi": "1.7.5",
