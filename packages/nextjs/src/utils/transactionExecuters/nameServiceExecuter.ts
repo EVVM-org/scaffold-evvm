@@ -5,23 +5,23 @@
  * Each function corresponds to a specific NameService action (registration, offer, metadata, etc).
  * All functions return a Promise that resolves on success or rejects on error.
  *
- * Input types are imported from @evvm/viem-signature-library and match the contract ABI.
+ * Input types are imported from @evvm/evvm-js and match the contract ABI.
  */
 import { writeContract } from "@wagmi/core";
 import { config } from "@/config";
 import {
   NameServiceABI,
-  PreRegistrationUsernameInputData,
-  RegistrationUsernameInputData,
-  MakeOfferInputData,
-  WithdrawOfferInputData,
-  AcceptOfferInputData,
-  RenewUsernameInputData,
-  AddCustomMetadataInputData,
-  RemoveCustomMetadataInputData,
-  FlushCustomMetadataInputData,
-  FlushUsernameInputData,
-} from "@evvm/viem-signature-library";
+  type IPreRegistrationUsernameData as PreRegistrationUsernameInputData,
+  type IRegistrationUsernameData as RegistrationUsernameInputData,
+  type IMakeOfferData as MakeOfferInputData,
+  type IWithdrawOfferData as WithdrawOfferInputData,
+  type IAcceptOfferData as AcceptOfferInputData,
+  type IRenewUsernameData as RenewUsernameInputData,
+  type IAddCustomMetadataData as AddCustomMetadataInputData,
+  type IRemoveCustomMetadataData as RemoveCustomMetadataInputData,
+  type IFlushCustomMetadataData as FlushCustomMetadataInputData,
+  type IFlushUsernameData as FlushUsernameInputData,
+} from "@evvm/evvm-js";
 
 /**
  * Executes pre-registration of a username in NameService contract.

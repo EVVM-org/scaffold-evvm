@@ -10,11 +10,11 @@ import { writeContract } from "@wagmi/core";
 import { config } from "@/config";
 import {
   P2PSwapABI,
-  CancelOrderInputData,
-  DispatchOrderFillFixedFeeInputData,
-  DispatchOrderFillPropotionalFeeInputData,
-  MakeOrderInputData,
-} from "@evvm/viem-signature-library";
+  type ICancelOrderData as CancelOrderInputData,
+  type IDispatchOrderFixedFeeData as DispatchOrderFillFixedFeeInputData,
+  type IDispatchOrderData as DispatchOrderFillPropotionalFeeInputData,
+  type IMakeOrderData as MakeOrderInputData,
+} from "@evvm/evvm-js";
 
 /**
  * Executes making a new order in P2PSwap contract.

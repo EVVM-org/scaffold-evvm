@@ -8,10 +8,10 @@
  */
 import { writeContract } from "@wagmi/core";
 import {
-  DispersePayInputData,
-  PayInputData,
+  type IDispersePayData as DispersePayInputData,
+  type IPayData as PayInputData,
   EvvmABI,
-} from "@evvm/viem-signature-library";
+} from "@evvm/evvm-js";
 import { config } from "@/config";
 
 /**

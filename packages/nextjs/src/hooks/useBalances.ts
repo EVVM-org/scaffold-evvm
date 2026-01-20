@@ -5,7 +5,7 @@ import { readContract } from '@wagmi/core';
 import { useAccount, useChainId } from 'wagmi';
 import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
-import { EvvmABI } from '@evvm/viem-signature-library';
+import { EvvmABI } from '@evvm/evvm-js';
 import { MATE_TOKEN_ADDRESS, ETH_TOKEN_ADDRESS } from '@/utils/constants';
 import { isContractDeployed } from '@/lib/viemClients';
 

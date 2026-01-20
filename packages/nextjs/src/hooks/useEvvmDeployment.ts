@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { EvvmDeployment } from '@/types/evvm';
 import { createPublicClient, http } from 'viem';
 import { sepolia, arbitrumSepolia, localhost } from 'viem/chains';
-import { EvvmABI } from '@evvm/viem-signature-library';
+import { EvvmABI } from '@evvm/evvm-js';
 import { loadEvvmConfig, clearEvvmConfig } from '@/lib/evvmConfigStorage';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
