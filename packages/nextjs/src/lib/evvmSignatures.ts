@@ -2,42 +2,76 @@
  * EVVM Signature Constructors
  *
  * This file contains ALL signature building functions for EVVM operations.
- * Uses the official @evvm/viem-signature-library for signature construction.
+ * Uses the official @evvm/evvm-js SDK for signature construction.
  *
  * IMPORTANT: All functions follow the exact patterns from EVVM-Signature-Constructor-Front
  */
 
-import { getAccountWithRetry } from '@/utils/getAccountWithRetry';
 import { getWalletClient } from '@wagmi/core';
 import { config } from '@/config';
 import {
-  EVVMSignatureBuilder,
-  StakingSignatureBuilder,
-  NameServiceSignatureBuilder,
-  P2PSwapSignatureBuilder,
-  // Type imports
-  PayInputData,
-  DispersePayInputData,
-  DispersePayMetadata,
-  GoldenStakingInputData,
-  PresaleStakingInputData,
-  PublicStakingInputData,
-  PreRegistrationUsernameInputData,
-  RegistrationUsernameInputData,
-  MakeOfferInputData,
-  WithdrawOfferInputData,
-  AcceptOfferInputData,
-  RenewUsernameInputData,
-  AddCustomMetadataInputData,
-  RemoveCustomMetadataInputData,
-  FlushCustomMetadataInputData,
-  FlushUsernameInputData,
-  MakeOrderInputData,
-  CancelOrderInputData,
-  // DispatchOrderFillProportionalFeeInputData, // Not exported in current library version
-  // DispatchOrderFillFixedFeeInputData, // Not exported in current library version
-  hashPreRegisteredUsername,
-} from '@evvm/viem-signature-library';
+  createSignerWithViem,
+  EVVM,
+  Staking,
+  NameService,
+  P2PSwap,
+  execute,
+  type IPayData,
+  type IDispersePayData,
+  type IPresaleStakingData,
+  type IPublicStakingData,
+  type IGoldenStakingData,
+  type IPreRegistrationUsernameData,
+  type IRegistrationUsernameData,
+  type IMakeOfferData,
+  type IWithdrawOfferData,
+  type IAcceptOfferData,
+  type IRenewUsernameData,
+  type IAddCustomMetadataData,
+  type IRemoveCustomMetadataData,
+  type IFlushCustomMetadataData,
+  type IFlushUsernameData,
+  type IMakeOrderData,
+  type ICancelOrderData,
+  type ISigner,
+  type SignedAction,
+} from '@evvm/evvm-js';
+
+// Re-export types for backward compatibility
+export type {
+  IPayData as PayInputData,
+  IDispersePayData as DispersePayInputData,
+  IPresaleStakingData as PresaleStakingInputData,
+  IPublicStakingData as PublicStakingInputData,
+  IGoldenStakingData as GoldenStakingInputData,
+  IPreRegistrationUsernameData as PreRegistrationUsernameInputData,
+  IRegistrationUsernameData as RegistrationUsernameInputData,
+  IMakeOfferData as MakeOfferInputData,
+  IWithdrawOfferData as WithdrawOfferInputData,
+  IAcceptOfferData as AcceptOfferInputData,
+  IRenewUsernameData as RenewUsernameInputData,
+  IAddCustomMetadataData as AddCustomMetadataInputData,
+  IRemoveCustomMetadataData as RemoveCustomMetadataInputData,
+  IFlushCustomMetadataData as FlushCustomMetadataInputData,
+  IFlushUsernameData as FlushUsernameInputData,
+  IMakeOrderData as MakeOrderInputData,
+  ICancelOrderData as CancelOrderInputData,
+};
+
+// Re-export SignedAction and execute for components that want to use them directly
+export { execute, type SignedAction };
+
+// Helper to get signer from wagmi wallet client
+async function getSigner(): Promise<ISigner> {
+  const walletClient = await getWalletClient(config);
+  if (!walletClient) {
+    throw new Error('Failed to get wallet client');
+  }
+  return createSignerWithViem(walletClient);
+}
+
+// MATE token address constant
+const MATE_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000001' as `0x${string}`;
 
 // ====================================================================================
 // PAYMENT SIGNATURES
@@ -45,6 +79,7 @@ import {
 
 export interface SignPayParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   to: string; // Address or username
   tokenAddress: `0x${string}`;
   amount: string | number;
@@ -55,61 +90,63 @@ export interface SignPayParams {
 }
 
 /**
- * Sign a single payment transaction
- * EXACT pattern from PaySignaturesComponent.tsx
+ * Sign a single payment transaction using evvm-js
  */
 export async function signPay(params: SignPayParams): Promise<{
   signature: string;
-  inputData: PayInputData;
+  inputData: IPayData;
+  signedAction: SignedAction<IPayData>;
 }> {
-  // 1. Get wallet data with retry
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
 
-  // 2. Get wallet client
-  const walletClient = await getWalletClient(config);
+  const isAddress = params.to.startsWith('0x');
 
-  // 3. Create signature builder
-  const signatureBuilder = new (EVVMSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-
-  // 4. Sign
-  const signature = await signatureBuilder.signPay(
-    BigInt(params.evvmID),
-    params.to,
-    params.tokenAddress,
-    BigInt(params.amount),
-    BigInt(params.priorityFee),
-    BigInt(params.nonce),
-    params.priority,
-    params.executor
-  );
-
-  // 5. Build input data
-  const inputData: PayInputData = {
-    from: walletData.address as `0x${string}`,
-    to_address: params.to.startsWith('0x')
-      ? (params.to as `0x${string}`)
-      : '0x0000000000000000000000000000000000000000',
-    to_identity: params.to.startsWith('0x') ? '' : params.to,
-    token: params.tokenAddress,
+  const signedAction = await evvm.pay({
+    to: params.to,
+    tokenAddress: params.tokenAddress,
     amount: BigInt(params.amount),
     priorityFee: BigInt(params.priorityFee),
     nonce: BigInt(params.nonce),
-    priority: params.priority,
+    priorityFlag: params.priority,
     executor: params.executor,
-    signature,
+  });
+
+  // Map to legacy format for backward compatibility
+  const inputData: IPayData = {
+    ...signedAction.data,
+    to_address: isAddress ? (params.to as `0x${string}`) : ('0x0000000000000000000000000000000000000000' as `0x${string}`),
+    to_identity: isAddress ? '' : params.to,
   };
 
-  return { signature, inputData };
+  return {
+    signature: signedAction.data.signature,
+    inputData,
+    signedAction,
+  };
+}
+
+// Backward compatible interface (without evvmAddress)
+export interface SignPayParamsLegacy {
+  evvmID: string | number;
+  to: string;
+  tokenAddress: `0x${string}`;
+  amount: string | number;
+  priorityFee: string | number;
+  nonce: string | number;
+  priority: boolean;
+  executor: `0x${string}`;
+}
+
+export interface DispersePayMetadata {
+  amount: bigint;
+  toAddress: `0x${string}`;
+  toIdentity: string;
 }
 
 export interface SignDispersePayParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   toData: DispersePayMetadata[];
   tokenAddress: `0x${string}`;
   totalAmount: string | number;
@@ -121,47 +158,34 @@ export interface SignDispersePayParams {
 
 /**
  * Sign a disperse payment transaction (multiple recipients)
- * EXACT pattern from DispersePayComponent.tsx
  */
 export async function signDispersePay(params: SignDispersePayParams): Promise<{
   signature: string;
-  inputData: DispersePayInputData;
+  inputData: IDispersePayData;
+  signedAction: SignedAction<IDispersePayData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (EVVMSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-
-  const signature = await signatureBuilder.signDispersePay(
-    BigInt(params.evvmID),
-    params.toData,
-    params.tokenAddress,
-    BigInt(params.totalAmount),
-    BigInt(params.priorityFee),
-    BigInt(params.nonce),
-    params.priority,
-    params.executor
-  );
-
-  const inputData: DispersePayInputData = {
-    from: walletData.address as `0x${string}`,
-    toData: params.toData,
-    token: params.tokenAddress,
+  const signedAction = await evvm.dispersePay({
+    toData: params.toData.map(item => ({
+      amount: item.amount,
+      toAddress: item.toAddress,
+      toIdentity: item.toIdentity,
+    })),
+    tokenAddress: params.tokenAddress,
     amount: BigInt(params.totalAmount),
     priorityFee: BigInt(params.priorityFee),
-    priority: params.priority,
     nonce: BigInt(params.nonce),
+    priorityFlag: params.priority,
     executor: params.executor,
-    signature,
-  };
+  });
 
-  return { signature, inputData };
+  return {
+    signature: signedAction.data.signature,
+    inputData: signedAction.data,
+    signedAction,
+  };
 }
 
 // ====================================================================================
@@ -170,6 +194,7 @@ export async function signDispersePay(params: SignDispersePayParams): Promise<{
 
 export interface SignGoldenStakingParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   stakingAddress: `0x${string}`;
   isStaking: boolean;
   amountOfStaking: number;
@@ -178,70 +203,49 @@ export interface SignGoldenStakingParams {
 }
 
 /**
- * Sign golden staking transaction
+ * Sign golden staking transaction using evvm-js
  *
- * CRITICAL FIX: Uses EVVMSignatureBuilder.signPay() directly instead of
- * StakingSignatureBuilder.signGoldenStaking() because the library's
- * signGoldenStaking doesn't correctly handle the priorityFlag parameter.
- *
- * Golden staking ALWAYS uses sync mode (priorityFlag: false), as enforced
- * by the Staking contract which calls getNextCurrentSyncNonce(msg.sender).
+ * CRITICAL: Golden staking ALWAYS uses sync mode (priorityFlag: false)
  */
 export async function signGoldenStaking(params: SignGoldenStakingParams): Promise<{
-  goldenStakingData: GoldenStakingInputData;
-  payData: PayInputData;
+  goldenStakingData: IGoldenStakingData;
+  payData: IPayData;
+  signedAction: SignedAction<IGoldenStakingData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const staking = new Staking(signer, params.stakingAddress);
 
-  const amountOfToken =
-    BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
+  const amountOfToken = BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
-  const walletClient = await getWalletClient(config);
+  // Create EVVM pay action first (golden staking always uses sync nonce)
+  const evvmAction = await evvm.pay({
+    to: params.stakingAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: amountOfToken,
+    priorityFee: 0n,
+    nonce: BigInt(params.nonce),
+    priorityFlag: false, // MUST be false for golden staking
+    executor: params.stakingAddress,
+  });
 
-  // CRITICAL: Use EVVMSignatureBuilder directly, not StakingSignatureBuilder
-  const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-
-  // Create signature using signPay with explicit priorityFlag: false
-  const signaturePay = await evvmSignatureBuilder.signPay(
-    BigInt(params.evvmID),                     // evvmID
-    params.stakingAddress,                      // to (staking contract)
-    '0x0000000000000000000000000000000000000001' as `0x${string}`, // token (MATE)
-    amountOfToken,                             // amount
-    BigInt(0),                                 // priorityFee (always 0)
-    BigInt(params.nonce),                      // nonce (sync nonce)
-    false,                                     // priorityFlag (MUST be false)
-    params.stakingAddress                      // executor (staking contract)
-  );
+  // Create golden staking action
+  const stakingAction = await staking.goldenStaking({
+    isStaking: params.isStaking,
+    amountOfStaking: BigInt(params.amountOfStaking),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    goldenStakingData: {
-      isStaking: params.isStaking,
-      amountOfStaking: BigInt(params.amountOfStaking),
-      signature_EVVM: signaturePay,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.stakingAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: amountOfToken,
-      priorityFee: BigInt(0),
-      nonce: BigInt(params.nonce),
-      priority: false, // Golden staking ALWAYS uses sync mode
-      executor: params.stakingAddress,
-      signature: signaturePay,
-    },
+    goldenStakingData: stakingAction.data,
+    payData: evvmAction.data,
+    signedAction: stakingAction,
   };
 }
 
 export interface SignPresaleStakingParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   stakingAddress: `0x${string}`;
   isStaking: boolean;
   nonce: string | number;
@@ -252,67 +256,46 @@ export interface SignPresaleStakingParams {
 
 /**
  * Sign presale staking transaction (dual signature)
- * EXACT pattern from PresaleStakingComponent.tsx
  */
 export async function signPresaleStaking(params: SignPresaleStakingParams): Promise<{
-  presaleStakingData: PresaleStakingInputData;
-  payData: PayInputData;
+  presaleStakingData: IPresaleStakingData;
+  payData: IPayData;
+  signedAction: SignedAction<IPresaleStakingData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const staking = new Staking(signer, params.stakingAddress);
 
-  const amountOfToken = (1 * 10 ** 18).toLocaleString('fullwide', {
-    useGrouping: false,
+  const amountOfToken = BigInt(1) * BigInt(10) ** BigInt(18); // 1 token
+
+  // Create EVVM pay action first
+  const evvmAction = await evvm.pay({
+    to: params.stakingAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: amountOfToken,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonce_EVVM),
+    priorityFlag: params.priorityFlag_EVVM,
+    executor: params.stakingAddress,
   });
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (StakingSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signPresaleStaking(
-      BigInt(params.evvmID),
-      params.stakingAddress,
-      params.isStaking,
-      BigInt(params.nonce),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(amountOfToken),
-      BigInt(params.nonce_EVVM),
-      params.priorityFlag_EVVM
-    );
+  // Create presale staking action
+  const stakingAction = await staking.presaleStaking({
+    isStaking: params.isStaking,
+    nonce: BigInt(params.nonce),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    presaleStakingData: {
-      isStaking: params.isStaking,
-      user: walletData.address as `0x${string}`,
-      nonce: BigInt(params.nonce),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      priorityFlag_EVVM: params.priorityFlag_EVVM,
-      nonce_EVVM: BigInt(params.nonce_EVVM),
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.stakingAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(amountOfToken),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonce_EVVM),
-      priority: params.priorityFlag_EVVM,
-      executor: params.stakingAddress,
-      signature: paySignature,
-    },
+    presaleStakingData: stakingAction.data,
+    payData: evvmAction.data,
+    signedAction: stakingAction,
   };
 }
 
 export interface SignPublicStakingParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   stakingAddress: `0x${string}`;
   isStaking: boolean;
   amountOfStaking: number;
@@ -324,63 +307,41 @@ export interface SignPublicStakingParams {
 
 /**
  * Sign public staking transaction (dual signature)
- * EXACT pattern from PublicStakingComponent.tsx
  */
 export async function signPublicStaking(params: SignPublicStakingParams): Promise<{
-  publicStakingData: PublicStakingInputData;
-  payData: PayInputData;
+  publicStakingData: IPublicStakingData;
+  payData: IPayData;
+  signedAction: SignedAction<IPublicStakingData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const staking = new Staking(signer, params.stakingAddress);
 
-  const amountOfToken =
-    BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
+  const amountOfToken = BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (StakingSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first
+  const evvmAction = await evvm.pay({
+    to: params.stakingAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: amountOfToken,
+    priorityFee: BigInt(params.priorityFee),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priority,
+    executor: params.stakingAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signPublicStaking(
-      BigInt(params.evvmID),
-      params.stakingAddress,
-      params.isStaking,
-      BigInt(params.amountOfStaking),
-      BigInt(params.nonceStaking),
-      amountOfToken,
-      BigInt(params.priorityFee),
-      BigInt(params.nonceEVVM),
-      params.priority
-    );
+  // Create public staking action
+  const stakingAction = await staking.publicStaking({
+    isStaking: params.isStaking,
+    amountOfStaking: BigInt(params.amountOfStaking),
+    nonce: BigInt(params.nonceStaking),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    publicStakingData: {
-      isStaking: params.isStaking,
-      user: walletData.address as `0x${string}`,
-      nonce: BigInt(params.nonceStaking),
-      amountOfStaking: BigInt(params.amountOfStaking),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee),
-      priorityFlag_EVVM: params.priority,
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.stakingAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(amountOfToken),
-      priorityFee: BigInt(params.priorityFee),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priority,
-      executor: params.stakingAddress,
-      signature: paySignature,
-    },
+    publicStakingData: stakingAction.data,
+    payData: evvmAction.data,
+    signedAction: stakingAction,
   };
 }
 
@@ -390,6 +351,7 @@ export async function signPublicStaking(params: SignPublicStakingParams): Promis
 
 export interface SignPreRegistrationUsernameParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
   clowNumber: string | number;
@@ -401,72 +363,57 @@ export interface SignPreRegistrationUsernameParams {
 
 /**
  * Sign pre-registration username (dual signature)
- * EXACT pattern from PreRegistrationUsernameComponent.tsx
  */
 export async function signPreRegistrationUsername(
   params: SignPreRegistrationUsernameParams
 ): Promise<{
-  preRegistrationData: PreRegistrationUsernameInputData;
-  payData: PayInputData;
+  preRegistrationData: IPreRegistrationUsernameData;
+  payData: IPayData;
+  signedAction: SignedAction<IPreRegistrationUsernameData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first (0 amount for pre-registration)
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: 0n,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonce_EVVM),
+    priorityFlag: params.priorityFlag_EVVM,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signPreRegistrationUsername(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      BigInt(params.clowNumber),
-      BigInt(params.nonce),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonce_EVVM),
-      params.priorityFlag_EVVM
-    );
+  // Hash the username with clow number
+  const hashUsername = hashPreRegisteredUsername(params.username, BigInt(params.clowNumber));
 
-  const hashUsername = hashPreRegisteredUsername(
-    params.username,
-    BigInt(params.clowNumber)
-  );
+  // Create pre-registration action
+  const nsAction = await nameService.preRegistrationUsername({
+    hashPreRegisteredUsername: hashUsername,
+    nonce: BigInt(params.nonce),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    preRegistrationData: {
-      user: walletData.address as `0x${string}`,
-      hashPreRegisteredUsername:
-        hashUsername.toLowerCase().slice(0, 2) +
-        hashUsername.toUpperCase().slice(2),
-      nonce: BigInt(params.nonce),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonce_EVVM),
-      priorityFlag_EVVM: params.priorityFlag_EVVM,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(0),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonce_EVVM),
-      priority: params.priorityFlag_EVVM,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    preRegistrationData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
+}
+
+// Hash function for pre-registered username (keccak256)
+function hashPreRegisteredUsername(username: string, clowNumber: bigint): string {
+  // Use viem's keccak256 for hashing
+  const { keccak256, encodePacked } = require('viem');
+  const hash = keccak256(encodePacked(['string', 'uint256'], [username, clowNumber]));
+  return hash;
 }
 
 export interface SignRegistrationUsernameParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
   clowNumber: string | number;
@@ -479,67 +426,47 @@ export interface SignRegistrationUsernameParams {
 
 /**
  * Sign registration username (dual signature)
- * EXACT pattern from RegistrationUsernameComponent.tsx
  */
 export async function signRegistrationUsername(
   params: SignRegistrationUsernameParams
 ): Promise<{
-  registrationData: RegistrationUsernameInputData;
-  payData: PayInputData;
+  registrationData: IRegistrationUsernameData;
+  payData: IPayData;
+  signedAction: SignedAction<IRegistrationUsernameData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: params.rewardAmount * 100n,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priorityFlag,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signRegistrationUsername(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      BigInt(params.clowNumber),
-      BigInt(params.nonceNameService),
-      params.rewardAmount,
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonceEVVM),
-      params.priorityFlag
-    );
+  // Create registration action
+  const nsAction = await nameService.registrationUsername({
+    username: params.username,
+    clowNumber: BigInt(params.clowNumber),
+    nonce: BigInt(params.nonceNameService),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    registrationData: {
-      user: walletData.address as `0x${string}`,
-      nonce: BigInt(params.nonceNameService),
-      username: params.username,
-      clowNumber: BigInt(params.clowNumber),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      priorityFlag_EVVM: params.priorityFlag,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: params.rewardAmount * BigInt(100),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priorityFlag,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    registrationData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
 }
 
 export interface SignMakeOfferParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
   expireDate: string | number;
@@ -552,68 +479,49 @@ export interface SignMakeOfferParams {
 
 /**
  * Sign make offer for username (dual signature)
- * EXACT pattern from MakeOfferComponent.tsx
  */
 export async function signMakeOffer(params: SignMakeOfferParams): Promise<{
-  makeOfferData: MakeOfferInputData;
-  payData: PayInputData;
+  makeOfferData: IMakeOfferData;
+  payData: IPayData;
+  signedAction: SignedAction<IMakeOfferData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: BigInt(params.amount),
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priorityFlag,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signMakeOffer(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      BigInt(params.expireDate),
-      BigInt(params.amount),
-      BigInt(params.nonceNameService),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonceEVVM),
-      params.priorityFlag
-    );
+  // Create make offer action
+  const nsAction = await nameService.makeOffer({
+    username: params.username,
+    expireDate: BigInt(params.expireDate),
+    amount: BigInt(params.amount),
+    nonce: BigInt(params.nonceNameService),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    makeOfferData: {
-      user: walletData.address as `0x${string}`,
-      username: params.username,
-      expireDate: BigInt(params.expireDate),
-      amount: BigInt(params.amount),
-      nonce: BigInt(params.nonceNameService),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      priorityFlag_EVVM: params.priorityFlag,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(params.amount),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priorityFlag,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    makeOfferData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
 }
 
 export interface SignWithdrawOfferParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
+  offerID: string | number;
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
@@ -622,67 +530,50 @@ export interface SignWithdrawOfferParams {
 
 /**
  * Sign withdraw offer for username (dual signature)
- * EXACT pattern from WithdrawOfferComponent.tsx
  */
 export async function signWithdrawOffer(
   params: SignWithdrawOfferParams
 ): Promise<{
-  withdrawOfferData: WithdrawOfferInputData;
-  payData: PayInputData;
+  withdrawOfferData: IWithdrawOfferData;
+  payData: IPayData;
+  signedAction: SignedAction<IWithdrawOfferData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first (0 amount)
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: 0n,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priorityFlag,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signWithdrawOffer(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      BigInt(params.nonceNameService),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonceEVVM),
-      params.priorityFlag
-    );
+  // Create withdraw offer action
+  const nsAction = await nameService.withdrawOffer({
+    username: params.username,
+    offerID: BigInt(params.offerID),
+    nonce: BigInt(params.nonceNameService),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    withdrawOfferData: {
-      user: walletData.address as `0x${string}`,
-      username: params.username,
-      offerID: BigInt(0), // TODO: Add offerID to SignWithdrawOfferParams
-      nonce: BigInt(params.nonceNameService),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      priorityFlag_EVVM: params.priorityFlag,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(0),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priorityFlag,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    withdrawOfferData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
 }
 
 export interface SignAcceptOfferParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
+  offerID: string | number;
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
@@ -691,63 +582,45 @@ export interface SignAcceptOfferParams {
 
 /**
  * Sign accept offer for username (dual signature)
- * EXACT pattern from AcceptOfferComponent.tsx
  */
 export async function signAcceptOffer(params: SignAcceptOfferParams): Promise<{
-  acceptOfferData: AcceptOfferInputData;
-  payData: PayInputData;
+  acceptOfferData: IAcceptOfferData;
+  payData: IPayData;
+  signedAction: SignedAction<IAcceptOfferData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first (0 amount)
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: 0n,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priorityFlag,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signAcceptOffer(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      BigInt(params.nonceNameService),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonceEVVM),
-      params.priorityFlag
-    );
+  // Create accept offer action
+  const nsAction = await nameService.acceptOffer({
+    username: params.username,
+    offerID: BigInt(params.offerID),
+    nonce: BigInt(params.nonceNameService),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    acceptOfferData: {
-      user: walletData.address as `0x${string}`,
-      username: params.username,
-      offerID: BigInt(0), // TODO: Add offerID to SignAcceptOfferParams
-      nonce: String(params.nonceNameService),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      priorityFlag_EVVM: params.priorityFlag,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(0),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priorityFlag,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    acceptOfferData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
 }
 
 export interface SignRenewUsernameParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
   nonceNameService: string | number;
@@ -758,64 +631,46 @@ export interface SignRenewUsernameParams {
 
 /**
  * Sign renew username (dual signature)
- * EXACT pattern from RenewUsernameComponent.tsx
  */
 export async function signRenewUsername(
   params: SignRenewUsernameParams
 ): Promise<{
-  renewUsernameData: RenewUsernameInputData;
-  payData: PayInputData;
+  renewUsernameData: IRenewUsernameData;
+  payData: IPayData;
+  signedAction: SignedAction<IRenewUsernameData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first (0 amount)
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: 0n,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priorityFlag,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signRenewUsername(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      BigInt(params.nonceNameService),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonceEVVM),
-      params.priorityFlag
-    );
+  // Create renew username action
+  const nsAction = await nameService.renewUsername({
+    username: params.username,
+    nonce: BigInt(params.nonceNameService),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    renewUsernameData: {
-      user: walletData.address as `0x${string}`,
-      username: params.username,
-      nonce: BigInt(params.nonceNameService),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      priorityFlag_EVVM: params.priorityFlag,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(0),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priorityFlag,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    renewUsernameData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
 }
 
 export interface SignAddCustomMetadataParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
   key: string;
@@ -828,70 +683,50 @@ export interface SignAddCustomMetadataParams {
 
 /**
  * Sign add custom metadata to username (dual signature)
- * EXACT pattern from AddCustomMetadataComponent.tsx
  */
 export async function signAddCustomMetadata(
   params: SignAddCustomMetadataParams
 ): Promise<{
-  addCustomMetadataData: AddCustomMetadataInputData;
-  payData: PayInputData;
+  addCustomMetadataData: IAddCustomMetadataData;
+  payData: IPayData;
+  signedAction: SignedAction<IAddCustomMetadataData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first (0 amount)
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: 0n,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priorityFlag,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signAddCustomMetadata(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      params.key,
-      params.value,
-      BigInt(params.nonceNameService),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonceEVVM),
-      params.priorityFlag
-    );
+  // Create add custom metadata action
+  const nsAction = await nameService.addCustomMetadata({
+    identity: params.username,
+    value: params.value,
+    nonce: BigInt(params.nonceNameService),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    addCustomMetadataData: {
-      user: walletData.address as `0x${string}`,
-      identity: params.username,
-      value: params.value,
-      nonce: BigInt(params.nonceNameService),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      priorityFlag_EVVM: params.priorityFlag,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(0),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priorityFlag,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    addCustomMetadataData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
 }
 
 export interface SignRemoveCustomMetadataParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
-  key: string;
+  key: string | number;
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
@@ -900,66 +735,47 @@ export interface SignRemoveCustomMetadataParams {
 
 /**
  * Sign remove custom metadata from username (dual signature)
- * EXACT pattern from RemoveCustomMetadataComponent.tsx
  */
 export async function signRemoveCustomMetadata(
   params: SignRemoveCustomMetadataParams
 ): Promise<{
-  removeCustomMetadataData: RemoveCustomMetadataInputData;
-  payData: PayInputData;
+  removeCustomMetadataData: IRemoveCustomMetadataData;
+  payData: IPayData;
+  signedAction: SignedAction<IRemoveCustomMetadataData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first (0 amount)
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: 0n,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priorityFlag,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signRemoveCustomMetadata(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      params.key,
-      BigInt(params.nonceNameService),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonceEVVM),
-      params.priorityFlag
-    );
+  // Create remove custom metadata action
+  const nsAction = await nameService.removeCustomMetadata({
+    identity: params.username,
+    key: BigInt(params.key),
+    nonce: BigInt(params.nonceNameService),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    removeCustomMetadataData: {
-      user: walletData.address as `0x${string}`,
-      identity: params.username,
-      key: BigInt(params.key),
-      nonce: BigInt(params.nonceNameService),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      priorityFlag_EVVM: params.priorityFlag,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(0),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priorityFlag,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    removeCustomMetadataData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
 }
 
 export interface SignFlushCustomMetadataParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
   nonceNameService: string | number;
@@ -970,64 +786,46 @@ export interface SignFlushCustomMetadataParams {
 
 /**
  * Sign flush all custom metadata from username (dual signature)
- * EXACT pattern from FlushCustomMetadataComponent.tsx
  */
 export async function signFlushCustomMetadata(
   params: SignFlushCustomMetadataParams
 ): Promise<{
-  flushCustomMetadataData: FlushCustomMetadataInputData;
-  payData: PayInputData;
+  flushCustomMetadataData: IFlushCustomMetadataData;
+  payData: IPayData;
+  signedAction: SignedAction<IFlushCustomMetadataData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first (0 amount)
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: 0n,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priorityFlag,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signFlushCustomMetadata(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      BigInt(params.nonceNameService),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonceEVVM),
-      params.priorityFlag
-    );
+  // Create flush custom metadata action
+  const nsAction = await nameService.flushCustomMetadata({
+    identity: params.username,
+    nonce: BigInt(params.nonceNameService),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    flushCustomMetadataData: {
-      user: walletData.address as `0x${string}`,
-      identity: params.username,
-      nonce: BigInt(params.nonceNameService),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      priorityFlag_EVVM: params.priorityFlag,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(0),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priorityFlag,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    flushCustomMetadataData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
 }
 
 export interface SignFlushUsernameParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
   nonceNameService: string | number;
@@ -1038,59 +836,40 @@ export interface SignFlushUsernameParams {
 
 /**
  * Sign flush username (dual signature)
- * EXACT pattern from FlushUsernameComponent.tsx
  */
 export async function signFlushUsername(
   params: SignFlushUsernameParams
 ): Promise<{
-  flushUsernameData: FlushUsernameInputData;
-  payData: PayInputData;
+  flushUsernameData: IFlushUsernameData;
+  payData: IPayData;
+  signedAction: SignedAction<IFlushUsernameData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const nameService = new NameService(signer, params.nameServiceAddress);
 
-  const walletClient = await getWalletClient(config);
-  const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
+  // Create EVVM pay action first (0 amount)
+  const evvmAction = await evvm.pay({
+    to: params.nameServiceAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: 0n,
+    priorityFee: BigInt(params.priorityFee_EVVM),
+    nonce: BigInt(params.nonceEVVM),
+    priorityFlag: params.priorityFlag,
+    executor: params.nameServiceAddress,
+  });
 
-  const { paySignature, actionSignature } =
-    await signatureBuilder.signFlushUsername(
-      BigInt(params.evvmID),
-      params.nameServiceAddress,
-      params.username,
-      BigInt(params.nonceNameService),
-      BigInt(params.priorityFee_EVVM),
-      BigInt(params.nonceEVVM),
-      params.priorityFlag
-    );
+  // Create flush username action
+  const nsAction = await nameService.flushUsername({
+    username: params.username,
+    nonce: BigInt(params.nonceNameService),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    flushUsernameData: {
-      user: walletData.address as `0x${string}`,
-      username: params.username,
-      nonce: BigInt(params.nonceNameService),
-      signature: actionSignature,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonceEVVM),
-      priorityFlag_EVVM: params.priorityFlag,
-      signature_EVVM: paySignature,
-    },
-    payData: {
-      from: walletData.address as `0x${string}`,
-      to_address: params.nameServiceAddress,
-      to_identity: '',
-      token: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-      amount: BigInt(0),
-      priorityFee: BigInt(params.priorityFee_EVVM),
-      nonce: BigInt(params.nonceEVVM),
-      priority: params.priorityFlag,
-      executor: params.nameServiceAddress,
-      signature: paySignature,
-    },
+    flushUsernameData: nsAction.data,
+    payData: evvmAction.data,
+    signedAction: nsAction,
   };
 }
 
@@ -1100,6 +879,7 @@ export async function signFlushUsername(
 
 export interface SignMakeOrderParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   p2pSwapAddress: `0x${string}`;
   nonce: string | number;
   tokenA: `0x${string}`;
@@ -1113,316 +893,94 @@ export interface SignMakeOrderParams {
 
 /**
  * Sign make order for P2P swap (dual signature)
- * EXACT pattern from MakeOrderComponent.tsx
  */
 export async function signMakeOrder(params: SignMakeOrderParams): Promise<{
-  makeOrderData: MakeOrderInputData;
+  makeOrderData: IMakeOrderData;
+  signedAction: SignedAction<IMakeOrderData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const p2pSwap = new P2PSwap(signer, params.p2pSwapAddress);
 
-  const walletClient = await getWalletClient(config);
+  // Create EVVM pay action first
+  const evvmAction = await evvm.pay({
+    to: params.p2pSwapAddress,
+    tokenAddress: params.tokenA,
+    amount: BigInt(params.amountA),
+    priorityFee: BigInt(params.priorityFee),
+    nonce: BigInt(params.nonce_EVVM),
+    priorityFlag: params.priority,
+    executor: params.p2pSwapAddress,
+  });
 
-  // Two signature builders because we need two signatures
-  const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-  const p2pSwapSignatureBuilder = new (P2PSwapSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-
-  // Create EVVM pay() signature
-  const signatureEVVM = await evvmSignatureBuilder.signPay(
-    BigInt(params.evvmID),
-    params.p2pSwapAddress,
-    params.tokenA,
-    BigInt(params.amountA),
-    BigInt(params.priorityFee),
-    BigInt(params.nonce_EVVM),
-    params.priority,
-    params.p2pSwapAddress
-  );
-
-  // Create P2PSwap makeOrder() signature
-  const signatureP2P = await p2pSwapSignatureBuilder.makeOrder(
-    BigInt(params.evvmID),
-    BigInt(params.nonce),
-    params.tokenA,
-    params.tokenB,
-    BigInt(params.amountA),
-    BigInt(params.amountB)
-  );
+  // Create make order action
+  const p2pAction = await p2pSwap.makeOrder({
+    nonce: BigInt(params.nonce),
+    tokenA: params.tokenA,
+    tokenB: params.tokenB,
+    amountA: BigInt(params.amountA),
+    amountB: BigInt(params.amountB),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    makeOrderData: {
-      user: walletData.address as `0x${string}`,
-      metadata: {
-        nonce: BigInt(params.nonce),
-        tokenA: params.tokenA,
-        tokenB: params.tokenB,
-        amountA: BigInt(params.amountA),
-        amountB: BigInt(params.amountB),
-      },
-      signature: signatureP2P,
-      priorityFee: BigInt(params.priorityFee),
-      nonce_EVVM: BigInt(params.nonce_EVVM),
-      priorityFlag_EVVM: params.priority,
-      signature_EVVM: signatureEVVM,
-    },
+    makeOrderData: p2pAction.data,
+    signedAction: p2pAction,
   };
 }
 
 export interface SignCancelOrderParams {
   evvmID: string | number;
+  evvmAddress: `0x${string}`;
   p2pSwapAddress: `0x${string}`;
   nonce: string | number;
+  tokenA: `0x${string}`;
+  tokenB: `0x${string}`;
+  orderId: string | number;
 }
 
 /**
  * Sign cancel order for P2P swap
- * EXACT pattern from CancelOrderComponent.tsx
  */
 export async function signCancelOrder(
   params: SignCancelOrderParams
 ): Promise<{
-  cancelOrderData: CancelOrderInputData;
+  cancelOrderData: ICancelOrderData;
+  signedAction: SignedAction<ICancelOrderData>;
 }> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
+  const signer = await getSigner();
+  const evvm = new EVVM(signer, params.evvmAddress);
+  const p2pSwap = new P2PSwap(signer, params.p2pSwapAddress);
 
-  const walletClient = await getWalletClient(config);
+  // Create EVVM pay action first (0 amount)
+  const evvmAction = await evvm.pay({
+    to: params.p2pSwapAddress,
+    tokenAddress: MATE_TOKEN_ADDRESS,
+    amount: 0n,
+    priorityFee: 0n,
+    nonce: 0n,
+    priorityFlag: false,
+    executor: params.p2pSwapAddress,
+  });
 
-  // Two signature builders because we need two signatures
-  const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-  const p2pSwapSignatureBuilder = new (P2PSwapSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-
-  // MATE token address
-  const MATE_TOKEN_ADDRESS =
-    '0x0000000000000000000000000000000000000001' as `0x${string}`;
-
-  // Create EVVM pay() signature with 0 amount
-  const signatureEVVM = await evvmSignatureBuilder.signPay(
-    BigInt(params.evvmID),
-    params.p2pSwapAddress,
-    MATE_TOKEN_ADDRESS,
-    BigInt(0),
-    BigInt(0),
-    BigInt(0),
-    false,
-    params.p2pSwapAddress
-  );
-
-  // Create P2PSwap cancelOrder() signature
-  const signatureP2P = await p2pSwapSignatureBuilder.cancelOrder(
-    BigInt(params.evvmID),
-    BigInt(params.nonce)
-  );
+  // Create cancel order action
+  const p2pAction = await p2pSwap.cancelOrder({
+    nonce: BigInt(params.nonce),
+    tokenA: params.tokenA,
+    tokenB: params.tokenB,
+    orderId: BigInt(params.orderId),
+    evvmSignedAction: evvmAction,
+  });
 
   return {
-    cancelOrderData: {
-      user: walletData.address as `0x${string}`,
-      metadata: {
-        nonce: BigInt(params.nonce),
-        tokenA: '0x0000000000000000000000000000000000000000' as `0x${string}`, // TODO: Add to params
-        tokenB: '0x0000000000000000000000000000000000000000' as `0x${string}`, // TODO: Add to params
-        orderId: BigInt(0), // TODO: Add to params
-        signature: signatureP2P,
-      },
-      priorityFee: BigInt(0),
-      nonce_EVVM: BigInt(0),
-      priorityFlag_EVVM: false,
-      signature_EVVM: signatureEVVM,
-    },
+    cancelOrderData: p2pAction.data,
+    signedAction: p2pAction,
   };
 }
 
-/*
- * COMMENTED OUT: These functions use types not exported in current @evvm/viem-signature-library version
- * Uncomment when library is updated to export DispatchOrderFillProportionalFeeInputData and DispatchOrderFillFixedFeeInputData
- */
+// ====================================================================================
+// UTILITY EXPORTS
+// ====================================================================================
 
-/*
-export interface SignDispatchOrderFillProportionalFeeParams {
-  evvmID: string | number;
-  p2pSwapAddress: `0x${string}`;
-  orderID: string | number;
-  userMaker: `0x${string}`;
-  nonceMaker: string | number;
-  tokenA: `0x${string}`;
-  tokenB: `0x${string}`;
-  amountA: string | number;
-  amountB: string | number;
-  priorityFee_EVVM: string | number;
-  nonce_EVVM: string | number;
-  priorityFlag_EVVM: boolean;
-}
-
-// Sign dispatch order fill with proportional fee for P2P swap (dual signature)
-// EXACT pattern from DispatchOrderPropotionalComponent.tsx
-export async function signDispatchOrderFillProportionalFee(
-  params: SignDispatchOrderFillProportionalFeeParams
-): Promise<{
-  dispatchOrderData: DispatchOrderFillProportionalFeeInputData;
-}> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
-
-  const walletClient = await getWalletClient(config);
-
-  // Two signature builders because we need two signatures
-  const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-  const p2pSwapSignatureBuilder = new (P2PSwapSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-
-  // Calculate proportional fee: (amountB * 500) / 10_000 = 5% fee
-  const feeAmount = (BigInt(params.amountB) * BigInt(500)) / BigInt(10_000);
-
-  // Create EVVM pay() signature
-  const signatureEVVM = await evvmSignatureBuilder.signPay(
-    BigInt(params.evvmID),
-    params.p2pSwapAddress,
-    params.tokenB,
-    BigInt(params.amountB) + feeAmount,
-    BigInt(params.priorityFee_EVVM),
-    BigInt(params.nonce_EVVM),
-    params.priorityFlag_EVVM,
-    params.p2pSwapAddress
-  );
-
-  // Create P2PSwap dispatchOrderFillProportionalFee() signature
-  const signatureP2P =
-    await p2pSwapSignatureBuilder.dispatchOrderFillProportionalFee(
-      BigInt(params.evvmID),
-      BigInt(params.orderID),
-      params.userMaker,
-      BigInt(params.nonceMaker),
-      params.tokenA,
-      params.tokenB,
-      BigInt(params.amountA),
-      BigInt(params.amountB)
-    );
-
-  return {
-    dispatchOrderData: {
-      orderID: BigInt(params.orderID),
-      userMaker: params.userMaker,
-      nonceMaker: BigInt(params.nonceMaker),
-      tokenA: params.tokenA,
-      tokenB: params.tokenB,
-      amountA: BigInt(params.amountA),
-      amountB: BigInt(params.amountB),
-      signature: signatureP2P,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonce_EVVM),
-      priorityFlag_EVVM: params.priorityFlag_EVVM,
-      signature_EVVM: signatureEVVM,
-    },
-  };
-}
-
-export interface SignDispatchOrderFillFixedFeeParams {
-  evvmID: string | number;
-  p2pSwapAddress: `0x${string}`;
-  orderID: string | number;
-  userMaker: `0x${string}`;
-  nonceMaker: string | number;
-  tokenA: `0x${string}`;
-  tokenB: `0x${string}`;
-  amountA: string | number;
-  amountB: string | number;
-  priorityFee_EVVM: string | number;
-  nonce_EVVM: string | number;
-  priorityFlag_EVVM: boolean;
-}
-
-// Sign dispatch order fill with fixed fee for P2P swap (dual signature)
-// EXACT pattern from DispatchOrderFixedComponent.tsx
-export async function signDispatchOrderFillFixedFee(
-  params: SignDispatchOrderFillFixedFeeParams
-): Promise<{
-  dispatchOrderData: DispatchOrderFillFixedFeeInputData;
-}> {
-  const walletData = await getAccountWithRetry(config);
-  if (!walletData) {
-    throw new Error('Failed to get wallet account');
-  }
-
-  const walletClient = await getWalletClient(config);
-
-  // Two signature builders because we need two signatures
-  const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-  const p2pSwapSignatureBuilder = new (P2PSwapSignatureBuilder as any)(
-    walletClient,
-    walletData
-  );
-
-  // Calculate fixed fee with minimum logic
-  const feeCalculation = BigInt(params.amountB) / BigInt(100);
-  const feeAmount =
-    feeCalculation < BigInt(1) ? BigInt(1) : feeCalculation;
-
-  // Create EVVM pay() signature
-  const signatureEVVM = await evvmSignatureBuilder.signPay(
-    BigInt(params.evvmID),
-    params.p2pSwapAddress,
-    params.tokenB,
-    BigInt(params.amountB) + feeAmount,
-    BigInt(params.priorityFee_EVVM),
-    BigInt(params.nonce_EVVM),
-    params.priorityFlag_EVVM,
-    params.p2pSwapAddress
-  );
-
-  // Create P2PSwap dispatchOrderFillFixedFee() signature
-  const signatureP2P =
-    await p2pSwapSignatureBuilder.dispatchOrderFillFixedFee(
-      BigInt(params.evvmID),
-      BigInt(params.orderID),
-      params.userMaker,
-      BigInt(params.nonceMaker),
-      params.tokenA,
-      params.tokenB,
-      BigInt(params.amountA),
-      BigInt(params.amountB)
-    );
-
-  return {
-    dispatchOrderData: {
-      orderID: BigInt(params.orderID),
-      userMaker: params.userMaker,
-      nonceMaker: BigInt(params.nonceMaker),
-      tokenA: params.tokenA,
-      tokenB: params.tokenB,
-      amountA: BigInt(params.amountA),
-      amountB: BigInt(params.amountB),
-      signature: signatureP2P,
-      priorityFee_EVVM: BigInt(params.priorityFee_EVVM),
-      nonce_EVVM: BigInt(params.nonce_EVVM),
-      priorityFlag_EVVM: params.priorityFlag_EVVM,
-      signature_EVVM: signatureEVVM,
-    },
-  };
-}
-*/
+// Export the hash function for pre-registration
+export { hashPreRegisteredUsername };
