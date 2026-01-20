@@ -2,10 +2,49 @@ import type { WalletClient, PublicClient } from 'viem';
 import type { PayInputData, DispersePayInputData, StakingInputData } from '@/types/evvm';
 import { config } from '@/config';
 import { writeContract } from '@wagmi/core';
-import { EvvmABI, StakingABI, NameServiceABI } from '@evvm/viem-signature-library';
+import {
+  EvvmABI,
+  StakingABI,
+  NameServiceABI,
+  execute as evvmExecute,
+  createSignerWithViem,
+  type SignedAction,
+  type ISigner,
+} from '@evvm/evvm-js';
+
+// Re-export ABIs for backward compatibility
+export { EvvmABI, StakingABI, NameServiceABI };
 
 // ============================================
-// PAYMENT EXECUTORS
+// SIGNED ACTION EXECUTOR
+// ============================================
+
+/**
+ * Execute a SignedAction using evvm-js execute function
+ * This is the new recommended way to execute EVVM transactions
+ */
+export async function executeSignedAction<T>(
+  walletClient: WalletClient,
+  signedAction: SignedAction<T>
+): Promise<`0x${string}`> {
+  const signer = await createSignerWithViem(walletClient);
+  const hash = await evvmExecute(signer, signedAction);
+  return hash as `0x${string}`;
+}
+
+/**
+ * Execute a SignedAction with an existing signer
+ */
+export async function executeWithSigner<T>(
+  signer: ISigner,
+  signedAction: SignedAction<T>
+): Promise<`0x${string}`> {
+  const hash = await evvmExecute(signer, signedAction);
+  return hash as `0x${string}`;
+}
+
+// ============================================
+// PAYMENT EXECUTORS (Legacy API)
 // ============================================
 
 /**
@@ -112,7 +151,7 @@ export async function executeDispersePay(
 }
 
 // ============================================
-// STAKING EXECUTORS
+// STAKING EXECUTORS (Legacy API)
 // ============================================
 
 /**
