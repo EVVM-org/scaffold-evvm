@@ -14,11 +14,13 @@ import {
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeFlushCustomMetadata } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
+  createSignerWithViem,
+  EVVM,
+  NameService,
   NameServiceABI,
-  FlushCustomMetadataInputData,
-  PayInputData,
-  NameServiceSignatureBuilder,
-} from "@evvm/viem-signature-library";
+  type IPayData as PayInputData,
+  type IFlushCustomMetadataData as FlushCustomMetadataInputData,
+} from "@evvm/evvm-js";
 
 type InfoData = {
   PayInputData: PayInputData;
@@ -56,10 +58,11 @@ export const FlushCustomMetadataComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM(signer, evvmAddress);
+      const nameService = new NameService(signer, formData.addressNameService as `0x${string}`);
 
       const price = await readContract(config, {
         abi: NameServiceABI,
@@ -68,17 +71,24 @@ export const FlushCustomMetadataComponent = ({
         args: [formData.identity],
       });
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signFlushCustomMetadata(
-          BigInt(formData.evvmId),
-          formData.addressNameService as `0x${string}`,
-          formData.identity,
-          BigInt(formData.nonceNameService),
-          price as bigint,
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: formData.addressNameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: price as bigint,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: formData.addressNameService as `0x${string}`,
+      });
+
+      // Create flush custom metadata action
+      const nsAction = await nameService.flushCustomMetadata({
+        identity: formData.identity,
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
+
       setDataToGet({
         PayInputData: {
           from: walletData.address as `0x${string}`,
@@ -88,20 +98,11 @@ export const FlushCustomMetadataComponent = ({
           amount: price as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.addressNameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        FlushCustomMetadataInputData: {
-          user: walletData.address as `0x${string}`,
-          identity: formData.identity,
-          nonce: BigInt(formData.nonceNameService),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: paySignature,
-        },
+        FlushCustomMetadataInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);

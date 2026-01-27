@@ -14,10 +14,12 @@ import {
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeWithdrawOffer } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
-  PayInputData,
-  WithdrawOfferInputData,
-  NameServiceSignatureBuilder,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  NameService,
+  type IPayData as PayInputData,
+  type IWithdrawOfferData as WithdrawOfferInputData,
+} from "@evvm/evvm-js";
 
 type InfoData = {
   PayInputData: PayInputData;
@@ -56,22 +58,31 @@ export const WithdrawOfferComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM(signer, evvmAddress);
+      const nameService = new NameService(signer, formData.addressNameService as `0x${string}`);
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signWithdrawOffer(
-          BigInt(formData.evvmId),
-          formData.addressNameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.offerId),
-          BigInt(formData.nonceNameService),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
+      // Create EVVM pay action first (0 amount)
+      const evvmAction = await evvm.pay({
+        to: formData.addressNameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: 0n,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: formData.addressNameService as `0x${string}`,
+      });
+
+      // Create withdraw offer action
+      const nsAction = await nameService.withdrawOffer({
+        username: formData.username,
+        offerID: BigInt(formData.offerId),
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
+
       setDataToGet({
         PayInputData: {
           from: walletData.address as `0x${string}`,
@@ -81,21 +92,11 @@ export const WithdrawOfferComponent = ({
           amount: BigInt(0),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.addressNameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        WithdrawOfferInputData: {
-          user: walletData.address as `0x${string}`,
-          nonce: BigInt(formData.nonceNameService),
-          username: formData.username,
-          offerID: BigInt(formData.offerId),
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          signature: actionSignature,
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: paySignature,
-        },
+        WithdrawOfferInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error signing withdraw offer:", error);

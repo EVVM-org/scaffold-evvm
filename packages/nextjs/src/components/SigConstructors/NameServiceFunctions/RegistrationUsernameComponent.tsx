@@ -13,14 +13,16 @@ import {
 } from "@/components/SigConstructors/InputsAndModules";
 
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
-import { NameServiceABI } from "@evvm/viem-signature-library";
 import { executeRegistrationUsername } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
+  createSignerWithViem,
+  EVVM,
+  NameService,
   EvvmABI,
-  PayInputData,
-  RegistrationUsernameInputData,
-  NameServiceSignatureBuilder,
-} from "@evvm/viem-signature-library";
+  NameServiceABI,
+  type IPayData as PayInputData,
+  type IRegistrationUsernameData as RegistrationUsernameInputData,
+} from "@evvm/evvm-js";
 
 type InfoData = {
   PayInputData: PayInputData;
@@ -84,25 +86,34 @@ export const RegistrationUsernameComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM(signer, evvmAddress);
+      const nameService = new NameService(signer, formData.addressNameService as `0x${string}`);
 
       await readRewardAmount();
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signRegistrationUsername(
-          BigInt(formData.evvmId),
-          formData.addressNameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.clowNumber),
-          BigInt(formData.nonceNameService),
-          rewardAmount as bigint,
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonceEVVM),
-          formData.priorityFlag
-        );
+      const amount = rewardAmount ? rewardAmount * BigInt(100) : BigInt(0);
+
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: formData.addressNameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: amount,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonceEVVM),
+        priorityFlag: formData.priorityFlag,
+        executor: formData.addressNameService as `0x${string}`,
+      });
+
+      // Create registration action
+      const nsAction = await nameService.registrationUsername({
+        username: formData.username,
+        clowNumber: BigInt(formData.clowNumber),
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -110,24 +121,14 @@ export const RegistrationUsernameComponent = ({
           to_address: formData.addressNameService as `0x${string}`,
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
-          amount: rewardAmount ? rewardAmount * BigInt(100) : BigInt(0),
+          amount: amount,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.addressNameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        RegistrationUsernameInputData: {
-          user: walletData.address as `0x${string}`,
-          nonce: BigInt(formData.nonceNameService),
-          username: formData.username,
-          clowNumber: BigInt(formData.clowNumber),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonceEVVM),
-          priorityFlag_EVVM: formData.priorityFlag,
-          signature_EVVM: paySignature,
-        },
+        RegistrationUsernameInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signatures:", error);

@@ -14,11 +14,13 @@ import {
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeRenewUsername } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
+  createSignerWithViem,
+  EVVM,
+  NameService,
   NameServiceABI,
-  PayInputData,
-  RenewUsernameInputData,
-  NameServiceSignatureBuilder,
-} from "@evvm/viem-signature-library";
+  type IPayData as PayInputData,
+  type IRenewUsernameData as RenewUsernameInputData,
+} from "@evvm/evvm-js";
 
 type InfoData = {
   PayInputData: PayInputData;
@@ -65,23 +67,30 @@ export const RenewUsernameComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM(signer, evvmAddress);
+      const nameService = new NameService(signer, formData.addressNameService as `0x${string}`);
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signRenewUsername(
-          formData.evvmId,
-          formData.addressNameService as `0x${string}`,
-          formData.username,
-          formData.nonceNameService,
-          formData.amountToRenew,
-          formData.priorityFee_EVVM,
-          formData.nonceEVVM,
-          formData.priorityFlag
-        );
-        
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: formData.addressNameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: formData.amountToRenew,
+        priorityFee: formData.priorityFee_EVVM,
+        nonce: formData.nonceEVVM,
+        priorityFlag: formData.priorityFlag,
+        executor: formData.addressNameService as `0x${string}`,
+      });
+
+      // Create renew username action
+      const nsAction = await nameService.renewUsername({
+        username: formData.username,
+        nonce: formData.nonceNameService,
+        evvmSignedAction: evvmAction,
+      });
+
       setDataToGet({
         PayInputData: {
           from: walletData.address as `0x${string}`,
@@ -91,20 +100,11 @@ export const RenewUsernameComponent = ({
           amount: formData.priorityFee_EVVM,
           priorityFee: BigInt(0),
           nonce: formData.nonceEVVM,
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.addressNameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        RenewUsernameInputData: {
-          user: walletData.address as `0x${string}`,
-          nonce: formData.nonceNameService,
-          username: formData.username,
-          priorityFee_EVVM: formData.priorityFee_EVVM,
-          signature: actionSignature,
-          nonce_EVVM: formData.nonceEVVM,
-          priorityFlag_EVVM: formData.priorityFlag,
-          signature_EVVM: paySignature,
-        },
+        RenewUsernameInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error signing renew username:", error);
