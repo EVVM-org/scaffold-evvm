@@ -23,11 +23,13 @@ export { EvvmABI, StakingABI, NameServiceABI };
  * Execute a SignedAction using evvm-js execute function
  * This is the new recommended way to execute EVVM transactions
  */
-export async function executeSignedAction<T>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function executeSignedAction(
   walletClient: WalletClient,
-  signedAction: SignedAction<T>
+  signedAction: SignedAction<any>
 ): Promise<`0x${string}`> {
-  const signer = await createSignerWithViem(walletClient);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const signer = await createSignerWithViem(walletClient as any);
   const hash = await evvmExecute(signer, signedAction);
   return hash as `0x${string}`;
 }
@@ -35,9 +37,10 @@ export async function executeSignedAction<T>(
 /**
  * Execute a SignedAction with an existing signer
  */
-export async function executeWithSigner<T>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function executeWithSigner(
   signer: ISigner,
-  signedAction: SignedAction<T>
+  signedAction: SignedAction<any>
 ): Promise<`0x${string}`> {
   const hash = await evvmExecute(signer, signedAction);
   return hash as `0x${string}`;

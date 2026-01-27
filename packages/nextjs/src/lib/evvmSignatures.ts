@@ -67,7 +67,8 @@ async function getSigner(): Promise<ISigner> {
   if (!walletClient) {
     throw new Error('Failed to get wallet client');
   }
-  return createSignerWithViem(walletClient);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return createSignerWithViem(walletClient as any);
 }
 
 // MATE token address constant

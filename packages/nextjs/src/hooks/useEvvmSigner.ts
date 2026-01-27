@@ -27,7 +27,11 @@ export function useEvvmSigner() {
       throw new Error('Failed to get wallet client');
     }
 
-    return createSignerWithViem(walletClient);
+    console.log('🔑 [evvm-js] Creating signer with createSignerWithViem from @evvm/evvm-js');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const signer = await createSignerWithViem(walletClient as any);
+    console.log('✅ [evvm-js] Signer created successfully:', { address: signer.address });
+    return signer;
   }, [isConnected, address]);
 
   return {
