@@ -20,13 +20,15 @@ import {
 } from "@/utils/transactionExecuters/stakingExecuter";
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import {
-  PayInputData,
-  GoldenStakingInputData,
-  PresaleStakingInputData,
-  PublicStakingInputData,
-  StakingSignatureBuilder,
+  createSignerWithViem,
+  EVVM,
+  Staking,
   StakingABI,
-} from "@evvm/viem-signature-library";
+  type IPayData as PayInputData,
+  type IGoldenStakingData as GoldenStakingInputData,
+  type IPresaleStakingData as PresaleStakingInputData,
+  type IPublicStakingData as PublicStakingInputData,
+} from "@evvm/evvm-js";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import { NetworkWarning } from "@/components/NetworkWarning";
 import { readBalance, readNextNonce } from "@/lib/evvmExecutors";
@@ -194,7 +196,8 @@ function GoldenStakingComponent({
 
         // Read EVVM balance (MATE token)
         const mateToken = "0x0000000000000000000000000000000000000001" as `0x${string}`;
-        const balance = await readBalance(publicClient, deployment.evvm as `0x${string}`, walletData.address as `0x${string}`, mateToken);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const balance = await readBalance(publicClient as any, deployment.evvm as `0x${string}`, walletData.address as `0x${string}`, mateToken);
 
         console.log("📊 Balance Debug Info:");
         console.log("  Raw balance (wei):", balance.toString());
@@ -212,7 +215,8 @@ function GoldenStakingComponent({
         setEvvmBalance(formattedBalance);
 
         // Read next nonce
-        const nonce = await readNextNonce(publicClient, deployment.evvm as `0x${string}`, walletData.address as `0x${string}`);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nonce = await readNextNonce(publicClient as any, deployment.evvm as `0x${string}`, walletData.address as `0x${string}`);
         setCurrentNonce(nonce.toString());
         setNonceLoading(false);
       } catch (error) {
@@ -262,19 +266,31 @@ function GoldenStakingComponent({
     console.log("  Sync Nonce (from contract):", formData.nonce);
     console.log("  Priority: sync (low) - fixed for Golden Staking");
 
-    // Sign and set data
+    // Sign and set data using evvm-js services
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (StakingSignatureBuilder as any)(walletClient, walletData);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
+      const staking = new Staking(signer, stakingAddress);
 
-      // Golden Staking ALWAYS uses sync (false) for priority
-      const signaturePay = await signatureBuilder.signGoldenStaking(
-        BigInt(formData.evvmID),
-        formData.stakingAddress as `0x${string}`,
-        amountOfToken,
-        BigInt(formData.nonce),
-        false  // Always sync (low priority) for Golden Staking
-      );
+      // Create EVVM pay action first (Golden Staking ALWAYS uses sync/low priority)
+      const evvmAction = await evvm.pay({
+        to: formData.stakingAddress as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: amountOfToken,
+        priorityFee: 0n,
+        nonce: BigInt(formData.nonce),
+        priorityFlag: false, // Golden Staking always uses sync (low priority)
+        executor: formData.stakingAddress as `0x${string}`,
+      });
+
+      // Create Golden Staking action
+      const stakingAction = await staking.goldenStaking({
+        isStaking: isStaking,
+        amountOfStaking: BigInt(formData.amountOfStaking),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -285,15 +301,11 @@ function GoldenStakingComponent({
           amount: amountOfToken,
           priorityFee: BigInt(0),
           nonce: BigInt(formData.nonce),
-          priority: false, // Golden Staking always uses sync (low priority)
+          priorityFlag: false, // Golden Staking always uses sync (low priority)
           executor: formData.stakingAddress as `0x${string}`,
-          signature: signaturePay,
+          signature: evvmAction.data.signature,
         },
-        GoldenStakingInputData: {
-          isStaking: isStaking,
-          amountOfStaking: BigInt(formData.amountOfStaking),  // Number of staking tokens (fishers), contract multiplies by PRICE_OF_STAKING
-          signature_EVVM: signaturePay,
-        },
+        GoldenStakingInputData: stakingAction.data,
       } as GoldenStakingData);
     } catch (error) {
       console.error("Error creating signature:", error);
@@ -305,7 +317,7 @@ function GoldenStakingComponent({
       console.error("No data to execute payment");
       return;
     }
-    const stakingAddress = dataToGet.PayInputData.to_address;
+    const stakingAddress = dataToGet.PayInputData.to_address!;
 
     executeGoldenStaking(dataToGet.GoldenStakingInputData, stakingAddress)
       .then(() => {
@@ -472,30 +484,31 @@ function PresaleStakingComponent({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (StakingSignatureBuilder as any)(walletClient, walletData);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
+      const staking = new Staking(signer, stakingAddress);
 
-      const { paySignature, actionSignature } = await signatureBuilder.signPresaleStaking(
-        BigInt(formData.evvmID),
-        formData.stakingAddress as `0x${string}`,
-        isStaking,
-        BigInt(formData.nonce),
-        BigInt(formData.priorityFee_EVVM),
-        BigInt(amountOfToken),
-        BigInt(formData.nonce_EVVM),
-        formData.priorityFlag_EVVM
-      );
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: formData.stakingAddress as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: BigInt(amountOfToken),
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: formData.stakingAddress as `0x${string}`,
+      });
+
+      // Create Presale Staking action
+      const stakingAction = await staking.presaleStaking({
+        isStaking: isStaking,
+        nonce: BigInt(formData.nonce),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
-        PresaleStakingInputData: {
-          isStaking: isStaking,
-          user: walletData.address as `0x${string}`,
-          nonce: BigInt(formData.nonce),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          priorityFlag_EVVM: priority === "high",
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          signature_EVVM: paySignature,
-        },
+        PresaleStakingInputData: stakingAction.data,
         PayInputData: {
           from: walletData.address as `0x${string}`,
           to_address: formData.stakingAddress as `0x${string}`,
@@ -504,9 +517,9 @@ function PresaleStakingComponent({
           amount: BigInt(amountOfToken),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.stakingAddress as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
       });
     } catch (error) {
@@ -520,7 +533,7 @@ function PresaleStakingComponent({
       return;
     }
 
-    const stakingAddress = dataToGet.PayInputData.to_address;
+    const stakingAddress = dataToGet.PayInputData.to_address!;
 
     executePresaleStaking(dataToGet.PresaleStakingInputData, stakingAddress)
       .then(() => {
@@ -768,32 +781,32 @@ function PublicStakingComponent({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (StakingSignatureBuilder as any)(walletClient, walletData);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
+      const staking = new Staking(signer, stakingAddress);
 
-      const { paySignature, actionSignature } = await signatureBuilder.signPublicStaking(
-        BigInt(formData.evvmID),
-        formData.stakingAddress as `0x${string}`,
-        isStaking,
-        BigInt(formData.amountOfStaking),
-        BigInt(formData.nonceStaking),
-        amountOfToken,
-        BigInt(formData.priorityFee),
-        BigInt(formData.nonceEVVM),
-        priority === "high"
-      );
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: formData.stakingAddress as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: amountOfToken,
+        priorityFee: BigInt(formData.priorityFee),
+        nonce: BigInt(formData.nonceEVVM),
+        priorityFlag: priority === "high",
+        executor: formData.stakingAddress as `0x${string}`,
+      });
+
+      // Create Public Staking action
+      const stakingAction = await staking.publicStaking({
+        isStaking: isStaking,
+        amountOfStaking: BigInt(formData.amountOfStaking),
+        nonce: BigInt(formData.nonceStaking),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
-        PublicStakingInputData: {
-          isStaking: isStaking,
-          user: walletData.address as `0x${string}`,
-          nonce: BigInt(formData.nonceStaking),
-          amountOfStaking: BigInt(formData.amountOfStaking),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee),
-          priorityFlag_EVVM: priority === "high",
-          nonce_EVVM: BigInt(formData.nonceEVVM),
-          signature_EVVM: paySignature,
-        },
+        PublicStakingInputData: stakingAction.data,
         PayInputData: {
           from: walletData.address as `0x${string}`,
           to_address: formData.stakingAddress as `0x${string}`,
@@ -802,9 +815,9 @@ function PublicStakingComponent({
           amount: BigInt(amountOfToken),
           priorityFee: BigInt(formData.priorityFee),
           nonce: BigInt(formData.nonceEVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.stakingAddress as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
       });
     } catch (error) {
@@ -818,7 +831,7 @@ function PublicStakingComponent({
       return;
     }
 
-    const stakingAddress = dataToGet.PayInputData.to_address;
+    const stakingAddress = dataToGet.PayInputData.to_address!;
 
     executePublicStaking(dataToGet.PublicStakingInputData, stakingAddress)
       .then(() => {

@@ -5,7 +5,7 @@ import { useAccount } from 'wagmi';
 import { writeContract, waitForTransactionReceipt } from '@wagmi/core';
 import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
-import { EvvmABI } from '@evvm/viem-signature-library';
+import { EvvmABI } from '@evvm/evvm-js';
 import { getExplorerTxUrl } from '@/lib/evvmConfig';
 import styles from '@/styles/pages/Faucet.module.css';
 

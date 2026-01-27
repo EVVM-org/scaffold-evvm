@@ -24,13 +24,14 @@ import {
   executeDispatchOrderFillFixedFee,
 } from "@/utils/transactionExecuters";
 import {
-  EVVMSignatureBuilder,
-  P2PSwapSignatureBuilder,
-  MakeOrderInputData,
-  CancelOrderInputData,
-  DispatchOrderFillFixedFeeInputData,
-  DispatchOrderFillPropotionalFeeInputData,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  P2PSwap,
+  type IMakeOrderData as MakeOrderInputData,
+  type ICancelOrderData as CancelOrderInputData,
+  type IDispatchOrderFixedFeeData as DispatchOrderFillFixedFeeInputData,
+  type IDispatchOrderData as DispatchOrderFillPropotionalFeeInputData,
+} from "@evvm/evvm-js";
 import { MATE_TOKEN_ADDRESS } from "@/utils/constants";
 import styles from "@/styles/pages/P2PSwap.module.css";
 
@@ -174,52 +175,33 @@ export default function P2PSwapPage() {
         throw new Error("Wallet client not available");
       }
 
-      const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
-      const p2pSwapSignatureBuilder = new (P2PSwapSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
+      const p2pSwap = new P2PSwap(signer, deployment.p2pSwap as `0x${string}`);
 
-      // Create EVVM pay() signature
-      const signatureEVVM = await evvmSignatureBuilder.signPay(
-        BigInt(deployment.evvmID),
-        deployment.p2pSwap,
-        formData.tokenA as `0x${string}`,
-        BigInt(formData.amountA),
-        BigInt(formData.priorityFee),
-        BigInt(formData.nonce_EVVM),
-        priorityMake === "high",
-        deployment.p2pSwap
-      );
-
-      // Create P2PSwap makeOrder() signature
-      const signatureP2P = await p2pSwapSignatureBuilder.makeOrder(
-        BigInt(deployment.evvmID),
-        BigInt(formData.nonce),
-        formData.tokenA as `0x${string}`,
-        formData.tokenB as `0x${string}`,
-        BigInt(formData.amountA),
-        BigInt(formData.amountB)
-      );
-
-      const orderData: MakeOrderInputData = {
-        user: walletData.address as `0x${string}`,
-        metadata: {
-          nonce: BigInt(formData.nonce),
-          tokenA: formData.tokenA as `0x${string}`,
-          tokenB: formData.tokenB as `0x${string}`,
-          amountA: BigInt(formData.amountA),
-          amountB: BigInt(formData.amountB),
-        },
-        signature: signatureP2P,
+      // Create EVVM pay() action first
+      const evvmAction = await evvm.pay({
+        to: deployment.p2pSwap as `0x${string}`,
+        tokenAddress: formData.tokenA as `0x${string}`,
+        amount: BigInt(formData.amountA),
         priorityFee: BigInt(formData.priorityFee),
-        nonce_EVVM: BigInt(formData.nonce_EVVM),
-        priorityFlag_EVVM: priorityMake === "high",
-        signature_EVVM: signatureEVVM,
-      };
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: priorityMake === "high",
+        executor: deployment.p2pSwap as `0x${string}`,
+      });
+
+      // Create P2PSwap makeOrder() action
+      const p2pAction = await p2pSwap.makeOrder({
+        nonce: BigInt(formData.nonce),
+        tokenA: formData.tokenA as `0x${string}`,
+        tokenB: formData.tokenB as `0x${string}`,
+        amountA: BigInt(formData.amountA),
+        amountB: BigInt(formData.amountB),
+        evvmSignedAction: evvmAction,
+      });
+
+      const orderData: MakeOrderInputData = p2pAction.data;
 
       setMakeOrderData(orderData);
       console.log("Make order signature created successfully", orderData);
@@ -310,55 +292,37 @@ export default function P2PSwapPage() {
         throw new Error("Wallet client not available");
       }
 
-      const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
-      const p2pSwapSignatureBuilder = new (P2PSwapSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
+      const p2pSwap = new P2PSwap(signer, deployment.p2pSwap as `0x${string}`);
 
-      // Create EVVM pay() signature
-      const signatureEVVM = await evvmSignatureBuilder.signPay(
-        BigInt(deployment.evvmID),
-        deployment.p2pSwap,
-        formData.tokenB as `0x${string}`,
-        amountOfTokenBToFill,
-        BigInt(formData.priorityFee),
-        BigInt(formData.nonce_EVVM),
-        priorityDispatchFixed === "high",
-        deployment.p2pSwap
-      );
-
-      // Create P2PSwap dispatchOrder() signature
-      const signatureP2P = await p2pSwapSignatureBuilder.dispatchOrder(
-        BigInt(deployment.evvmID),
-        BigInt(formData.nonce),
-        formData.tokenA as `0x${string}`,
-        formData.tokenB as `0x${string}`,
-        BigInt(formData.orderId)
-      );
+      // Create EVVM pay() action first
+      const evvmAction = await evvm.pay({
+        to: deployment.p2pSwap as `0x${string}`,
+        tokenAddress: formData.tokenB as `0x${string}`,
+        amount: amountOfTokenBToFill,
+        priorityFee: BigInt(formData.priorityFee),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: priorityDispatchFixed === "high",
+        executor: deployment.p2pSwap as `0x${string}`,
+      });
 
       if (!feeFixed) throw new Error("Error calculating fee");
       if (!amountOutFixed) throw new Error("Error calculating fee");
 
-      const dispatchData: DispatchOrderFillFixedFeeInputData = {
-        user: walletData.address as `0x${string}`,
-        metadata: {
-          nonce: BigInt(formData.nonce),
-          tokenA: formData.tokenA as `0x${string}`,
-          tokenB: formData.tokenB as `0x${string}`,
-          orderId: BigInt(formData.orderId),
-          amountOfTokenBToFill,
-          signature: signatureP2P,
-        },
-        priorityFee: BigInt(formData.priorityFee),
-        nonce_EVVM: BigInt(formData.nonce_EVVM),
-        priorityFlag_EVVM: priorityDispatchFixed === "high",
-        signature_EVVM: signatureEVVM,
-        amountOut: BigInt(amountOutFixed),
-      };
+      // Create P2PSwap dispatchOrder() action with fixed fee
+      const p2pAction = await p2pSwap.dispatchOrder_fillFixedFee({
+        nonce: BigInt(formData.nonce),
+        tokenA: formData.tokenA as `0x${string}`,
+        tokenB: formData.tokenB as `0x${string}`,
+        orderId: BigInt(formData.orderId),
+        amountOfTokenBToFill,
+        maxFillFixedFee: BigInt(amountOutFixed),
+        evvmSignedAction: evvmAction,
+      });
+
+      const dispatchData: DispatchOrderFillFixedFeeInputData = p2pAction.data;
 
       setDispatchFixedData(dispatchData);
       console.log("Dispatch fixed fee signature created successfully", dispatchData);
@@ -451,53 +415,35 @@ export default function P2PSwapPage() {
         throw new Error("Wallet client not available");
       }
 
-      const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
-      const p2pSwapSignatureBuilder = new (P2PSwapSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
+      const p2pSwap = new P2PSwap(signer, deployment.p2pSwap as `0x${string}`);
 
-      // Create EVVM pay() signature
-      const signatureEVVM = await evvmSignatureBuilder.signPay(
-        BigInt(deployment.evvmID),
-        deployment.p2pSwap,
-        formData.tokenB as `0x${string}`,
-        amountOfTokenBToFill,
-        BigInt(formData.priorityFee),
-        BigInt(formData.nonce_EVVM),
-        priorityDispatchProp === "high",
-        deployment.p2pSwap
-      );
-
-      // Create P2PSwap dispatchOrder() signature
-      const signatureP2P = await p2pSwapSignatureBuilder.dispatchOrder(
-        BigInt(deployment.evvmID),
-        BigInt(formData.nonce),
-        formData.tokenA as `0x${string}`,
-        formData.tokenB as `0x${string}`,
-        BigInt(formData.orderId)
-      );
+      // Create EVVM pay() action first
+      const evvmAction = await evvm.pay({
+        to: deployment.p2pSwap as `0x${string}`,
+        tokenAddress: formData.tokenB as `0x${string}`,
+        amount: amountOfTokenBToFill,
+        priorityFee: BigInt(formData.priorityFee),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: priorityDispatchProp === "high",
+        executor: deployment.p2pSwap as `0x${string}`,
+      });
 
       if (!feeProp) throw new Error("Error calculating fee");
 
-      const dispatchData: DispatchOrderFillPropotionalFeeInputData = {
-        user: walletData.address as `0x${string}`,
-        metadata: {
-          nonce: BigInt(formData.nonce),
-          tokenA: formData.tokenA as `0x${string}`,
-          tokenB: formData.tokenB as `0x${string}`,
-          orderId: BigInt(formData.orderId),
-          amountOfTokenBToFill,
-          signature: signatureP2P,
-        },
-        priorityFee: BigInt(formData.priorityFee),
-        nonce_EVVM: BigInt(formData.nonce_EVVM),
-        priorityFlag_EVVM: priorityDispatchProp === "high",
-        signature_EVVM: signatureEVVM,
-      };
+      // Create P2PSwap dispatchOrder() action with proportional fee
+      const p2pAction = await p2pSwap.dispatchOrder_fillPropotionalFee({
+        nonce: BigInt(formData.nonce),
+        tokenA: formData.tokenA as `0x${string}`,
+        tokenB: formData.tokenB as `0x${string}`,
+        orderId: BigInt(formData.orderId),
+        amountOfTokenBToFill,
+        evvmSignedAction: evvmAction,
+      });
+
+      const dispatchData: DispatchOrderFillPropotionalFeeInputData = p2pAction.data;
 
       setDispatchPropData(dispatchData);
       console.log("Dispatch proportional fee signature created successfully", dispatchData);
@@ -583,50 +529,32 @@ export default function P2PSwapPage() {
         throw new Error("Wallet client not available");
       }
 
-      const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
-      const p2pSwapSignatureBuilder = new (P2PSwapSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
+      const p2pSwap = new P2PSwap(signer, deployment.p2pSwap as `0x${string}`);
 
-      // Create EVVM pay() signature
-      const signatureEVVM = await evvmSignatureBuilder.signPay(
-        BigInt(deployment.evvmID),
-        deployment.p2pSwap,
-        MATE_TOKEN_ADDRESS,
-        0,
-        BigInt(formData.priorityFee),
-        BigInt(formData.nonce_EVVM),
-        priorityCancel === "high",
-        deployment.p2pSwap
-      );
-
-      // Create P2PSwap cancelOrder() signature
-      const signatureP2P = await p2pSwapSignatureBuilder.cancelOrder(
-        BigInt(deployment.evvmID),
-        BigInt(formData.nonce),
-        formData.tokenA as `0x${string}`,
-        formData.tokenB as `0x${string}`,
-        BigInt(formData.orderId)
-      );
-
-      const cancelData: CancelOrderInputData = {
-        user: walletData.address as `0x${string}`,
-        metadata: {
-          nonce: BigInt(formData.nonce),
-          tokenA: formData.tokenA as `0x${string}`,
-          tokenB: formData.tokenB as `0x${string}`,
-          orderId: BigInt(formData.orderId),
-          signature: signatureP2P,
-        },
+      // Create EVVM pay() action first (with 0 amount for cancel)
+      const evvmAction = await evvm.pay({
+        to: deployment.p2pSwap as `0x${string}`,
+        tokenAddress: MATE_TOKEN_ADDRESS,
+        amount: 0n,
         priorityFee: BigInt(formData.priorityFee),
-        nonce_EVVM: BigInt(formData.nonce_EVVM),
-        priorityFlag_EVVM: priorityCancel === "high",
-        signature_EVVM: signatureEVVM,
-      };
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: priorityCancel === "high",
+        executor: deployment.p2pSwap as `0x${string}`,
+      });
+
+      // Create P2PSwap cancelOrder() action
+      const p2pAction = await p2pSwap.cancelOrder({
+        nonce: BigInt(formData.nonce),
+        tokenA: formData.tokenA as `0x${string}`,
+        tokenB: formData.tokenB as `0x${string}`,
+        orderId: BigInt(formData.orderId),
+        evvmSignedAction: evvmAction,
+      });
+
+      const cancelData: CancelOrderInputData = p2pAction.data;
 
       setCancelOrderData(cancelData);
       console.log("Cancel order signature created successfully", cancelData);

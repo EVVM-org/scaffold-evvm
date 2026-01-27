@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPublicClient, http } from 'viem';
 import { arbitrumSepolia, sepolia, baseSepolia } from 'viem/chains';
-import { EvvmABI, StakingABI } from '@evvm/viem-signature-library';
+import { EvvmABI, StakingABI } from '@evvm/evvm-js';
 import { saveEvvmConfig, loadEvvmConfig, clearEvvmConfig, hasStoredConfig, formatConfigAge, getConfigAge } from '@/lib/evvmConfigStorage';
 import styles from '@/styles/pages/Config.module.css';
 
