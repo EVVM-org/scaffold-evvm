@@ -38,10 +38,10 @@ const executeMakeOrder = async (
       InputData.user,
       InputData.metadata,
       InputData.signature,
-      InputData.priorityFee,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData._priorityFee_Evvm,
+      InputData._nonce_Evvm,
+      InputData._priority_Evvm,
+      InputData._signature_Evvm,
     ],
   })
     .then(() => {
@@ -74,10 +74,10 @@ const executeCancelOrder = async (
     args: [
       InputData.user,
       InputData.metadata,
-      InputData.priorityFee,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData._priorityFee_Evvm,
+      InputData._nonce_Evvm,
+      InputData._priority_Evvm,
+      InputData._signature_Evvm,
     ],
   })
     .then(() => {
@@ -110,10 +110,10 @@ const executeDispatchOrderFillProportionalFee = async (
     args: [
       InputData.user,
       InputData.metadata,
-      InputData.priorityFee,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData._priorityFee_Evvm,
+      InputData._nonce_Evvm,
+      InputData._priority_Evvm,
+      InputData._signature_Evvm,
     ],
   })
     .then(() => {
@@ -146,11 +146,11 @@ const executeDispatchOrderFillFixedFee = async (
     args: [
       InputData.user,
       InputData.metadata,
-      InputData.priorityFee,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
-      InputData.amountOut,
+      InputData._priorityFee_Evvm,
+      InputData._nonce_Evvm,
+      InputData._priority_Evvm,
+      InputData._signature_Evvm,
+      InputData.maxFillFixedFee,
     ],
   })
     .then(() => {
