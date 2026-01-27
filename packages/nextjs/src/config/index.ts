@@ -92,6 +92,7 @@ export const wagmiAdapter = new WagmiAdapter({
   ssr: true,
   projectId,
   networks,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   transports: {
     [localhost.id]: http('http://localhost:8545', {
       retryCount: 3,
@@ -105,7 +106,7 @@ export const wagmiAdapter = new WagmiAdapter({
       retryCount: 5,
       retryDelay: 1000,
     }),
-  },
+  } as any,
 })
 
 export const config = wagmiAdapter.wagmiConfig
