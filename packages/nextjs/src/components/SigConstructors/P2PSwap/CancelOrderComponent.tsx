@@ -14,10 +14,11 @@ import { getAccountWithRetry } from '@/utils/getAccountWithRetry'
 
 import { getWalletClient } from 'wagmi/actions'
 import {
-  EVVMSignatureBuilder,
-  CancelOrderInputData,
-  P2PSwapSignatureBuilder,
-} from '@evvm/viem-signature-library'
+  createSignerWithViem,
+  EVVM,
+  P2PSwap,
+  type ICancelOrderData as CancelOrderInputData,
+} from '@evvm/evvm-js'
 import { executeCancelOrder } from '@/utils/transactionExecuters'
 import { MATE_TOKEN_ADDRESS } from '@/utils/constants'
 
@@ -56,53 +57,34 @@ export const CancelOrderComponent = ({
 
     try {
       const walletClient = await getWalletClient(config)
-      // two signature builders because we need two signatures in order to make
-      // this one work
-      const evvmSignatureBuilder = new (EVVMSignatureBuilder as any)(
-        walletClient,
-        walletData
-      )
-      const p2pSwapSignatureBuilder = new (P2PSwapSignatureBuilder as any)(
-        walletClient,
-        walletData
-      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any)
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`
+      const evvm = new EVVM(signer, evvmAddress)
+      const p2pSwap = new P2PSwap(signer, p2pSwapAddress as `0x${string}`)
 
-      // create evvm pay() signature
-      const signatureEVVM = await evvmSignatureBuilder.signPay(
-        BigInt(evvmID),
-        p2pSwapAddress,
-        MATE_TOKEN_ADDRESS,
-        0,
+      // Create EVVM pay action first (0 amount for cancel)
+      const evvmAction = await evvm.pay({
+        to: p2pSwapAddress as `0x${string}`,
+        tokenAddress: MATE_TOKEN_ADDRESS,
+        amount: 0n,
         priorityFee,
-        nonce_EVVM,
-        priority === 'high',
-        p2pSwapAddress
-      )
+        nonce: nonce_EVVM,
+        priorityFlag: priority === 'high',
+        executor: p2pSwapAddress as `0x${string}`,
+      })
 
-      // create p2pswap cancelOrder() signature
-      const signatureP2P = await p2pSwapSignatureBuilder.cancelOrder(
-        BigInt(evvmID),
+      // Create cancel order action
+      const p2pAction = await p2pSwap.cancelOrder({
         nonce,
         tokenA,
         tokenB,
-        orderId
-      )
+        orderId,
+        evvmSignedAction: evvmAction,
+      })
 
       // prepare data to execute transaction (send it to state)
-      setDataToGet({
-        user: walletData.address as `0x${string}`,
-        metadata: {
-          nonce,
-          tokenA,
-          tokenB,
-          orderId,
-          signature: signatureP2P,
-        },
-        priorityFee,
-        nonce_EVVM,
-        priorityFlag_EVVM: priority === 'high',
-        signature_EVVM: signatureEVVM,
-      })
+      setDataToGet(p2pAction.data)
     } catch (error) {
       console.error('Error creating signature:', error)
     }
