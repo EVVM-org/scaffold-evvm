@@ -131,7 +131,8 @@ export async function loadDeployments(): Promise<EvvmDeployment[]> {
         estimator: (estimatorAddress || zeroAddress) as `0x${string}`,
         treasury: (treasuryAddress || zeroAddress) as `0x${string}`,
         p2pSwap: p2pSwapAddress as `0x${string}` | undefined,
-        evvmID: evvmIDStr ? parseInt(evvmIDStr) : 0,
+        // Hardcoded evvmID for local development (community IDs are ≥1000)
+        evvmID: evvmIDStr ? parseInt(evvmIDStr) : 1234,
         evvmName: undefined,
         registry: undefined,
         admin: undefined,

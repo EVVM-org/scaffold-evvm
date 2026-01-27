@@ -170,7 +170,8 @@ export function useEvvmDeployment() {
           estimatorAddress = envEstimatorAddress!;
           treasuryAddress = envTreasuryAddress || ZERO_ADDRESS as `0x${string}`;
           p2pSwapAddress = envP2pSwapAddress;
-          evvmID = evvmIDStr ? parseInt(evvmIDStr) : 0;
+          // Hardcoded evvmID for local development (community IDs are ≥1000)
+          evvmID = evvmIDStr ? parseInt(evvmIDStr) : 1234;
         } else {
           // Slow path: discover addresses from on-chain EVVM contract
           console.log('🔍 Discovering contract addresses from EVVM contract...');
@@ -225,7 +226,8 @@ export function useEvvmDeployment() {
             estimatorAddress = ZERO_ADDRESS as `0x${string}`;
             treasuryAddress = ZERO_ADDRESS as `0x${string}`;
             p2pSwapAddress = undefined;
-            evvmID = evvmIDStr ? parseInt(evvmIDStr) : 0;
+            // Hardcoded evvmID for local development (community IDs are ≥1000)
+            evvmID = evvmIDStr ? parseInt(evvmIDStr) : 1234;
           }
         }
 
@@ -239,7 +241,7 @@ export function useEvvmDeployment() {
           estimator: estimatorAddress,
           treasury: treasuryAddress,
           p2pSwap: p2pSwapAddress,
-          evvmID: evvmID || 0,
+          evvmID: evvmID || 1234,
           evvmName: undefined,
           registry: undefined,
           admin: envAdminAddress,
