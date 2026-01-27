@@ -18,10 +18,12 @@ import { getPublicClient } from "@/lib/viemClients";
 import { readGoldenFisher } from "@/lib/evvmExecutors";
 
 import {
-  StakingSignatureBuilder,
-  GoldenStakingInputData,
-  PayInputData,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  Staking,
+  type IGoldenStakingData as GoldenStakingInputData,
+  type IPayData as PayInputData,
+} from "@evvm/evvm-js";
 
 import { executeGoldenStaking } from "@/utils/transactionExecuters/stakingExecuter";
 
@@ -103,19 +105,41 @@ export const GoldenStakingComponent = ({
     // Sign and set data
 
     try {
+      console.log('🚀 [evvm-js] GoldenStakingComponent: Starting signature creation...');
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (StakingSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
-      const signaturePay = await signatureBuilder.signGoldenStaking(
-        BigInt(formData.evvmID),
-        formData.stakingAddress as `0x${string}`,
-        amountOfToken,
-        BigInt(formData.nonce),
-        priority === "high"
-      );
+      // Golden staking ALWAYS uses sync mode (priorityFlag: false)
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM(signer, evvmAddress);
+      console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
+
+      // Create EVVM pay action first (golden staking always uses sync nonce)
+      console.log('📝 [evvm-js] Creating EVVM pay action for golden staking...');
+      const evvmAction = await evvm.pay({
+        to: formData.stakingAddress as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: amountOfToken,
+        priorityFee: 0n,
+        nonce: BigInt(formData.nonce),
+        priorityFlag: false, // MUST be false for golden staking
+        executor: formData.stakingAddress as `0x${string}`,
+      });
+      console.log('✅ [evvm-js] EVVM pay SignedAction created');
+
+      // Create Staking service and use goldenStaking method
+      // evvmSignedAction provides the evvmId, bypassing getEvvmID() call
+      console.log('📝 [evvm-js] Creating golden staking action via Staking service...');
+      const staking = new Staking(signer, stakingAddress as `0x${string}`);
+      const stakingAction = await staking.goldenStaking({
+        isStaking: isStaking,
+        amountOfStaking: BigInt(formData.amountOfStaking),
+        evvmSignedAction: evvmAction,
+      });
+      console.log('✅ [evvm-js] Golden staking SignedAction created');
+
       setDataToGet({
         PayInputData: {
           from: walletData.address as `0x${string}`,
@@ -125,15 +149,11 @@ export const GoldenStakingComponent = ({
           amount: amountOfToken,
           priorityFee: BigInt(0),
           nonce: BigInt(formData.nonce),
-          priority: priority === "high",
+          priorityFlag: false, // Golden staking always uses sync
           executor: formData.stakingAddress as `0x${string}`,
-          signature: signaturePay,
+          signature: evvmAction.data.signature,
         },
-        GoldenStakingInputData: {
-          isStaking: isStaking,
-          amountOfStaking: BigInt(formData.amountOfStaking),
-          signature_EVVM: signaturePay,
-        },
+        GoldenStakingInputData: stakingAction.data,
       } as InfoData);
     } catch (error) {
       console.error("Error creating signature:", error);
@@ -145,7 +165,7 @@ export const GoldenStakingComponent = ({
       console.error("No data to execute payment");
       return;
     }
-    const stakingAddress = dataToGet.PayInputData.to_address;
+    const stakingAddress = dataToGet.PayInputData.to_address!;
 
     executeGoldenStaking(dataToGet.GoldenStakingInputData, stakingAddress)
       .then(() => {
