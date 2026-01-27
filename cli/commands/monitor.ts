@@ -23,31 +23,134 @@ interface MonitorState {
   isRunning: boolean;
 }
 
-// Common function signatures for decoding
+// Common function signatures for decoding (generated from @evvm/evvm-js ABIs)
 const KNOWN_SIGNATURES: { [key: string]: string } = {
-  // EVVM functions
+  // ERC20 standard
   '0x': 'Native Transfer',
-  '0xa9059cbb': 'transfer(address,uint256)',
-  '0x23b872dd': 'transferFrom(address,address,uint256)',
-  '0x095ea7b3': 'approve(address,uint256)',
-  '0x70a08231': 'balanceOf(address)',
+  '0xa9059cbb': 'transfer(to,amount)',
+  '0x23b872dd': 'transferFrom(from,to,amount)',
+  '0x095ea7b3': 'approve(spender,amount)',
+  '0x70a08231': 'balanceOf(account)',
   '0x18160ddd': 'totalSupply()',
-  '0xdd62ed3e': 'allowance(address,address)',
-  // EVVM specific
-  '0x0b5b1870': 'pay(...)',
-  '0x7e0cd9d0': 'dispersePay(...)',
-  '0x1e83409a': 'claim(address)',
-  '0xa694fc3a': 'stake(uint256)',
-  '0x2e1a7d4d': 'unstake(uint256)',
-  '0x3a4b66f1': 'stakePublic(...)',
-  // NameService
-  '0x3121db1c': 'registerIdentity(...)',
-  '0x47e7ef24': 'deposit(address,uint256)',
-  '0x2e17de78': 'withdraw(uint256)',
-  // Faucet
-  '0x2e1a7d4d': 'withdraw(uint256)',
-  '0xd0e30db0': 'deposit()',
+  '0xdd62ed3e': 'allowance(owner,spender)',
+
+  // EVVM Core functions
+  '0xd3bca884': 'addBalance(user,token,amount)',
+  '0x2e9621cb': 'pay(to,token,amount,...)',
+  '0xe9703878': 'dispersePay(...)',
+  '0xc898a6e9': 'caPay(...)',
+  '0x54c728be': 'disperseCaPay(...)',
+  '0x1c2048cc': 'payMultiple(...)',
+  '0x6c9fa638': 'addAmountToUser(...)',
+  '0x76e6eb7e': 'removeAmountFromUser(...)',
+  '0xd4fac45d': 'getBalance(user,token)',
+  '0x17c85152': 'getEvvmID()',
+  '0x6cd30148': 'getNextCurrentSyncNonce(user)',
+  '0x3a8cd872': 'getNameServiceAddress()',
+  '0x6afe5795': 'getStakingContractAddress()',
+  '0x147bf6c4': 'proposeAdmin(addr)',
+  '0x0e18b681': 'acceptAdmin()',
+  '0xb38c950a': 'rejectProposalAdmin()',
+  '0x9dd18c15': 'proposeImplementation(addr)',
+  '0x15ba56e5': 'acceptImplementation()',
+
+  // Staking functions
+  '0x475c31ff': 'goldenStaking(isStaking,amount,sig)',
+  '0xc769095c': 'publicStaking(user,isStaking,amount,...)',
+  '0xc0f6e7d1': 'presaleStaking(user,isStaking,...)',
+  '0x27be0557': 'prepareChangeAllowPublicStaking()',
+  '0x681f02ac': 'confirmChangeAllowPublicStaking()',
+  '0xb996b6c4': 'cancelChangeAllowPublicStaking()',
+  '0xdfb2b3a4': 'prepareChangeAllowPresaleStaking()',
+  '0x1e9c210f': 'confirmChangeAllowPresaleStaking()',
+  '0x7068dc65': 'cancelChangeAllowPresaleStaking()',
+  '0x6c58f77b': 'addPresaleStaker(addr)',
+  '0xbe100345': 'addPresaleStakers(addrs)',
+  '0x602c4fb4': 'gimmeYield()',
+  '0x9cde1d3e': 'getUserAmountStaked(user)',
+  '0xcb0900b8': 'priceOfStaking()',
+  '0x489c5ad4': 'proposeGoldenFisher(addr)',
+  '0x34dd90d6': 'acceptNewGoldenFisher()',
+  '0x3900738a': 'proposeEstimator(addr)',
+  '0x6fa7ff17': 'acceptNewEstimator()',
+
+  // NameService functions
+  '0x5d232a55': 'preRegistrationUsername(username,...)',
+  '0xafabc8db': 'registrationUsername(username,...)',
+  '0x35723e23': 'renewUsername(username,...)',
+  '0x044695cb': 'flushUsername(username,...)',
+  '0x4cfe021f': 'addCustomMetadata(identity,...)',
+  '0x8adf3927': 'removeCustomMetadata(identity,...)',
+  '0x3ca44e54': 'flushCustomMetadata(identity,...)',
+  '0xd82e5d8b': 'makeOffer(username,amount,...)',
+  '0x8e3bde43': 'acceptOffer(username,offerIndex,...)',
+  '0x5761d8ed': 'withdrawOffer(username,offerIndex,...)',
+  '0x0d3dcb9f': 'getOwnerOfIdentity(identity)',
+  '0xf69c6dec': 'isUsernameAvailable(username)',
+
+  // P2PSwap functions
+  '0x4c2442bd': 'makeOrder(tokenA,tokenB,amountA,amountB,...)',
+  '0x6b3de5ea': 'cancelOrder(orderId,...)',
+  '0x8e371a72': 'dispatchOrder_fillFixedFee(...)',
+  '0x3ceca3a5': 'dispatchOrder_fillPropotionalFee(...)',
+  '0x21e5383a': 'addBalance(token,amount)',
+  '0xa694fc3a': 'stake(amount)',
+  '0x2e17de78': 'unstake(amount)',
+  '0x5e1a3573': 'getOrder(orderId)',
+  '0xdb7ccd63': 'findMarket(tokenA,tokenB)',
 };
+
+// Contract name mapping (loaded from .env at startup)
+let CONTRACT_NAMES: { [key: string]: string } = {};
+
+/**
+ * Load contract addresses from .env file and map to names
+ */
+function loadContractNames(): void {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const envPath = path.resolve(process.cwd(), '.env');
+
+    if (!fs.existsSync(envPath)) return;
+
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    const lines = envContent.split('\n');
+
+    const addressMap: { [key: string]: string } = {
+      'NEXT_PUBLIC_EVVM_ADDRESS': 'EVVM',
+      'NEXT_PUBLIC_STAKING_ADDRESS': 'Staking',
+      'NEXT_PUBLIC_ESTIMATOR_ADDRESS': 'Estimator',
+      'NEXT_PUBLIC_NAMESERVICE_ADDRESS': 'NameService',
+      'NEXT_PUBLIC_TREASURY_ADDRESS': 'Treasury',
+      'NEXT_PUBLIC_P2PSWAP_ADDRESS': 'P2PSwap',
+      'NEXT_PUBLIC_ADMIN_ADDRESS': 'Admin',
+      'NEXT_PUBLIC_GOLDEN_FISHER_ADDRESS': 'GoldenFisher',
+      'NEXT_PUBLIC_ACTIVATOR_ADDRESS': 'Activator',
+    };
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const [key, value] = trimmed.split('=');
+      if (key && value && addressMap[key]) {
+        const addr = value.trim().toLowerCase();
+        CONTRACT_NAMES[addr] = addressMap[key];
+      }
+    }
+  } catch (err) {
+    // Silently fail - contract names are optional enhancement
+  }
+}
+
+/**
+ * Get contract name for an address
+ */
+function getContractName(address: string | null): string | null {
+  if (!address) return null;
+  return CONTRACT_NAMES[address.toLowerCase()] || null;
+}
 
 /**
  * Format timestamp for display
@@ -62,12 +165,20 @@ function timestamp(): string {
 }
 
 /**
- * Format address (truncated)
+ * Format address (truncated) with optional contract name
  */
 function formatAddress(address: string | null, full: boolean = false): string {
   if (!address) return chalk.magenta('Contract Creation');
+
+  const contractName = getContractName(address);
+  const shortAddr = address.slice(0, 10) + '...' + address.slice(-4);
+
+  if (contractName) {
+    return chalk.green.bold(contractName) + chalk.gray(` (${shortAddr})`);
+  }
+
   if (full) return chalk.cyan(address);
-  return chalk.cyan(address.slice(0, 10) + '...' + address.slice(-6));
+  return chalk.cyan(shortAddr);
 }
 
 /**
@@ -314,6 +425,9 @@ async function monitorLoop(state: MonitorState): Promise<void> {
  * Main entry point
  */
 export async function monitor(): Promise<void> {
+  // Load contract names from .env for human-readable output
+  loadContractNames();
+
   displayHeader();
 
   const state: MonitorState = {
