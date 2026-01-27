@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { readContract } from "@wagmi/core";
 import { config } from "@/config/index";
-import { EvvmABI } from "@evvm/viem-signature-library";
+import { EvvmABI } from "@evvm/evvm-js";
 
 import { AddressInputField } from "../InputsAndModules/AddressInputField";
 import { HelperInfo } from "../InputsAndModules/HelperInfo";
