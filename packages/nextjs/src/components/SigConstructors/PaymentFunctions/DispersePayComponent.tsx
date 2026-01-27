@@ -14,10 +14,16 @@ import {
 } from "@/components/SigConstructors/InputsAndModules";
 
 import {
-  EVVMSignatureBuilder,
-  DispersePayInputData,
-  DispersePayMetadata,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  type IDispersePayData as DispersePayInputData,
+} from "@evvm/evvm-js";
+
+interface DispersePayMetadata {
+  amount: bigint;
+  to_address: `0x${string}`;
+  to_identity: string;
+}
 
 import { executeDispersePay } from "@/utils/transactionExecuters/evvmExecuter";
 
@@ -83,32 +89,34 @@ export const DispersePayComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (EVVMSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const evvm = new EVVM(signer, evvmAddress as `0x${string}`);
 
-      const dispersePaySignature = await signatureBuilder.signDispersePay(
-        BigInt(formData.evvmID),
-        toData,
-        formData.tokenAddress as `0x${string}`,
-        BigInt(formData.amount),
-        BigInt(formData.priorityFee),
-        BigInt(formData.nonce),
-        priorityDisperse === "high",
-        formData.executor as `0x${string}`
-      );
+      const signedAction = await evvm.dispersePay({
+        toData: toData.map(item => ({
+          amount: item.amount,
+          toAddress: item.to_address,
+          toIdentity: item.to_identity,
+        })),
+        tokenAddress: formData.tokenAddress as `0x${string}`,
+        amount: BigInt(formData.amount),
+        priorityFee: BigInt(formData.priorityFee),
+        nonce: BigInt(formData.nonce),
+        priorityFlag: priorityDisperse === "high",
+        executor: formData.executor as `0x${string}`,
+      });
 
       setDataToGet({
         from: walletData.address as `0x${string}`,
-        toData,
+        toData: toData as any,
         token: formData.tokenAddress as `0x${string}`,
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
-        priority: priorityDisperse === "high",
+        priorityFlag: priorityDisperse === "high",
         nonce: BigInt(formData.nonce),
-        executor: formData.executor,
-        signature: dispersePaySignature,
+        executor: formData.executor as `0x${string}`,
+        signature: signedAction.data.signature,
       });
     } catch (error) {
       console.error("Error creating signature:", error);
