@@ -61,14 +61,16 @@ export type {
 // Re-export SignedAction and execute for components that want to use them directly
 export { execute, type SignedAction };
 
-// Helper to get signer from wagmi wallet client
-async function getSigner(): Promise<ISigner> {
+// Helper to get signer and chainId from wagmi wallet client
+async function getSignerAndChainId(): Promise<{ signer: ISigner; chainId: number }> {
   const walletClient = await getWalletClient(config);
   if (!walletClient) {
     throw new Error('Failed to get wallet client');
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return createSignerWithViem(walletClient as any);
+  const signer = await createSignerWithViem(walletClient as any);
+  const chainId = await signer.getChainId();
+  return { signer, chainId };
 }
 
 // MATE token address constant
@@ -98,8 +100,8 @@ export async function signPay(params: SignPayParams): Promise<{
   inputData: IPayData;
   signedAction: SignedAction<IPayData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
 
   const isAddress = params.to.startsWith('0x');
 
@@ -165,15 +167,15 @@ export async function signDispersePay(params: SignDispersePayParams): Promise<{
   inputData: IDispersePayData;
   signedAction: SignedAction<IDispersePayData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
 
   const signedAction = await evvm.dispersePay({
-    toData: params.toData.map(item => ({
-      amount: item.amount,
-      toAddress: item.toAddress,
-      toIdentity: item.toIdentity,
-    })),
+    toData: params.toData.map(item =>
+      item.toAddress
+        ? { amount: item.amount, toAddress: item.toAddress, toIdentity: undefined as undefined }
+        : { amount: item.amount, toAddress: undefined as undefined, toIdentity: item.toIdentity }
+    ),
     tokenAddress: params.tokenAddress,
     amount: BigInt(params.totalAmount),
     priorityFee: BigInt(params.priorityFee),
@@ -213,9 +215,9 @@ export async function signGoldenStaking(params: SignGoldenStakingParams): Promis
   payData: IPayData;
   signedAction: SignedAction<IGoldenStakingData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const staking = new Staking(signer, params.stakingAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const staking = new Staking({ signer, address: params.stakingAddress, chainId });
 
   const amountOfToken = BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
@@ -263,9 +265,9 @@ export async function signPresaleStaking(params: SignPresaleStakingParams): Prom
   payData: IPayData;
   signedAction: SignedAction<IPresaleStakingData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const staking = new Staking(signer, params.stakingAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const staking = new Staking({ signer, address: params.stakingAddress, chainId });
 
   const amountOfToken = BigInt(1) * BigInt(10) ** BigInt(18); // 1 token
 
@@ -314,9 +316,9 @@ export async function signPublicStaking(params: SignPublicStakingParams): Promis
   payData: IPayData;
   signedAction: SignedAction<IPublicStakingData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const staking = new Staking(signer, params.stakingAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const staking = new Staking({ signer, address: params.stakingAddress, chainId });
 
   const amountOfToken = BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
@@ -372,9 +374,9 @@ export async function signPreRegistrationUsername(
   payData: IPayData;
   signedAction: SignedAction<IPreRegistrationUsernameData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first (0 amount for pre-registration)
   const evvmAction = await evvm.pay({
@@ -435,9 +437,9 @@ export async function signRegistrationUsername(
   payData: IPayData;
   signedAction: SignedAction<IRegistrationUsernameData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first
   const evvmAction = await evvm.pay({
@@ -486,9 +488,9 @@ export async function signMakeOffer(params: SignMakeOfferParams): Promise<{
   payData: IPayData;
   signedAction: SignedAction<IMakeOfferData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first
   const evvmAction = await evvm.pay({
@@ -539,9 +541,9 @@ export async function signWithdrawOffer(
   payData: IPayData;
   signedAction: SignedAction<IWithdrawOfferData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -589,9 +591,9 @@ export async function signAcceptOffer(params: SignAcceptOfferParams): Promise<{
   payData: IPayData;
   signedAction: SignedAction<IAcceptOfferData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -640,9 +642,9 @@ export async function signRenewUsername(
   payData: IPayData;
   signedAction: SignedAction<IRenewUsernameData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -692,9 +694,9 @@ export async function signAddCustomMetadata(
   payData: IPayData;
   signedAction: SignedAction<IAddCustomMetadataData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -744,9 +746,9 @@ export async function signRemoveCustomMetadata(
   payData: IPayData;
   signedAction: SignedAction<IRemoveCustomMetadataData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -795,9 +797,9 @@ export async function signFlushCustomMetadata(
   payData: IPayData;
   signedAction: SignedAction<IFlushCustomMetadataData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -845,9 +847,9 @@ export async function signFlushUsername(
   payData: IPayData;
   signedAction: SignedAction<IFlushUsernameData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const nameService = new NameService(signer, params.nameServiceAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -899,9 +901,9 @@ export async function signMakeOrder(params: SignMakeOrderParams): Promise<{
   makeOrderData: IMakeOrderData;
   signedAction: SignedAction<IMakeOrderData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const p2pSwap = new P2PSwap(signer, params.p2pSwapAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const p2pSwap = new P2PSwap({ signer, address: params.p2pSwapAddress, chainId });
 
   // Create EVVM pay action first
   const evvmAction = await evvm.pay({
@@ -949,9 +951,9 @@ export async function signCancelOrder(
   cancelOrderData: ICancelOrderData;
   signedAction: SignedAction<ICancelOrderData>;
 }> {
-  const signer = await getSigner();
-  const evvm = new EVVM(signer, params.evvmAddress);
-  const p2pSwap = new P2PSwap(signer, params.p2pSwapAddress);
+  const { signer, chainId } = await getSignerAndChainId();
+  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const p2pSwap = new P2PSwap({ signer, address: params.p2pSwapAddress, chainId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({

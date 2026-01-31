@@ -271,8 +271,9 @@ function GoldenStakingComponent({
       const walletClient = await getWalletClient(config);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const staking = new Staking(signer, stakingAddress);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const staking = new Staking({ signer, address: stakingAddress, chainId });
 
       // Create EVVM pay action first (Golden Staking ALWAYS uses sync/low priority)
       const evvmAction = await evvm.pay({
@@ -486,8 +487,9 @@ function PresaleStakingComponent({
       const walletClient = await getWalletClient(config);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const staking = new Staking(signer, stakingAddress);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const staking = new Staking({ signer, address: stakingAddress, chainId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
@@ -783,8 +785,9 @@ function PublicStakingComponent({
       const walletClient = await getWalletClient(config);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const staking = new Staking(signer, stakingAddress);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const staking = new Staking({ signer, address: stakingAddress, chainId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({

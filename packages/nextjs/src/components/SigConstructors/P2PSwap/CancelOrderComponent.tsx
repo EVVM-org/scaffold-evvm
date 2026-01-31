@@ -59,9 +59,10 @@ export const CancelOrderComponent = ({
       const walletClient = await getWalletClient(config)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any)
+      const chainId = await signer.getChainId()
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`
-      const evvm = new EVVM(signer, evvmAddress)
-      const p2pSwap = new P2PSwap(signer, p2pSwapAddress as `0x${string}`)
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId })
+      const p2pSwap = new P2PSwap({ signer, address: p2pSwapAddress as `0x${string}`, chainId })
 
       // Create EVVM pay action first (0 amount for cancel)
       const evvmAction = await evvm.pay({

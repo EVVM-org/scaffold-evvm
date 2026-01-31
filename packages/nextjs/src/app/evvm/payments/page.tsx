@@ -168,7 +168,8 @@ export default function PaymentsPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
 
       // The evvm.pay() `to` param accepts both address (0x...) and identity (username) directly
       const signedAction = await evvm.pay({
@@ -353,15 +354,16 @@ export default function PaymentsPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
 
       // Convert toData to the format expected by evvm-js dispersePay
-      // API expects: { amount, toAddress, toIdentity }[]
-      const disperseToData = toData.map((t: DispersePayMetadata) => ({
-        amount: t.amount,
-        toAddress: t.to_address,
-        toIdentity: (t.to_identity || "") as `0x${string}`,
-      }));
+      // API expects: { amount, toAddress, toIdentity: undefined } | { amount, toAddress: undefined, toIdentity }
+      const disperseToData = toData.map((t: DispersePayMetadata) =>
+        t.to_address
+          ? { amount: t.amount, toAddress: t.to_address, toIdentity: undefined as undefined }
+          : { amount: t.amount, toAddress: undefined as undefined, toIdentity: t.to_identity || "" }
+      );
 
       const signedAction = await evvm.dispersePay({
         toData: disperseToData,

@@ -91,14 +91,15 @@ export const DispersePayComponent = ({
       const walletClient = await getWalletClient(config);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, evvmAddress as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: evvmAddress as `0x${string}`, chainId });
 
       const signedAction = await evvm.dispersePay({
-        toData: toData.map(item => ({
-          amount: item.amount,
-          toAddress: item.to_address,
-          toIdentity: item.to_identity,
-        })),
+        toData: toData.map(item =>
+          item.to_address
+            ? { amount: item.amount, toAddress: item.to_address, toIdentity: undefined as undefined }
+            : { amount: item.amount, toAddress: undefined as undefined, toIdentity: item.to_identity }
+        ),
         tokenAddress: formData.tokenAddress as `0x${string}`,
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),

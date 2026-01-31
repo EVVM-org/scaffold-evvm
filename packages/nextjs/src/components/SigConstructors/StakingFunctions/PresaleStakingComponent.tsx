@@ -65,10 +65,11 @@ export const PresaleStakingComponent = ({
       const walletClient = await getWalletClient(config);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
       console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM(signer, evvmAddress);
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
       console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
 
       // Create EVVM pay action first
@@ -87,7 +88,7 @@ export const PresaleStakingComponent = ({
       // Create Staking service and use presaleStaking method
       // evvmSignedAction provides the evvmId, bypassing getEvvmID() call
       console.log('📝 [evvm-js] Creating presale staking action via Staking service...');
-      const staking = new Staking(signer, stakingAddress as `0x${string}`);
+      const staking = new Staking({ signer, address: stakingAddress as `0x${string}`, chainId });
       const stakingAction = await staking.presaleStaking({
         isStaking: isStaking,
         nonce: BigInt(formData.nonce),

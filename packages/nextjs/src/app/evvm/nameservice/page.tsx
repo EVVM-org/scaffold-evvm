@@ -126,8 +126,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first (with 0 amount for pre-registration)
       const evvmAction = await evvm.pay({
@@ -224,8 +225,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first
       const payAmount = rewardAmount ? rewardAmount * BigInt(100) : BigInt(0);
@@ -331,8 +333,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
@@ -419,8 +422,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
@@ -487,8 +491,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first (with 0 amount for accept offer)
       const evvmAction = await evvm.pay({
@@ -554,8 +559,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first (with 0 amount for withdraw offer)
       const evvmAction = await evvm.pay({
@@ -625,8 +631,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       await getPriceToAddCustomMetadata();
 
@@ -718,8 +725,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       const price = await readContract(config, {
         abi: NameServiceABI,
@@ -795,8 +803,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       const price = await readContract(config, {
         abi: NameServiceABI,
@@ -867,8 +876,9 @@ export default function NameServicePage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const nameService = new NameService(signer, deployment.nameService as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       const priceToFlushUsername = await readContract(config, {
         abi: NameServiceABI,

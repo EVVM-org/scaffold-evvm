@@ -60,9 +60,10 @@ export const PaySignaturesComponent = ({
       const walletClient = await getWalletClient(config);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
       console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
-      const evvm = new EVVM(signer, evvmAddress as `0x${string}`);
+      const evvm = new EVVM({ signer, address: evvmAddress as `0x${string}`, chainId });
       console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
 
       const isAddress = formData.to.startsWith("0x");

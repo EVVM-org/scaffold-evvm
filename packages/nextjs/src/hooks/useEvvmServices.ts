@@ -43,12 +43,13 @@ export function useEvvmServices() {
     }
 
     const signer = await getSigner();
+    const chainId = await signer.getChainId();
 
     return {
-      evvm: new EVVM(signer, evvmAddress as HexString),
-      staking: new Staking(signer, (staking || evvmAddress) as HexString),
-      nameService: new NameService(signer, (nameService || evvmAddress) as HexString),
-      p2pSwap: new P2PSwap(signer, (p2pSwap || evvmAddress) as HexString),
+      evvm: new EVVM({ signer, address: evvmAddress as HexString, chainId }),
+      staking: new Staking({ signer, address: (staking || evvmAddress) as HexString, chainId }),
+      nameService: new NameService({ signer, address: (nameService || evvmAddress) as HexString, chainId }),
+      p2pSwap: new P2PSwap({ signer, address: (p2pSwap || evvmAddress) as HexString, chainId }),
       signer,
     };
   }, [getSigner, isConnected, deployment]);
@@ -66,9 +67,10 @@ export function useEvvmServices() {
     }
 
     const signer = await getSigner();
+    const chainId = await signer.getChainId();
 
     return {
-      evvm: new EVVM(signer, deployment.evvm as HexString),
+      evvm: new EVVM({ signer, address: deployment.evvm as HexString, chainId }),
       signer,
     };
   }, [getSigner, isConnected, deployment]);
@@ -86,10 +88,11 @@ export function useEvvmServices() {
     }
 
     const signer = await getSigner();
+    const chainId = await signer.getChainId();
 
     return {
-      staking: new Staking(signer, deployment.staking as HexString),
-      evvm: new EVVM(signer, deployment.evvm as HexString),
+      staking: new Staking({ signer, address: deployment.staking as HexString, chainId }),
+      evvm: new EVVM({ signer, address: deployment.evvm as HexString, chainId }),
       signer,
     };
   }, [getSigner, isConnected, deployment]);
@@ -107,10 +110,11 @@ export function useEvvmServices() {
     }
 
     const signer = await getSigner();
+    const chainId = await signer.getChainId();
 
     return {
-      nameService: new NameService(signer, deployment.nameService as HexString),
-      evvm: new EVVM(signer, deployment.evvm as HexString),
+      nameService: new NameService({ signer, address: deployment.nameService as HexString, chainId }),
+      evvm: new EVVM({ signer, address: deployment.evvm as HexString, chainId }),
       signer,
     };
   }, [getSigner, isConnected, deployment]);
@@ -128,10 +132,11 @@ export function useEvvmServices() {
     }
 
     const signer = await getSigner();
+    const chainId = await signer.getChainId();
 
     return {
-      p2pSwap: new P2PSwap(signer, deployment.p2pSwap as HexString),
-      evvm: new EVVM(signer, deployment.evvm as HexString),
+      p2pSwap: new P2PSwap({ signer, address: deployment.p2pSwap as HexString, chainId }),
+      evvm: new EVVM({ signer, address: deployment.evvm as HexString, chainId }),
       signer,
     };
   }, [getSigner, isConnected, deployment]);

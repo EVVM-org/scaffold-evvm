@@ -109,11 +109,12 @@ export const GoldenStakingComponent = ({
       const walletClient = await getWalletClient(config);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
       console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
       // Golden staking ALWAYS uses sync mode (priorityFlag: false)
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM(signer, evvmAddress);
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
       console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
 
       // Create EVVM pay action first (golden staking always uses sync nonce)
@@ -132,7 +133,7 @@ export const GoldenStakingComponent = ({
       // Create Staking service and use goldenStaking method
       // evvmSignedAction provides the evvmId, bypassing getEvvmID() call
       console.log('📝 [evvm-js] Creating golden staking action via Staking service...');
-      const staking = new Staking(signer, stakingAddress as `0x${string}`);
+      const staking = new Staking({ signer, address: stakingAddress as `0x${string}`, chainId });
       const stakingAction = await staking.goldenStaking({
         isStaking: isStaking,
         amountOfStaking: BigInt(formData.amountOfStaking),

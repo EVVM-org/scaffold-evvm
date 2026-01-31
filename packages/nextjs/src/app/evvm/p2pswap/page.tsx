@@ -177,8 +177,9 @@ export default function P2PSwapPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const p2pSwap = new P2PSwap(signer, deployment.p2pSwap as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const p2pSwap = new P2PSwap({ signer, address: deployment.p2pSwap as `0x${string}`, chainId });
 
       // Create EVVM pay() action first
       const evvmAction = await evvm.pay({
@@ -294,8 +295,9 @@ export default function P2PSwapPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const p2pSwap = new P2PSwap(signer, deployment.p2pSwap as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const p2pSwap = new P2PSwap({ signer, address: deployment.p2pSwap as `0x${string}`, chainId });
 
       // Create EVVM pay() action first
       const evvmAction = await evvm.pay({
@@ -417,8 +419,9 @@ export default function P2PSwapPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const p2pSwap = new P2PSwap(signer, deployment.p2pSwap as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const p2pSwap = new P2PSwap({ signer, address: deployment.p2pSwap as `0x${string}`, chainId });
 
       // Create EVVM pay() action first
       const evvmAction = await evvm.pay({
@@ -531,8 +534,9 @@ export default function P2PSwapPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
-      const evvm = new EVVM(signer, deployment.evvm as `0x${string}`);
-      const p2pSwap = new P2PSwap(signer, deployment.p2pSwap as `0x${string}`);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const p2pSwap = new P2PSwap({ signer, address: deployment.p2pSwap as `0x${string}`, chainId });
 
       // Create EVVM pay() action first (with 0 amount for cancel)
       const evvmAction = await evvm.pay({

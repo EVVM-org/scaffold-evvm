@@ -88,9 +88,10 @@ export const RegistrationUsernameComponent = ({
       const walletClient = await getWalletClient(config);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM(signer, evvmAddress);
-      const nameService = new NameService(signer, formData.addressNameService as `0x${string}`);
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
       await readRewardAmount();
 
