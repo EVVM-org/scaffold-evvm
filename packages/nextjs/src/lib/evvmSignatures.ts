@@ -5,6 +5,11 @@
  * Uses the official @evvm/evvm-js SDK for signature construction.
  *
  * IMPORTANT: All functions follow the exact patterns from EVVM-Signature-Constructor-Front
+ *
+ * WORKAROUND: The npm package @evvm/evvm-js has a bug where service classes
+ * (Staking, NameService, P2PSwap) call getEvvmID() on their own contract
+ * instead of the EVVM contract. We create patched subclasses that override
+ * getEvvmID() to return the evvmId passed to the constructor.
  */
 
 import { getWalletClient } from '@wagmi/core';
@@ -12,9 +17,9 @@ import { config } from '@/config';
 import {
   createSignerWithViem,
   EVVM,
-  Staking,
-  NameService,
-  P2PSwap,
+  Staking as BaseStaking,
+  NameService as BaseNameService,
+  P2PSwap as BaseP2PSwap,
   execute,
   type IPayData,
   type IDispersePayData,
@@ -36,6 +41,70 @@ import {
   type ISigner,
   type SignedAction,
 } from '@evvm/evvm-js';
+
+// ====================================================================================
+// PATCHED SERVICE CLASSES
+// ====================================================================================
+// These classes fix a bug in @evvm/evvm-js where getEvvmID() is called on the
+// service contract (which doesn't have this function) instead of the EVVM contract.
+// We override getEvvmID() to return the evvmId passed during construction.
+
+/**
+ * Patched Staking class that properly returns evvmId without calling the contract
+ */
+class Staking extends BaseStaking {
+  private _evvmId: bigint;
+
+  constructor(props: { signer: ISigner; address: `0x${string}`; chainId: number; evvmId: bigint }) {
+    super(props);
+    this._evvmId = props.evvmId;
+  }
+
+  override async getEvvmID(): Promise<bigint> {
+    return this._evvmId;
+  }
+}
+
+/**
+ * Patched NameService class that properly returns evvmId without calling the contract
+ */
+class NameService extends BaseNameService {
+  private _evvmId: bigint;
+
+  constructor(props: { signer: ISigner; address: `0x${string}`; chainId: number; evvmId: bigint }) {
+    super(props);
+    this._evvmId = props.evvmId;
+  }
+
+  override async getEvvmID(): Promise<bigint> {
+    return this._evvmId;
+  }
+}
+
+/**
+ * Patched P2PSwap class that properly returns evvmId without calling the contract
+ */
+class P2PSwap extends BaseP2PSwap {
+  private _evvmId: bigint;
+
+  constructor(props: { signer: ISigner; address: `0x${string}`; chainId: number; evvmId: bigint }) {
+    super(props);
+    this._evvmId = props.evvmId;
+  }
+
+  override async getEvvmID(): Promise<bigint> {
+    return this._evvmId;
+  }
+}
+
+// Export patched service classes for direct use
+export { Staking, NameService, P2PSwap };
+
+// Re-export base classes with different names in case needed
+export { BaseStaking, BaseNameService, BaseP2PSwap };
+
+// Re-export other utilities from evvm-js that components might need
+export { EVVM, createSignerWithViem };
 
 // Re-export types for backward compatibility
 export type {
@@ -209,6 +278,10 @@ export interface SignGoldenStakingParams {
  * Sign golden staking transaction using evvm-js
  *
  * CRITICAL: Golden staking ALWAYS uses sync mode (priorityFlag: false)
+ *
+ * NOTE: We pass evvmId directly to bypass npm package bug where Staking.getEvvmID()
+ * incorrectly tries to read from Staking contract instead of EVVM contract.
+ * The evvmId is extracted from the evvmID parameter or defaults to 0n for local dev.
  */
 export async function signGoldenStaking(params: SignGoldenStakingParams): Promise<{
   goldenStakingData: IGoldenStakingData;
@@ -217,7 +290,9 @@ export async function signGoldenStaking(params: SignGoldenStakingParams): Promis
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const staking = new Staking({ signer, address: params.stakingAddress, chainId });
+  // Pass evvmId to constructor to bypass getEvvmID() bug in @evvm/evvm-js
+  const evvmId = BigInt(params.evvmID || 0);
+  const staking = new Staking({ signer, address: params.stakingAddress, chainId, evvmId });
 
   const amountOfToken = BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
@@ -259,6 +334,9 @@ export interface SignPresaleStakingParams {
 
 /**
  * Sign presale staking transaction (dual signature)
+ *
+ * NOTE: We pass evvmId directly to bypass npm package bug where Staking.getEvvmID()
+ * incorrectly tries to read from Staking contract instead of EVVM contract.
  */
 export async function signPresaleStaking(params: SignPresaleStakingParams): Promise<{
   presaleStakingData: IPresaleStakingData;
@@ -267,7 +345,9 @@ export async function signPresaleStaking(params: SignPresaleStakingParams): Prom
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const staking = new Staking({ signer, address: params.stakingAddress, chainId });
+  // Pass evvmId to constructor to bypass getEvvmID() bug in @evvm/evvm-js
+  const evvmId = BigInt(params.evvmID || 0);
+  const staking = new Staking({ signer, address: params.stakingAddress, chainId, evvmId });
 
   const amountOfToken = BigInt(1) * BigInt(10) ** BigInt(18); // 1 token
 
@@ -310,6 +390,9 @@ export interface SignPublicStakingParams {
 
 /**
  * Sign public staking transaction (dual signature)
+ *
+ * NOTE: We pass evvmId directly to bypass npm package bug where Staking.getEvvmID()
+ * incorrectly tries to read from Staking contract instead of EVVM contract.
  */
 export async function signPublicStaking(params: SignPublicStakingParams): Promise<{
   publicStakingData: IPublicStakingData;
@@ -318,7 +401,9 @@ export async function signPublicStaking(params: SignPublicStakingParams): Promis
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const staking = new Staking({ signer, address: params.stakingAddress, chainId });
+  // Pass evvmId to constructor to bypass getEvvmID() bug in @evvm/evvm-js
+  const evvmId = BigInt(params.evvmID || 0);
+  const staking = new Staking({ signer, address: params.stakingAddress, chainId, evvmId });
 
   const amountOfToken = BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
@@ -366,6 +451,9 @@ export interface SignPreRegistrationUsernameParams {
 
 /**
  * Sign pre-registration username (dual signature)
+ *
+ * NOTE: We pass evvmId directly to bypass npm package bug where NameService.getEvvmID()
+ * incorrectly tries to read from NameService contract instead of EVVM contract.
  */
 export async function signPreRegistrationUsername(
   params: SignPreRegistrationUsernameParams
@@ -376,7 +464,8 @@ export async function signPreRegistrationUsername(
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first (0 amount for pre-registration)
   const evvmAction = await evvm.pay({
@@ -429,6 +518,9 @@ export interface SignRegistrationUsernameParams {
 
 /**
  * Sign registration username (dual signature)
+ *
+ * NOTE: We pass evvmId directly to bypass npm package bug where NameService.getEvvmID()
+ * incorrectly tries to read from NameService contract instead of EVVM contract.
  */
 export async function signRegistrationUsername(
   params: SignRegistrationUsernameParams
@@ -439,7 +531,8 @@ export async function signRegistrationUsername(
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first
   const evvmAction = await evvm.pay({
@@ -490,7 +583,8 @@ export async function signMakeOffer(params: SignMakeOfferParams): Promise<{
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first
   const evvmAction = await evvm.pay({
@@ -543,7 +637,8 @@ export async function signWithdrawOffer(
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -593,7 +688,8 @@ export async function signAcceptOffer(params: SignAcceptOfferParams): Promise<{
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -644,7 +740,8 @@ export async function signRenewUsername(
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -696,7 +793,8 @@ export async function signAddCustomMetadata(
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -748,7 +846,8 @@ export async function signRemoveCustomMetadata(
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -799,7 +898,8 @@ export async function signFlushCustomMetadata(
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -849,7 +949,8 @@ export async function signFlushUsername(
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({
@@ -903,7 +1004,8 @@ export async function signMakeOrder(params: SignMakeOrderParams): Promise<{
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const p2pSwap = new P2PSwap({ signer, address: params.p2pSwapAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const p2pSwap = new P2PSwap({ signer, address: params.p2pSwapAddress, chainId, evvmId });
 
   // Create EVVM pay action first
   const evvmAction = await evvm.pay({
@@ -953,7 +1055,8 @@ export async function signCancelOrder(
 }> {
   const { signer, chainId } = await getSignerAndChainId();
   const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  const p2pSwap = new P2PSwap({ signer, address: params.p2pSwapAddress, chainId });
+  const evvmId = BigInt(params.evvmID || 0);
+  const p2pSwap = new P2PSwap({ signer, address: params.p2pSwapAddress, chainId, evvmId });
 
   // Create EVVM pay action first (0 amount)
   const evvmAction = await evvm.pay({

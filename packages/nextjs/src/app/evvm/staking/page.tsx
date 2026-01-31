@@ -20,15 +20,16 @@ import {
 } from "@/utils/transactionExecuters/stakingExecuter";
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import {
+  // Import patched classes from evvmSignatures to fix getEvvmID bug
   createSignerWithViem,
   EVVM,
   Staking,
-  StakingABI,
-  type IPayData as PayInputData,
-  type IGoldenStakingData as GoldenStakingInputData,
-  type IPresaleStakingData as PresaleStakingInputData,
-  type IPublicStakingData as PublicStakingInputData,
-} from "@evvm/evvm-js";
+  type PayInputData,
+  type GoldenStakingInputData,
+  type PresaleStakingInputData,
+  type PublicStakingInputData,
+} from "@/lib/evvmSignatures";
+import { StakingABI } from "@evvm/evvm-js";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import { NetworkWarning } from "@/components/NetworkWarning";
 import { readBalance, readNextNonce } from "@/lib/evvmExecutors";
@@ -273,7 +274,8 @@ function GoldenStakingComponent({
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
       const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
-      const staking = new Staking({ signer, address: stakingAddress, chainId });
+      const evvmId = BigInt(formData.evvmID || deployment.evvmID || 0);
+      const staking = new Staking({ signer, address: stakingAddress, chainId, evvmId });
 
       // Create EVVM pay action first (Golden Staking ALWAYS uses sync/low priority)
       const evvmAction = await evvm.pay({
@@ -489,7 +491,8 @@ function PresaleStakingComponent({
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
       const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
-      const staking = new Staking({ signer, address: stakingAddress, chainId });
+      const evvmId = BigInt(formData.evvmID || deployment.evvmID || 0);
+      const staking = new Staking({ signer, address: stakingAddress, chainId, evvmId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
@@ -787,7 +790,8 @@ function PublicStakingComponent({
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
       const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
-      const staking = new Staking({ signer, address: stakingAddress, chainId });
+      const evvmId = BigInt(formData.evvmID || deployment.evvmID || 0);
+      const staking = new Staking({ signer, address: stakingAddress, chainId, evvmId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
