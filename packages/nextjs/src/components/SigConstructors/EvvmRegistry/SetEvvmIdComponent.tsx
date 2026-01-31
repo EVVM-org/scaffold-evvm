@@ -8,7 +8,7 @@ import {
   NumberInputField,
 } from "@/components/SigConstructors/InputsAndModules";
 
-import { EvvmABI } from "@evvm/viem-signature-library";
+import { EvvmABI } from "@evvm/evvm-js";
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 
 interface SetEvvmIdComponentProps {

@@ -74,6 +74,13 @@ npm run cli deploy
 npm run frontend
 ```
 
+**Terminal 3 (optional) - Monitor blockchain:**
+```bash
+npm run monitor
+```
+
+This shows real-time blocks, transactions, and contract calls on the local chain.
+
 ---
 
 ## 🔧 Troubleshooting

@@ -27,11 +27,12 @@
 }
 
 .error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error-color, #991b1b);
   padding: var(--spacing-lg);
   border-radius: var(--border-radius);
   text-align: center;
+  border: 1px solid var(--error-color, #ef4444);
 }
 
 .tabs {
@@ -112,11 +113,11 @@
 }
 
 .note {
-  background: #fff3cd;
-  border-left: 4px solid #ffc107;
+  background: rgba(245, 158, 11, 0.15);
+  border-left: 4px solid var(--warning-color, #ffc107);
   padding: 1rem;
   border-radius: 8px;
-  color: #856404;
+  color: var(--color-text, #856404);
   margin: 1rem 0;
   font-size: 0.95rem;
   line-height: 1.5;

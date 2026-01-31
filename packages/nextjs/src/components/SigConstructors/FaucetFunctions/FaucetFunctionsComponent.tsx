@@ -4,7 +4,7 @@ import { getAccount, writeContract } from "@wagmi/core";
 import { config } from "@/config/index";
 import { AddressInputField } from "../InputsAndModules/AddressInputField";
 import { NumberInputField } from "../InputsAndModules/NumberInputField";
-import { EvvmABI } from "@evvm/viem-signature-library";
+import { EvvmABI } from "@evvm/evvm-js";
 
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { HelperInfo } from "../InputsAndModules/HelperInfo";

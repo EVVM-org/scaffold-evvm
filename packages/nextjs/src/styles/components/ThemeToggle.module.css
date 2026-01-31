@@ -1,42 +1,60 @@
+/* Theme Toggle Button - High visibility styles */
 .toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color, #ddd);
-  background: var(--bg-secondary, #f5f5f5);
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 12px;
+  border: 2px solid #00ee96;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 238, 150, 0.3);
+  padding: 0;
 }
 
 .toggle:hover {
-  background: var(--bg-hover, #e0e0e0);
-  transform: scale(1.05);
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(0, 238, 150, 0.4);
+}
+
+.toggle:active {
+  transform: scale(0.95);
 }
 
 .icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: var(--text-primary, #333);
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.toggle:hover .icon {
+  transform: rotate(15deg);
 }
 
 .togglePlaceholder {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 12px;
+  background: rgba(0, 238, 150, 0.1);
+  border: 2px solid transparent;
 }
 
 /* Dark mode styles */
 :global(.dark) .toggle {
-  background: var(--bg-secondary-dark, #2a2a2a);
-  border-color: var(--border-color-dark, #444);
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-color: #00ee96;
+  box-shadow: 0 2px 8px rgba(0, 238, 150, 0.25), 0 0 20px rgba(0, 238, 150, 0.1);
 }
 
 :global(.dark) .toggle:hover {
-  background: var(--bg-hover-dark, #333);
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  box-shadow: 0 4px 16px rgba(0, 238, 150, 0.35), 0 0 30px rgba(0, 238, 150, 0.15);
 }
 
-:global(.dark) .icon {
-  color: var(--text-primary-dark, #f0f0f0);
+:global(.dark) .togglePlaceholder {
+  background: rgba(0, 238, 150, 0.05);
 }

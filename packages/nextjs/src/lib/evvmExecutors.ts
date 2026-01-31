@@ -2,10 +2,52 @@ import type { WalletClient, PublicClient } from 'viem';
 import type { PayInputData, DispersePayInputData, StakingInputData } from '@/types/evvm';
 import { config } from '@/config';
 import { writeContract } from '@wagmi/core';
-import { EvvmABI, StakingABI, NameServiceABI } from '@evvm/viem-signature-library';
+import {
+  EvvmABI,
+  StakingABI,
+  NameServiceABI,
+  execute as evvmExecute,
+  createSignerWithViem,
+  type SignedAction,
+  type ISigner,
+} from '@evvm/evvm-js';
+
+// Re-export ABIs for backward compatibility
+export { EvvmABI, StakingABI, NameServiceABI };
 
 // ============================================
-// PAYMENT EXECUTORS
+// SIGNED ACTION EXECUTOR
+// ============================================
+
+/**
+ * Execute a SignedAction using evvm-js execute function
+ * This is the new recommended way to execute EVVM transactions
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function executeSignedAction(
+  walletClient: WalletClient,
+  signedAction: SignedAction<any>
+): Promise<`0x${string}`> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const signer = await createSignerWithViem(walletClient as any);
+  const hash = await evvmExecute(signer, signedAction);
+  return hash as `0x${string}`;
+}
+
+/**
+ * Execute a SignedAction with an existing signer
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function executeWithSigner(
+  signer: ISigner,
+  signedAction: SignedAction<any>
+): Promise<`0x${string}`> {
+  const hash = await evvmExecute(signer, signedAction);
+  return hash as `0x${string}`;
+}
+
+// ============================================
+// PAYMENT EXECUTORS (Legacy API)
 // ============================================
 
 /**
@@ -112,7 +154,7 @@ export async function executeDispersePay(
 }
 
 // ============================================
-// STAKING EXECUTORS
+// STAKING EXECUTORS (Legacy API)
 // ============================================
 
 /**
@@ -204,7 +246,7 @@ export async function readStakedAmount(
   const amount = await publicClient.readContract({
     address: stakingAddress,
     abi: StakingABI,
-    functionName: 'getStakedAmount',
+    functionName: 'getUserAmountStaked',
     args: [account],
   });
 
@@ -213,15 +255,16 @@ export async function readStakedAmount(
 
 /**
  * Check if address is a staker
+ * Note: isAddressStaker is on the EVVM contract, not the Staking contract
  */
 export async function readIsStaker(
   publicClient: PublicClient,
-  stakingAddress: `0x${string}`,
+  evvmAddress: `0x${string}`,
   account: `0x${string}`
 ): Promise<boolean> {
   const isStaker = await publicClient.readContract({
-    address: stakingAddress,
-    abi: StakingABI,
+    address: evvmAddress,
+    abi: EvvmABI,
     functionName: 'isAddressStaker',
     args: [account],
   });

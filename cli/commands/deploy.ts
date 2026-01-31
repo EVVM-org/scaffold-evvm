@@ -1155,6 +1155,7 @@ async function deployWithFoundry(
   useDefaultAnvilKey: boolean = false
 ): Promise<DeploymentResult | null> {
   const rpcUrl = LOCAL_RPC_URL;
+  const projectRoot = join(packageDir, '..', '..');
 
   // Clean stale artifacts first
   console.log(chalk.gray('Cleaning stale artifacts...'));
@@ -1162,7 +1163,7 @@ async function deployWithFoundry(
 
   // Select the deployment script based on contract source
   // Read scaffold.config.json to determine which contracts to use
-  const scaffoldConfigPath = join(packageDir, '..', '..', 'scaffold.config.json');
+  const scaffoldConfigPath = join(projectRoot, 'scaffold.config.json');
   let contractSource = 'testnet'; // default
   try {
     const scaffoldConfig = JSON.parse(readFileSync(scaffoldConfigPath, 'utf-8'));
@@ -1195,7 +1196,7 @@ async function deployWithFoundry(
     stdio: 'inherit'
   });
 
-  // Parse deployment artifacts
+  // Parse deployment artifacts from the package directory
   return parseFoundryArtifacts(packageDir);
 }
 
@@ -1419,6 +1420,32 @@ async function displayDeploymentResult(result: DeploymentResult, framework: 'fou
   envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_TREASURY_ADDRESS', result.treasuryAddress);
   if (result.p2pSwapAddress) {
     envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_P2PSWAP_ADDRESS', result.p2pSwapAddress);
+  }
+
+  // Read admin addresses from address.json (generated during deployment config)
+  const addressJsonPath = join(projectRoot, 'packages', 'Testnet-Contracts', 'input', 'address.json');
+  const playgroundAddressJsonPath = join(projectRoot, 'packages', 'Playground-Contracts', 'input', 'address.json');
+
+  let adminAddresses: { admin?: string; goldenFisher?: string; activator?: string } = {};
+
+  try {
+    if (existsSync(addressJsonPath)) {
+      adminAddresses = JSON.parse(readFileSync(addressJsonPath, 'utf-8'));
+    } else if (existsSync(playgroundAddressJsonPath)) {
+      adminAddresses = JSON.parse(readFileSync(playgroundAddressJsonPath, 'utf-8'));
+    }
+  } catch {
+    // Ignore if can't read
+  }
+
+  if (adminAddresses.admin) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_ADMIN_ADDRESS', adminAddresses.admin);
+  }
+  if (adminAddresses.goldenFisher) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_GOLDEN_FISHER_ADDRESS', adminAddresses.goldenFisher);
+  }
+  if (adminAddresses.activator) {
+    envContent = updateEnvVar(envContent, 'NEXT_PUBLIC_ACTIVATOR_ADDRESS', adminAddresses.activator);
   }
 
   writeFileSync(envPath, envContent);

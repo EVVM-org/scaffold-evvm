@@ -14,11 +14,13 @@ import {
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeFlushUsername } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
+  createSignerWithViem,
+  EVVM,
+  NameService,
   NameServiceABI,
-  PayInputData,
-  FlushUsernameInputData,
-  NameServiceSignatureBuilder,
-} from "@evvm/viem-signature-library";
+  type IPayData as PayInputData,
+  type IFlushUsernameData as FlushUsernameInputData,
+} from "@evvm/evvm-js";
 
 type InfoData = {
   PayInputData: PayInputData;
@@ -56,10 +58,12 @@ export const FlushUsernameComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
       const priceToFlushUsername = await readContract(config, {
         abi: NameServiceABI,
@@ -68,21 +72,28 @@ export const FlushUsernameComponent = ({
         args: [formData.username],
       });
       if (!priceToFlushUsername) {
-        console.error("Price to remove custom metadata is not available");
+        console.error("Price to flush username is not available");
         return;
       }
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signFlushUsername(
-          BigInt(formData.evvmId),
-          formData.addressNameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.nonceNameService),
-          priceToFlushUsername as bigint,
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: formData.addressNameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: priceToFlushUsername as bigint,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: formData.addressNameService as `0x${string}`,
+      });
+
+      // Create flush username action
+      const nsAction = await nameService.flushUsername({
+        username: formData.username,
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
+
       setDataToGet({
         PayInputData: {
           from: walletData.address as `0x${string}`,
@@ -92,20 +103,11 @@ export const FlushUsernameComponent = ({
           amount: priceToFlushUsername as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: formData.priorityFlag_EVVM,
+          priorityFlag: formData.priorityFlag_EVVM,
           executor: formData.addressNameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        FlushUsernameInputData: {
-          user: walletData.address as `0x${string}`,
-          username: formData.username,
-          nonce: BigInt(formData.nonceNameService),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: paySignature,
-        },
+        FlushUsernameInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);

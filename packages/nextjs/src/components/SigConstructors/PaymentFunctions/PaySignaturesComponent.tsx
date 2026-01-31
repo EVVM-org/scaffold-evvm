@@ -15,9 +15,10 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executePay } from "@/utils/transactionExecuters/evvmExecuter";
 
 import {
-  EVVMSignatureBuilder,
-  PayInputData,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  type IPayData as PayInputData,
+} from "@evvm/evvm-js";
 
 import { getWalletClient } from "wagmi/actions";
 
@@ -55,22 +56,34 @@ export const PaySignaturesComponent = ({
     };
 
     try {
+      console.log('🚀 [evvm-js] PaySignaturesComponent: Starting signature creation...');
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (EVVMSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
-      const signature = await signatureBuilder.signPay(
-        BigInt(formData.evvmID),
-        formData.to,
-        formData.tokenAddress as `0x${string}`,
-        BigInt(formData.amount),
-        BigInt(formData.priorityFee),
-        BigInt(formData.nonce),
-        priority === "high",
-        formData.executor as `0x${string}`
-      );
+      const evvm = new EVVM({ signer, address: evvmAddress as `0x${string}`, chainId });
+      console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
+
+      const isAddress = formData.to.startsWith("0x");
+      console.log('📝 [evvm-js] Calling evvm.pay() to create EIP-191 signed action...');
+      const signedAction = await evvm.pay({
+        to: formData.to,
+        tokenAddress: formData.tokenAddress as `0x${string}`,
+        amount: BigInt(formData.amount),
+        priorityFee: BigInt(formData.priorityFee),
+        nonce: BigInt(formData.nonce),
+        priorityFlag: priority === "high",
+        executor: formData.executor as `0x${string}`,
+      });
+      console.log('✅ [evvm-js] SignedAction created successfully:', {
+        functionName: signedAction.functionName,
+        evvmId: signedAction.evvmId.toString(),
+        signatureLength: signedAction.data.signature.length,
+      });
+
+      const signature = signedAction.data.signature;
 
       setDataToGet({
         from: walletData.address as `0x${string}`,
@@ -82,8 +95,8 @@ export const PaySignaturesComponent = ({
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce),
-        priority: priority === "high",
-        executor: formData.executor,
+        priorityFlag: priority === "high",
+        executor: formData.executor as `0x${string}`,
         signature,
       });
     } catch (error) {

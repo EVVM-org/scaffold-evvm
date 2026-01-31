@@ -25,7 +25,7 @@ const LOCAL_CHAIN = {
 
 export function WalletConnect() {
   const { open } = useAppKit();
-  const { appKit } = useAppKitState();
+  useAppKitState(); // Keep hook for state subscriptions
   const { address: appKitAddress, isConnected: appKitIsConnected } = useAppKitAccount();
   const { address: wagmiAddress, isConnected: wagmiIsConnected } = useAccount();
   const { reconnect } = useReconnect();
@@ -64,16 +64,17 @@ export function WalletConnect() {
     };
 
     if (window.ethereum) {
-      window.ethereum.on?.('connect', handleConnect);
-      window.ethereum.on?.('disconnect', handleDisconnect);
-      window.ethereum.on?.('accountsChanged', handleAccountsChanged);
-      window.ethereum.on?.('chainChanged', handleConnect);
+      const eth = window.ethereum as any;
+      eth.on?.('connect', handleConnect);
+      eth.on?.('disconnect', handleDisconnect);
+      eth.on?.('accountsChanged', handleAccountsChanged);
+      eth.on?.('chainChanged', handleConnect);
 
       return () => {
-        window.ethereum.removeListener?.('connect', handleConnect);
-        window.ethereum.removeListener?.('disconnect', handleDisconnect);
-        window.ethereum.removeListener?.('accountsChanged', handleAccountsChanged);
-        window.ethereum.removeListener?.('chainChanged', handleConnect);
+        eth.removeListener?.('connect', handleConnect);
+        eth.removeListener?.('disconnect', handleDisconnect);
+        eth.removeListener?.('accountsChanged', handleAccountsChanged);
+        eth.removeListener?.('chainChanged', handleConnect);
       };
     }
   }, [mounted, reconnect]);

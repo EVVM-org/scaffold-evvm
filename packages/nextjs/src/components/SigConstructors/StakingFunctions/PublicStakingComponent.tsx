@@ -14,10 +14,12 @@ import {
 import { executePublicStaking } from "@/utils/transactionExecuters/stakingExecuter";
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import {
-  PayInputData,
-  PublicStakingInputData,
-  StakingSignatureBuilder,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  Staking,
+  type IPayData as PayInputData,
+  type IPublicStakingData as PublicStakingInputData,
+} from "@evvm/evvm-js";
 
 type InputData = {
   PublicStakingInputData: PublicStakingInputData;
@@ -63,36 +65,44 @@ export const PublicStakingComponent = ({
       (BigInt(5083) * BigInt(10) ** BigInt(18));
 
     try {
+      console.log('🚀 [evvm-js] PublicStakingComponent: Starting dual signature creation...');
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (StakingSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signPublicStaking(
-          BigInt(formData.evvmID),
-          formData.stakingAddress as `0x${string}`,
-          isStaking,
-          BigInt(formData.amountOfStaking),
-          BigInt(formData.nonceStaking),
-          amountOfToken,
-          BigInt(formData.priorityFee),
-          BigInt(formData.nonceEVVM),
-          priority === "high"
-        );
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
+
+      // Create EVVM pay action first
+      console.log('📝 [evvm-js] Creating EVVM pay action (first signature)...');
+      const evvmAction = await evvm.pay({
+        to: formData.stakingAddress as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: amountOfToken,
+        priorityFee: BigInt(formData.priorityFee),
+        nonce: BigInt(formData.nonceEVVM),
+        priorityFlag: priority === "high",
+        executor: formData.stakingAddress as `0x${string}`,
+      });
+      console.log('✅ [evvm-js] EVVM pay SignedAction created');
+
+      // Create Staking service and use publicStaking method
+      // evvmSignedAction provides the evvmId, bypassing getEvvmID() call
+      console.log('📝 [evvm-js] Creating public staking action via Staking service...');
+      const staking = new Staking({ signer, address: stakingAddress as `0x${string}`, chainId });
+      const stakingAction = await staking.publicStaking({
+        isStaking: isStaking,
+        amountOfStaking: BigInt(formData.amountOfStaking),
+        nonce: BigInt(formData.nonceStaking),
+        evvmSignedAction: evvmAction,
+      });
+      console.log('✅ [evvm-js] Public staking SignedAction created with dual signatures');
+
       setDataToGet({
-        PublicStakingInputData: {
-          isStaking: isStaking,
-          user: walletData.address as `0x${string}`,
-          nonce: BigInt(formData.nonceStaking),
-          amountOfStaking: BigInt(formData.amountOfStaking),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee),
-          priorityFlag_EVVM: priority === "high",
-          nonce_EVVM: BigInt(formData.nonceEVVM),
-          signature_EVVM: paySignature,
-        },
+        PublicStakingInputData: stakingAction.data,
         PayInputData: {
           from: walletData.address as `0x${string}`,
           to_address: formData.stakingAddress as `0x${string}`,
@@ -101,9 +111,9 @@ export const PublicStakingComponent = ({
           amount: BigInt(amountOfToken),
           priorityFee: BigInt(formData.priorityFee),
           nonce: BigInt(formData.nonceEVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.stakingAddress as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
       });
     } catch (error) {
@@ -117,7 +127,7 @@ export const PublicStakingComponent = ({
       return;
     }
 
-    const stakingAddress = dataToGet.PayInputData.to_address;
+    const stakingAddress = dataToGet.PayInputData.to_address!;
 
     executePublicStaking(dataToGet.PublicStakingInputData, stakingAddress)
       .then(() => {

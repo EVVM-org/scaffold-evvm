@@ -24,11 +24,17 @@ import {
   executeDispersePay,
 } from "@/lib/evvmExecutors";
 import {
-  EVVMSignatureBuilder,
-  PayInputData,
-  DispersePayInputData,
-  DispersePayMetadata,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  type IPayData as PayInputData,
+  type IDispersePayData as DispersePayInputData,
+} from "@evvm/evvm-js";
+
+type DispersePayMetadata = {
+  amount: bigint;
+  to_address: `0x${string}`;
+  to_identity: string;
+};
 import styles from "@/styles/pages/Payments.module.css";
 
 // Helper to transform library types to our types
@@ -154,27 +160,29 @@ export default function PaymentsPage() {
         throw new Error("Wallet client not available. Please connect your wallet and ensure you're on the correct network.");
       }
 
-      console.log("Creating EVVM signature builder with:", {
+      console.log("Creating EVVM service with:", {
         walletClient,
         walletData,
         evvmID: formData.evvmID
       });
 
-      const signatureBuilder = new (EVVMSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
 
-      const signature = await signatureBuilder.signPay(
-        BigInt(formData.evvmID),
-        formData.to,
-        formData.tokenAddress as `0x${string}`,
-        BigInt(formData.amount),
-        BigInt(formData.priorityFee),
-        BigInt(formData.nonce),
-        priority === "high",
-        formData.executor as `0x${string}`
-      );
+      // The evvm.pay() `to` param accepts both address (0x...) and identity (username) directly
+      const signedAction = await evvm.pay({
+        to: formData.to.startsWith("0x") ? (formData.to as `0x${string}`) : formData.to,
+        tokenAddress: formData.tokenAddress as `0x${string}`,
+        amount: BigInt(formData.amount),
+        priorityFee: BigInt(formData.priorityFee),
+        nonce: BigInt(formData.nonce),
+        priorityFlag: priority === "high",
+        executor: formData.executor as `0x${string}`,
+      });
+
+      const signature = signedAction.data.signature;
 
       console.log("Payment signature created:", {
         signature,
@@ -238,9 +246,10 @@ export default function PaymentsPage() {
     setTxHash(null);
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hash = await executePay(
-        walletClient,
-        publicClient,
+        walletClient as any,
+        publicClient as any,
         deployment.evvm as `0x${string}`,
         transformPayData(payDataToGet)
       );
@@ -336,28 +345,37 @@ export default function PaymentsPage() {
         throw new Error("Wallet client not available. Please connect your wallet and ensure you're on the correct network.");
       }
 
-      console.log("Creating EVVM disperse signature builder with:", {
+      console.log("Creating EVVM disperse service with:", {
         walletClient,
         walletData,
         evvmID: formData.evvmID,
         recipientCount: toData.length
       });
 
-      const signatureBuilder = new (EVVMSignatureBuilder as any)(
-        walletClient,
-        walletData
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+
+      // Convert toData to the format expected by evvm-js dispersePay
+      // API expects: { amount, toAddress, toIdentity: undefined } | { amount, toAddress: undefined, toIdentity }
+      const disperseToData = toData.map((t: DispersePayMetadata) =>
+        t.to_address
+          ? { amount: t.amount, toAddress: t.to_address, toIdentity: undefined as undefined }
+          : { amount: t.amount, toAddress: undefined as undefined, toIdentity: t.to_identity || "" }
       );
 
-      const dispersePaySignature = await signatureBuilder.signDispersePay(
-        BigInt(formData.evvmID),
-        toData,
-        formData.tokenAddress as `0x${string}`,
-        BigInt(formData.amount),
-        BigInt(formData.priorityFee),
-        BigInt(formData.nonce),
-        priorityDisperse === "high",
-        formData.executor as `0x${string}`
-      );
+      const signedAction = await evvm.dispersePay({
+        toData: disperseToData,
+        tokenAddress: formData.tokenAddress as `0x${string}`,
+        amount: BigInt(formData.amount),
+        priorityFee: BigInt(formData.priorityFee),
+        nonce: BigInt(formData.nonce),
+        priorityFlag: priorityDisperse === "high",
+        executor: formData.executor as `0x${string}`,
+      });
+
+      const dispersePaySignature = signedAction.data.signature;
 
       console.log("Disperse payment signature created:", {
         dispersePaySignature,
@@ -418,9 +436,10 @@ export default function PaymentsPage() {
     setTxHash(null);
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hash = await executeDispersePay(
-        walletClient,
-        publicClient,
+        walletClient as any,
+        publicClient as any,
         deployment.evvm as `0x${string}`,
         transformDisperseData(disperseDataToGet)
       );

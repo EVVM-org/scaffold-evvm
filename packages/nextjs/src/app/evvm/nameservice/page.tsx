@@ -30,20 +30,27 @@ import {
 import {
   NameServiceABI,
   EvvmABI,
-  PayInputData,
-  PreRegistrationUsernameInputData,
-  RegistrationUsernameInputData,
-  RenewUsernameInputData,
-  MakeOfferInputData,
-  AcceptOfferInputData,
-  WithdrawOfferInputData,
-  AddCustomMetadataInputData,
-  RemoveCustomMetadataInputData,
-  FlushCustomMetadataInputData,
-  FlushUsernameInputData,
-  NameServiceSignatureBuilder,
-  hashPreRegisteredUsername,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  NameService,
+  type IPayData as PayInputData,
+  type IPreRegistrationUsernameData as PreRegistrationUsernameInputData,
+  type IRegistrationUsernameData as RegistrationUsernameInputData,
+  type IRenewUsernameData as RenewUsernameInputData,
+  type IMakeOfferData as MakeOfferInputData,
+  type IAcceptOfferData as AcceptOfferInputData,
+  type IWithdrawOfferData as WithdrawOfferInputData,
+  type IAddCustomMetadataData as AddCustomMetadataInputData,
+  type IRemoveCustomMetadataData as RemoveCustomMetadataInputData,
+  type IFlushCustomMetadataData as FlushCustomMetadataInputData,
+  type IFlushUsernameData as FlushUsernameInputData,
+} from "@evvm/evvm-js";
+import { keccak256, encodePacked } from "viem";
+
+// Local implementation of hash function (not exported from evvm-js)
+function hashPreRegisteredUsername(username: string, clowNumber: bigint): string {
+  return keccak256(encodePacked(['string', 'uint256'], [username, clowNumber]));
+}
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import styles from "@/styles/pages/NameService.module.css";
 
@@ -110,46 +117,47 @@ export default function NameServicePage() {
         throw new Error("Wallet client not available. Please connect your wallet.");
       }
 
-      console.log("Creating signature builder with:", {
+      console.log("Creating nameservice with:", {
         walletClient,
         walletData,
         evvmID: deployment.evvmID,
         nameService: deployment.nameService
       });
 
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signPreRegistrationUsername(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.clowNumber),
-          BigInt(formData.nonce),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
+      // Create EVVM pay action first (with 0 amount for pre-registration)
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: 0n,
+        priorityFee: BigInt(formData.priorityFee_EVVM || "0"),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: deployment.nameService as `0x${string}`,
+      });
 
+      // Hash the username with clowNumber for pre-registration
       const hashUsername = hashPreRegisteredUsername(
         formData.username,
         BigInt(formData.clowNumber)
       );
 
-      // When priorityFee = 0, paySignature will be undefined
-      // Use empty bytes "0x" as a valid placeholder
-      const EMPTY_SIGNATURE = "0x" as `0x${string}`;
-      const finalPaySignature = paySignature || EMPTY_SIGNATURE;
+      // Create pre-registration action
+      const nsAction = await nameService.preRegistrationUsername({
+        hashPreRegisteredUsername: hashUsername,
+        nonce: BigInt(formData.nonce),
+        evvmSignedAction: evvmAction,
+      });
 
       console.log("Signature handling:", {
         priorityFee: formData.priorityFee_EVVM,
-        paySignature: paySignature || "undefined",
-        finalPaySignature,
-        actionSignature,
-        usingEmptySignature: !paySignature,
+        paySignature: evvmAction.data.signature,
+        actionSignature: nsAction.data.signature,
       });
 
       setDataToGet({
@@ -161,22 +169,11 @@ export default function NameServicePage() {
           amount: BigInt(0),
           priorityFee: BigInt(formData.priorityFee_EVVM || "0"),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: finalPaySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          hashPreRegisteredUsername:
-            hashUsername.toLowerCase().slice(0, 2) +
-            hashUsername.toUpperCase().slice(2),
-          nonce: BigInt(formData.nonce),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM || "0"),
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: finalPaySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);
@@ -217,11 +214,6 @@ export default function NameServicePage() {
         throw new Error("Wallet client not available. Please connect your wallet.");
       }
 
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
-
       await readRewardAmount();
 
       console.log("Creating registration signature with:", {
@@ -231,41 +223,37 @@ export default function NameServicePage() {
         rewardAmount
       });
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signRegistrationUsername(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.clowNumber),
-          BigInt(formData.nonceNameService),
-          rewardAmount as bigint,
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonceEVVM),
-          formData.priorityFlag
-        );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
-      console.log("Registration signatures created:", {
-        paySignature,
-        actionSignature,
-        paySignatureType: typeof paySignature,
-        actionSignatureType: typeof actionSignature,
-        paySignatureLength: paySignature?.length,
-        actionSignatureLength: actionSignature?.length,
-        note: "Both signatures are required for registration"
+      // Create EVVM pay action first
+      const payAmount = rewardAmount ? rewardAmount * BigInt(100) : BigInt(0);
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: payAmount,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonceEVVM),
+        priorityFlag: formData.priorityFlag,
+        executor: deployment.nameService as `0x${string}`,
       });
 
-      // For registration, both signatures are always required
-      if (!paySignature || !actionSignature) {
-        throw new Error("Signature creation failed: One or both signatures are undefined");
-      }
+      // Create registration action
+      const nsAction = await nameService.registrationUsername({
+        username: formData.username,
+        clowNumber: BigInt(formData.clowNumber),
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
 
-      if (typeof paySignature !== 'string' || !paySignature.startsWith('0x')) {
-        throw new Error(`Invalid paySignature format: ${paySignature}`);
-      }
-
-      if (typeof actionSignature !== 'string' || !actionSignature.startsWith('0x')) {
-        throw new Error(`Invalid actionSignature format: ${actionSignature}`);
-      }
+      console.log("Registration signatures created:", {
+        paySignature: evvmAction.data.signature,
+        actionSignature: nsAction.data.signature,
+        note: "Both signatures are required for registration"
+      });
 
       setDataToGet({
         PayInputData: {
@@ -273,24 +261,14 @@ export default function NameServicePage() {
           to_address: deployment.nameService as `0x${string}`,
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
-          amount: rewardAmount ? rewardAmount * BigInt(100) : BigInt(0),
+          amount: payAmount,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          nonce: BigInt(formData.nonceNameService),
-          username: formData.username,
-          clowNumber: BigInt(formData.clowNumber),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonceEVVM),
-          priorityFlag_EVVM: formData.priorityFlag,
-          signature_EVVM: paySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signatures:", error);
@@ -352,22 +330,30 @@ export default function NameServicePage() {
       };
 
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signRenewUsername(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          formData.username,
-          formData.nonceNameService,
-          formData.amountToRenew,
-          formData.priorityFee_EVVM,
-          formData.nonceEVVM,
-          formData.priorityFlag
-        );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
+
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: formData.amountToRenew,
+        priorityFee: formData.priorityFee_EVVM,
+        nonce: formData.nonceEVVM,
+        priorityFlag: formData.priorityFlag,
+        executor: deployment.nameService as `0x${string}`,
+      });
+
+      // Create renew action
+      const nsAction = await nameService.renewUsername({
+        username: formData.username,
+        nonce: formData.nonceNameService,
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -378,20 +364,11 @@ export default function NameServicePage() {
           amount: formData.amountToRenew,
           priorityFee: BigInt(0),
           nonce: formData.nonceEVVM,
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          nonce: formData.nonceNameService,
-          username: formData.username,
-          priorityFee_EVVM: formData.priorityFee_EVVM,
-          signature: actionSignature,
-          nonce_EVVM: formData.nonceEVVM,
-          priorityFlag_EVVM: formData.priorityFlag,
-          signature_EVVM: paySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error signing renew username:", error);
@@ -442,23 +419,32 @@ export default function NameServicePage() {
       };
 
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signMakeOffer(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.expireDate),
-          BigInt(formData.amount),
-          BigInt(formData.nonceNameService),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonceEVVM),
-          formData.priorityFlag
-        );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
+
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: BigInt(formData.amount),
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonceEVVM),
+        priorityFlag: formData.priorityFlag,
+        executor: deployment.nameService as `0x${string}`,
+      });
+
+      // Create make offer action
+      const nsAction = await nameService.makeOffer({
+        username: formData.username,
+        expireDate: BigInt(formData.expireDate),
+        amount: BigInt(formData.amount),
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -469,22 +455,11 @@ export default function NameServicePage() {
           amount: BigInt(formData.amount),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          username: formData.username,
-          expireDate: BigInt(formData.expireDate),
-          amount: BigInt(formData.amount),
-          nonce: BigInt(formData.nonceNameService),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonceEVVM),
-          priorityFlag_EVVM: formData.priorityFlag,
-          signature_EVVM: paySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);
@@ -513,22 +488,31 @@ export default function NameServicePage() {
       };
 
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signAcceptOffer(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.offerId),
-          BigInt(formData.nonce),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
+
+      // Create EVVM pay action first (with 0 amount for accept offer)
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: 0n,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: deployment.nameService as `0x${string}`,
+      });
+
+      // Create accept offer action
+      const nsAction = await nameService.acceptOffer({
+        username: formData.username,
+        offerID: BigInt(formData.offerId),
+        nonce: BigInt(formData.nonce),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -539,21 +523,11 @@ export default function NameServicePage() {
           amount: BigInt(0),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          username: formData.username,
-          offerID: BigInt(formData.offerId),
-          nonce: formData.nonce,
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: paySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error signing accept offer:", error);
@@ -582,22 +556,31 @@ export default function NameServicePage() {
       };
 
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signWithdrawOffer(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.offerId),
-          BigInt(formData.nonceNameService),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
+
+      // Create EVVM pay action first (with 0 amount for withdraw offer)
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: 0n,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: deployment.nameService as `0x${string}`,
+      });
+
+      // Create withdraw offer action
+      const nsAction = await nameService.withdrawOffer({
+        username: formData.username,
+        offerID: BigInt(formData.offerId),
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -608,21 +591,11 @@ export default function NameServicePage() {
           amount: BigInt(0),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          nonce: BigInt(formData.nonceNameService),
-          username: formData.username,
-          offerID: BigInt(formData.offerId),
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          signature: actionSignature,
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: paySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error signing withdraw offer:", error);
@@ -655,27 +628,37 @@ export default function NameServicePage() {
       const valueCustomMetadata = `${formData.schema}:${formData.subschema}>${formData.value}`;
 
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       await getPriceToAddCustomMetadata();
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signAddCustomMetadata(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          BigInt(formData.nonceNameService),
-          formData.identity,
-          valueCustomMetadata,
-          addMetadataPrice
-            ? BigInt(addMetadataPrice)
-            : BigInt(5000000000000000000 * 10),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonceEVVM),
-          formData.priorityFlag
-        );
+      const payAmount = addMetadataPrice
+        ? BigInt(addMetadataPrice)
+        : BigInt(5000000000000000000 * 10);
+
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: payAmount,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonceEVVM),
+        priorityFlag: formData.priorityFlag,
+        executor: deployment.nameService as `0x${string}`,
+      });
+
+      // Create add custom metadata action
+      const nsAction = await nameService.addCustomMetadata({
+        identity: formData.identity,
+        value: valueCustomMetadata,
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -683,26 +666,14 @@ export default function NameServicePage() {
           to_address: deployment.nameService as `0x${string}`,
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
-          amount: addMetadataPrice
-            ? BigInt(addMetadataPrice)
-            : BigInt(5000000000000000000 * 10),
+          amount: payAmount,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          identity: formData.identity,
-          value: valueCustomMetadata,
-          nonce: BigInt(formData.nonceNameService),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonceEVVM),
-          priorityFlag_EVVM: formData.priorityFlag,
-          signature_EVVM: paySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);
@@ -751,10 +722,12 @@ export default function NameServicePage() {
       };
 
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       const price = await readContract(config, {
         abi: NameServiceABI,
@@ -767,18 +740,24 @@ export default function NameServicePage() {
         throw new Error("Price to remove custom metadata is not available");
       }
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signRemoveCustomMetadata(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          formData.identity,
-          BigInt(formData.key),
-          BigInt(formData.nonceNameService),
-          price as bigint,
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonceEVVM),
-          formData.priorityFlag
-        );
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: price as bigint,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonceEVVM),
+        priorityFlag: formData.priorityFlag,
+        executor: deployment.nameService as `0x${string}`,
+      });
+
+      // Create remove custom metadata action
+      const nsAction = await nameService.removeCustomMetadata({
+        identity: formData.identity,
+        key: BigInt(formData.key),
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -789,21 +768,11 @@ export default function NameServicePage() {
           amount: price as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          nonce: BigInt(formData.nonceNameService),
-          identity: formData.identity,
-          key: BigInt(formData.key),
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          signature: actionSignature,
-          nonce_EVVM: BigInt(formData.nonceEVVM),
-          priorityFlag_EVVM: formData.priorityFlag,
-          signature_EVVM: paySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error signing accept offer:", error);
@@ -831,10 +800,12 @@ export default function NameServicePage() {
       };
 
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       const price = await readContract(config, {
         abi: NameServiceABI,
@@ -843,17 +814,23 @@ export default function NameServicePage() {
         args: [formData.identity],
       });
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signFlushCustomMetadata(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          formData.identity,
-          BigInt(formData.nonceNameService),
-          price as bigint,
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: price as bigint,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: deployment.nameService as `0x${string}`,
+      });
+
+      // Create flush custom metadata action
+      const nsAction = await nameService.flushCustomMetadata({
+        identity: formData.identity,
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -864,20 +841,11 @@ export default function NameServicePage() {
           amount: price as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          identity: formData.identity,
-          nonce: BigInt(formData.nonceNameService),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: paySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);
@@ -905,10 +873,12 @@ export default function NameServicePage() {
       };
 
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       const priceToFlushUsername = await readContract(config, {
         abi: NameServiceABI,
@@ -921,17 +891,23 @@ export default function NameServicePage() {
         throw new Error("Price to flush username is not available");
       }
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signFlushUsername(
-          BigInt(deployment.evvmID),
-          deployment.nameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.nonceNameService),
-          priceToFlushUsername as bigint,
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: deployment.nameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: priceToFlushUsername as bigint,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: deployment.nameService as `0x${string}`,
+      });
+
+      // Create flush username action
+      const nsAction = await nameService.flushUsername({
+        username: formData.username,
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -942,20 +918,11 @@ export default function NameServicePage() {
           amount: priceToFlushUsername as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: formData.priorityFlag_EVVM,
+          priorityFlag: formData.priorityFlag_EVVM,
           executor: deployment.nameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        ActionInputData: {
-          user: walletData.address as `0x${string}`,
-          username: formData.username,
-          nonce: BigInt(formData.nonceNameService),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: paySignature,
-        },
+        ActionInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);

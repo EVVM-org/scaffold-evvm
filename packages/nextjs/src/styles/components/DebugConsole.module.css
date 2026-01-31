@@ -1,14 +1,15 @@
 .console {
-  background: var(--color-code-bg);
-  border-radius: var(--border-radius);
-  margin-top: var(--spacing-xl);
+  background: var(--color-code-bg, #1f2937);
+  border-radius: var(--border-radius, 8px);
+  margin-top: var(--spacing-xl, 2rem);
   overflow: hidden;
   box-shadow: var(--shadow-md);
+  border: 1px solid #374151;
 }
 
 .header {
   background: #111827;
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-md, 1rem) var(--spacing-lg, 1.5rem);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -16,25 +17,49 @@
 }
 
 .header h4 {
-  color: var(--color-code-text);
+  color: #00ee96;
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
 }
 
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filterSelect {
+  background: #374151;
+  color: #f3f4f6;
+  border: 1px solid #4b5563;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: #00ee96;
+}
+
 .clearButton {
   background: #374151;
-  color: var(--color-code-text);
-  padding: var(--spacing-xs) var(--spacing-md);
+  color: var(--color-code-text, #f3f4f6);
+  padding: var(--spacing-xs, 0.25rem) var(--spacing-md, 1rem);
   font-size: 0.875rem;
+  border: 1px solid #4b5563;
+  border-radius: 4px;
 }
 
 .clearButton:hover {
   background: #4b5563;
+  border-color: #00ee96;
 }
 
 .empty {
-  padding: var(--spacing-xl);
+  padding: var(--spacing-xl, 2rem);
   text-align: center;
   color: #9ca3af;
 }
@@ -53,10 +78,10 @@
 }
 
 .entryHeader {
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-sm, 0.5rem) var(--spacing-lg, 1.5rem);
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: var(--spacing-sm, 0.5rem);
   cursor: pointer;
   transition: background 0.2s ease;
 }
@@ -67,41 +92,101 @@
 
 .icon {
   font-weight: bold;
-  font-size: 1.25rem;
+  font-size: 1rem;
+  width: 1.25rem;
+  text-align: center;
+}
+
+.typeLabel {
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+  background: #374151;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .label {
   flex: 1;
   font-weight: 500;
-  color: var(--color-code-text);
+  font-size: 0.875rem;
+  color: var(--color-code-text, #f3f4f6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.txHash {
+  font-family: 'Courier New', monospace;
+  font-size: 0.625rem;
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.1);
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+}
+
+.blockNum {
+  font-family: 'Courier New', monospace;
+  font-size: 0.625rem;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.1);
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
 }
 
 .timestamp {
-  font-size: 0.75rem;
-  color: #9ca3af;
+  font-size: 0.625rem;
+  color: #6b7280;
   font-family: 'Courier New', monospace;
 }
 
 .expandIcon {
-  color: #9ca3af;
-  font-size: 0.75rem;
+  color: #6b7280;
+  font-size: 0.625rem;
 }
 
 .entryBody {
-  padding: 0 var(--spacing-lg) var(--spacing-md) var(--spacing-lg);
+  padding: 0 var(--spacing-lg, 1.5rem) var(--spacing-md, 1rem) var(--spacing-lg, 1.5rem);
+}
+
+.txHashFull {
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  color: #60a5fa;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(96, 165, 250, 0.1);
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.txHashFull strong {
+  color: #93c5fd;
 }
 
 .payload {
   background: #111827;
   border: 1px solid #374151;
   border-radius: 4px;
-  padding: var(--spacing-md);
+  padding: var(--spacing-md, 1rem);
   overflow-x: auto;
   font-family: 'Courier New', monospace;
   font-size: 0.75rem;
   color: #d1d5db;
   white-space: pre-wrap;
   word-break: break-all;
+  margin: 0;
+}
+
+.footer {
+  background: #111827;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid #374151;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: right;
 }
 
 /* Entry type colors */
@@ -109,7 +194,17 @@
   color: #60a5fa;
 }
 
+.request .typeLabel {
+  background: rgba(96, 165, 250, 0.2);
+  color: #60a5fa;
+}
+
 .response .icon {
+  color: #34d399;
+}
+
+.response .typeLabel {
+  background: rgba(52, 211, 153, 0.2);
   color: #34d399;
 }
 
@@ -117,6 +212,52 @@
   color: #f87171;
 }
 
+.error .typeLabel {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
 .info .icon {
   color: #fbbf24;
+}
+
+.info .typeLabel {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.tx .icon {
+  color: #00ee96;
+}
+
+.tx .typeLabel {
+  background: rgba(0, 238, 150, 0.2);
+  color: #00ee96;
+}
+
+.block .icon {
+  color: #a78bfa;
+}
+
+.block .typeLabel {
+  background: rgba(167, 139, 250, 0.2);
+  color: #a78bfa;
+}
+
+.signature .icon {
+  color: #f472b6;
+}
+
+.signature .typeLabel {
+  background: rgba(244, 114, 182, 0.2);
+  color: #f472b6;
+}
+
+.wallet .icon {
+  color: #fb923c;
+}
+
+.wallet .typeLabel {
+  background: rgba(251, 146, 60, 0.2);
+  color: #fb923c;
 }

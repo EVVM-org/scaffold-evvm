@@ -14,11 +14,18 @@ import {
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executePreRegistrationUsername } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
-  PayInputData,
-  PreRegistrationUsernameInputData,
-  NameServiceSignatureBuilder,
-  hashPreRegisteredUsername,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  NameService,
+  type IPayData as PayInputData,
+  type IPreRegistrationUsernameData as PreRegistrationUsernameInputData,
+} from "@evvm/evvm-js";
+import { keccak256, encodePacked } from "viem";
+
+// Hash function for pre-registered username
+function hashPreRegisteredUsername(username: string, clowNumber: bigint): string {
+  return keccak256(encodePacked(['string', 'uint256'], [username, clowNumber]));
+}
 
 type InfoData = {
   PayInputData: PayInputData;
@@ -81,27 +88,36 @@ export const PreRegistrationUsernameComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signPreRegistrationUsername(
-          BigInt(formData.evvmId),
-          formData.addressNameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.clowNumber),
-          BigInt(formData.nonce),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
-
+      // Hash the username with clow number
       const hashUsername = hashPreRegisteredUsername(
         formData.username,
         BigInt(formData.clowNumber)
       );
+
+      // Create EVVM pay action first (0 amount for pre-registration)
+      const evvmAction = await evvm.pay({
+        to: formData.addressNameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: 0n,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: formData.addressNameService as `0x${string}`,
+      });
+
+      // Create pre-registration action
+      const nsAction = await nameService.preRegistrationUsername({
+        hashPreRegisteredUsername: hashUsername,
+        nonce: BigInt(formData.nonce),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -112,22 +128,11 @@ export const PreRegistrationUsernameComponent = ({
           amount: BigInt(0),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.addressNameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        PreRegistrationUsernameInputData: {
-          user: walletData.address as `0x${string}`,
-          hashPreRegisteredUsername:
-            hashUsername.toLowerCase().slice(0, 2) +
-            hashUsername.toUpperCase().slice(2),
-          nonce: BigInt(formData.nonce),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          priorityFlag_EVVM: formData.priorityFlag_EVVM,
-          signature_EVVM: paySignature,
-        },
+        PreRegistrationUsernameInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);

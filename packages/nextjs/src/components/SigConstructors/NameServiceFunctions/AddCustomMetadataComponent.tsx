@@ -14,11 +14,13 @@ import {
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeAddCustomMetadata } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
+  createSignerWithViem,
+  EVVM,
+  NameService,
   NameServiceABI,
-  AddCustomMetadataInputData,
-  PayInputData,
-  NameServiceSignatureBuilder,
-} from "@evvm/viem-signature-library";
+  type IPayData as PayInputData,
+  type IAddCustomMetadataData as AddCustomMetadataInputData,
+} from "@evvm/evvm-js";
 
 type InfoData = {
   PayInputData: PayInputData;
@@ -70,27 +72,37 @@ export const AddCustomMetadataComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
       await getPriceToAddCustomMetadata();
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signAddCustomMetadata(
-          BigInt(formData.evvmId),
-          formData.addressNameService as `0x${string}`,
-          BigInt(formData.nonceNameService),
-          formData.identity,
-          valueCustomMetadata,
-          amountToAddCustomMetadata
-            ? BigInt(amountToAddCustomMetadata)
-            : BigInt(5000000000000000000 * 10),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonceEVVM),
-          formData.priorityFlag
-        );
+      const amount = amountToAddCustomMetadata
+        ? BigInt(amountToAddCustomMetadata)
+        : BigInt(5000000000000000000 * 10);
+
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: formData.addressNameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: amount,
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonceEVVM),
+        priorityFlag: formData.priorityFlag,
+        executor: formData.addressNameService as `0x${string}`,
+      });
+
+      // Create add custom metadata action
+      const nsAction = await nameService.addCustomMetadata({
+        identity: formData.identity,
+        value: valueCustomMetadata,
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
 
       setDataToGet({
         PayInputData: {
@@ -98,26 +110,14 @@ export const AddCustomMetadataComponent = ({
           to_address: formData.addressNameService as `0x${string}`,
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
-          amount: amountToAddCustomMetadata
-            ? BigInt(amountToAddCustomMetadata)
-            : BigInt(5000000000000000000 * 10),
+          amount: amount,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.addressNameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        AddCustomMetadataInputData: {
-          user: walletData.address as `0x${string}`,
-          identity: formData.identity,
-          value: valueCustomMetadata,
-          nonce: BigInt(formData.nonceNameService),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonceEVVM),
-          priorityFlag_EVVM: formData.priorityFlag,
-          signature_EVVM: paySignature,
-        },
+        AddCustomMetadataInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);

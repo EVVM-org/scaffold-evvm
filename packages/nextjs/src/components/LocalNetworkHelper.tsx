@@ -21,17 +21,10 @@ const LOCAL_CHAIN = {
   blockExplorerUrls: [],
 };
 
-// Default Anvil test account (Account #0)
-const TEST_ACCOUNT = {
-  address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-  privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-};
-
 export function LocalNetworkHelper() {
   const { isConnected } = useAccount();
   const chainId = useChainId();
   const [status, setStatus] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   // Only show on localhost chain or when not connected
   const isLocalChain = chainId === 31337;
@@ -74,16 +67,6 @@ export function LocalNetworkHelper() {
       } else {
         setStatus(`Error: ${error.message}`);
       }
-    }
-  };
-
-  const copyPrivateKey = async () => {
-    try {
-      await navigator.clipboard.writeText(TEST_ACCOUNT.privateKey);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setStatus('Failed to copy. Please copy manually.');
     }
   };
 
@@ -141,59 +124,7 @@ export function LocalNetworkHelper() {
           </button>
         </div>
 
-        {/* Step 2: Import Test Account */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          <span style={{
-            background: '#ffc107',
-            color: '#000',
-            borderRadius: '50%',
-            width: '24px',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            flexShrink: 0,
-          }}>2</span>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: '0 0 8px 0', color: '#856404', fontSize: '14px' }}>
-              Import test account (10,000 ETH):
-            </p>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(0,0,0,0.05)',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              fontFamily: 'monospace',
-              fontSize: '11px',
-              overflowX: 'auto',
-            }}>
-              <code style={{ color: '#666', wordBreak: 'break-all' }}>
-                {TEST_ACCOUNT.privateKey.slice(0, 20)}...{TEST_ACCOUNT.privateKey.slice(-8)}
-              </code>
-              <button
-                onClick={copyPrivateKey}
-                style={{
-                  background: copied ? '#28a745' : '#6c757d',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  flexShrink: 0,
-                }}
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Step 3: Connect */}
+        {/* Step 2: Connect */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{
             background: '#ffc107',
@@ -206,7 +137,7 @@ export function LocalNetworkHelper() {
             justifyContent: 'center',
             fontSize: '12px',
             fontWeight: 'bold',
-          }}>3</span>
+          }}>2</span>
           <span style={{ color: '#856404', fontSize: '14px' }}>
             Click &quot;Connect Wallet&quot; above and select MetaMask
           </span>

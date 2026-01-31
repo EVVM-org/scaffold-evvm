@@ -10,11 +10,24 @@ import { writeContract } from "@wagmi/core";
 import { config } from "@/config";
 import {
   StakingABI,
-  GoldenStakingInputData,
-  PresaleStakingInputData,
-  PublicServiceStakingInputData,
-  PublicStakingInputData,
-} from "@evvm/viem-signature-library";
+  type IGoldenStakingData as GoldenStakingInputData,
+  type IPresaleStakingData as PresaleStakingInputData,
+  type IPublicStakingData as PublicStakingInputData,
+} from "@evvm/evvm-js";
+
+// PublicServiceStakingInputData is not in evvm-js, define locally
+interface PublicServiceStakingInputData {
+  user: `0x${string}`;
+  service: `0x${string}`;
+  isStaking: boolean;
+  amountOfStaking: bigint;
+  nonce: bigint;
+  signature: string;
+  priorityFee_EVVM: bigint;
+  nonce_EVVM: bigint;
+  priorityFlag_EVVM: boolean;
+  signature_EVVM: string;
+}
 
 const executeGoldenStaking = async (
   InputData: GoldenStakingInputData,
@@ -24,7 +37,7 @@ const executeGoldenStaking = async (
     return Promise.reject("No data to execute payment");
   }
 
-  writeContract(config, {
+  return writeContract(config, {
     abi: StakingABI,
     address: stakingAddress,
     functionName: "goldenStaking",
@@ -38,6 +51,7 @@ const executeGoldenStaking = async (
       return Promise.resolve();
     })
     .catch((error) => {
+      console.error("Golden staking transaction failed:", error);
       return Promise.reject(error);
     });
 };

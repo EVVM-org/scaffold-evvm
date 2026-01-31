@@ -59,8 +59,10 @@ export interface NameServiceInputData {
 }
 
 export interface DebugEntry {
-  type: 'request' | 'response' | 'error' | 'info';
+  type: 'request' | 'response' | 'error' | 'info' | 'tx' | 'block' | 'signature' | 'wallet';
   label: string;
   payload: any;
   timestamp: number;
+  txHash?: string;
+  blockNumber?: number;
 }

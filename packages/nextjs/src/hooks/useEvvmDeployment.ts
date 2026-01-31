@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { EvvmDeployment } from '@/types/evvm';
 import { createPublicClient, http } from 'viem';
 import { sepolia, arbitrumSepolia, localhost } from 'viem/chains';
-import { EvvmABI } from '@evvm/viem-signature-library';
+import { EvvmABI } from '@evvm/evvm-js';
 import { loadEvvmConfig, clearEvvmConfig } from '@/lib/evvmConfigStorage';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -116,6 +116,9 @@ export function useEvvmDeployment() {
         const envNameServiceAddress = process.env.NEXT_PUBLIC_NAMESERVICE_ADDRESS as `0x${string}` | undefined;
         const envTreasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS as `0x${string}` | undefined;
         const envP2pSwapAddress = process.env.NEXT_PUBLIC_P2PSWAP_ADDRESS as `0x${string}` | undefined;
+        const envAdminAddress = process.env.NEXT_PUBLIC_ADMIN_ADDRESS as `0x${string}` | undefined;
+        const envGoldenFisherAddress = process.env.NEXT_PUBLIC_GOLDEN_FISHER_ADDRESS as `0x${string}` | undefined;
+        const envActivatorAddress = process.env.NEXT_PUBLIC_ACTIVATOR_ADDRESS as `0x${string}` | undefined;
 
         // Debug: Log all env vars
         console.log('🔧 useEvvmDeployment: Environment variables:', {
@@ -167,7 +170,8 @@ export function useEvvmDeployment() {
           estimatorAddress = envEstimatorAddress!;
           treasuryAddress = envTreasuryAddress || ZERO_ADDRESS as `0x${string}`;
           p2pSwapAddress = envP2pSwapAddress;
-          evvmID = evvmIDStr ? parseInt(evvmIDStr) : 0;
+          // Hardcoded evvmID for local development (community IDs are ≥1000)
+          evvmID = evvmIDStr ? parseInt(evvmIDStr) : 1234;
         } else {
           // Slow path: discover addresses from on-chain EVVM contract
           console.log('🔍 Discovering contract addresses from EVVM contract...');
@@ -222,7 +226,8 @@ export function useEvvmDeployment() {
             estimatorAddress = ZERO_ADDRESS as `0x${string}`;
             treasuryAddress = ZERO_ADDRESS as `0x${string}`;
             p2pSwapAddress = undefined;
-            evvmID = evvmIDStr ? parseInt(evvmIDStr) : 0;
+            // Hardcoded evvmID for local development (community IDs are ≥1000)
+            evvmID = evvmIDStr ? parseInt(evvmIDStr) : 1234;
           }
         }
 
@@ -236,12 +241,12 @@ export function useEvvmDeployment() {
           estimator: estimatorAddress,
           treasury: treasuryAddress,
           p2pSwap: p2pSwapAddress,
-          evvmID: evvmID || 0,
+          evvmID: evvmID || 1234,
           evvmName: undefined,
           registry: undefined,
-          admin: undefined,
-          goldenFisher: undefined,
-          activator: undefined,
+          admin: envAdminAddress,
+          goldenFisher: envGoldenFisherAddress,
+          activator: envActivatorAddress,
         };
 
         console.log('✅ useEvvmDeployment: Deployment loaded successfully:', {

@@ -20,7 +20,7 @@
   try {
     const { readContract } = await import('@wagmi/core');
     const { config } = await import('@/config');
-    const { EvvmABI } = await import('@evvm/viem-signature-library');
+    const { EvvmABI } = await import('@evvm/evvm-js');
 
     const balance = await readContract(config, {
       address: evvmAddress,
@@ -46,7 +46,7 @@
   try {
     const { readContract } = await import('@wagmi/core');
     const { config } = await import('@/config');
-    const { EvvmABI } = await import('@evvm/viem-signature-library');
+    const { EvvmABI } = await import('@evvm/evvm-js');
 
     const nonce = await readContract(config, {
       address: evvmAddress,
@@ -71,7 +71,7 @@
   try {
     const { getWalletClient, getAccount } = await import('@wagmi/core');
     const { config } = await import('@/config');
-    const { EVVMSignatureBuilder } = await import('@evvm/viem-signature-library');
+    const { createSignerWithViem, EVVM } = await import('@evvm/evvm-js');
 
     const account = getAccount(config);
     const walletClient = await getWalletClient(config);
@@ -86,7 +86,8 @@
       console.warn(`   Please connect ${goldenFisher} to test properly\n`);
     }
 
-    const evvmBuilder = new EVVMSignatureBuilder(walletClient, account);
+    const signer = createSignerWithViem(walletClient);
+    const evvm = new EVVM(signer, evvmAddress);
 
     const amountOfFishers = 1;
     const amountOfMate = BigInt(amountOfFishers) * (BigInt(5083) * BigInt(10) ** BigInt(18));
@@ -116,17 +117,17 @@
 
     console.log(`   Expected message:\n   ${expectedMessage}\n`);
 
-    console.log("   Signing message...");
-    const signature = await evvmBuilder.signPay(
-      BigInt(evvmID),
-      stakingAddress,
-      mateToken,
-      amountOfMate,
-      BigInt(0),  // priorityFee
-      BigInt(0),  // nonce
-      false,      // priorityFlag
-      stakingAddress
-    );
+    console.log("   Signing message using evvm-js...");
+    const signedAction = await evvm.pay({
+      to: stakingAddress,
+      tokenAddress: mateToken,
+      amount: amountOfMate,
+      priorityFee: BigInt(0),
+      nonce: BigInt(0),
+      priorityFlag: false,  // MUST be false for golden staking
+      executor: stakingAddress
+    });
+    const signature = signedAction.data.signature;
 
     console.log(`   Signature: ${signature}\n`);
 

@@ -8,10 +8,10 @@
  */
 import { writeContract } from "@wagmi/core";
 import {
-  DispersePayInputData,
-  PayInputData,
+  type IDispersePayData as DispersePayInputData,
+  type IPayData as PayInputData,
   EvvmABI,
-} from "@evvm/viem-signature-library";
+} from "@evvm/evvm-js";
 import { config } from "@/config";
 
 /**
@@ -28,6 +28,15 @@ const executePay = async (
     return Promise.reject("No data to execute payment");
   }
 
+  console.log('🔄 [evvm-js] executePay: Using EvvmABI from @evvm/evvm-js');
+  console.log('📋 [evvm-js] executePay: Transaction details:', {
+    from: InputData.from,
+    to: InputData.to_address || InputData.to_identity,
+    token: InputData.token,
+    amount: InputData.amount.toString(),
+    nonce: InputData.nonce.toString(),
+  });
+
   return writeContract(config, {
     abi: EvvmABI,
     address: evvmAddress,
@@ -40,7 +49,7 @@ const executePay = async (
       InputData.amount,
       InputData.priorityFee,
       InputData.nonce,
-      InputData.priority,
+      InputData.priorityFlag,
       InputData.executor,
       InputData.signature,
     ],
@@ -79,7 +88,7 @@ const executeDispersePay = async (
       InputData.amount,
       InputData.priorityFee,
       InputData.nonce,
-      InputData.priority,
+      InputData.priorityFlag,
       InputData.executor,
       InputData.signature,
     ],

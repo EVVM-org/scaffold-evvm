@@ -14,10 +14,12 @@ import {
 import { executePresaleStaking } from "@/utils/transactionExecuters/stakingExecuter";
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import {
-  PayInputData,
-  PresaleStakingInputData,
-  StakingSignatureBuilder,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  Staking,
+  type IPayData as PayInputData,
+  type IPresaleStakingData as PresaleStakingInputData,
+} from "@evvm/evvm-js";
 
 type InputData = {
   PresaleStakingInputData: PresaleStakingInputData;
@@ -59,35 +61,43 @@ export const PresaleStakingComponent = ({
     });
 
     try {
+      console.log('🚀 [evvm-js] PresaleStakingComponent: Starting dual signature creation...');
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (StakingSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signPresaleStaking(
-          BigInt(formData.evvmID),
-          formData.stakingAddress as `0x${string}`,
-          isStaking,
-          BigInt(formData.nonce),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(amountOfToken),
-          BigInt(formData.nonce_EVVM),
-          formData.priorityFlag_EVVM
-        );
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
+
+      // Create EVVM pay action first
+      console.log('📝 [evvm-js] Creating EVVM pay action (first signature)...');
+      const evvmAction = await evvm.pay({
+        to: formData.stakingAddress as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: BigInt(amountOfToken),
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonce_EVVM),
+        priorityFlag: formData.priorityFlag_EVVM,
+        executor: formData.stakingAddress as `0x${string}`,
+      });
+      console.log('✅ [evvm-js] EVVM pay SignedAction created');
+
+      // Create Staking service and use presaleStaking method
+      // evvmSignedAction provides the evvmId, bypassing getEvvmID() call
+      console.log('📝 [evvm-js] Creating presale staking action via Staking service...');
+      const staking = new Staking({ signer, address: stakingAddress as `0x${string}`, chainId });
+      const stakingAction = await staking.presaleStaking({
+        isStaking: isStaking,
+        nonce: BigInt(formData.nonce),
+        evvmSignedAction: evvmAction,
+      });
+      console.log('✅ [evvm-js] Presale staking SignedAction created with dual signatures');
 
       setDataToGet({
-        PresaleStakingInputData: {
-          isStaking: isStaking,
-          user: walletData.address as `0x${string}`,
-          nonce: BigInt(formData.nonce),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          priorityFlag_EVVM: priority === "high",
-          nonce_EVVM: BigInt(formData.nonce_EVVM),
-          signature_EVVM: paySignature,
-        },
+        PresaleStakingInputData: stakingAction.data,
         PayInputData: {
           from: walletData.address as `0x${string}`,
           to_address: formData.stakingAddress as `0x${string}`,
@@ -96,9 +106,9 @@ export const PresaleStakingComponent = ({
           amount: BigInt(amountOfToken),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.stakingAddress as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
       });
     } catch (error) {
@@ -112,7 +122,7 @@ export const PresaleStakingComponent = ({
       return;
     }
 
-    const stakingAddress = dataToGet.PayInputData.to_address;
+    const stakingAddress = dataToGet.PayInputData.to_address!;
 
     executePresaleStaking(dataToGet.PresaleStakingInputData, stakingAddress)
       .then(() => {

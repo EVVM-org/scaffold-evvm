@@ -16,10 +16,12 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeMakeOffer } from "@/utils/transactionExecuters/nameServiceExecuter";
 import { dateToUnixTimestamp } from "@/utils/dateToUnixTimestamp";
 import {
-  PayInputData,
-  MakeOfferInputData,
-  NameServiceSignatureBuilder,
-} from "@evvm/viem-signature-library";
+  createSignerWithViem,
+  EVVM,
+  NameService,
+  type IPayData as PayInputData,
+  type IMakeOfferData as MakeOfferInputData,
+} from "@evvm/evvm-js";
 
 type InfoData = {
   PayInputData: PayInputData;
@@ -59,23 +61,33 @@ export const MakeOfferComponent = ({
 
     try {
       const walletClient = await getWalletClient(config);
-      const signatureBuilder = new (NameServiceSignatureBuilder as any)(
-        walletClient,
-        walletData
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signer = await createSignerWithViem(walletClient as any);
+      const chainId = await signer.getChainId();
+      const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
+      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
-      const { paySignature, actionSignature } =
-        await signatureBuilder.signMakeOffer(
-          BigInt(formData.evvmId),
-          formData.addressNameService as `0x${string}`,
-          formData.username,
-          BigInt(formData.expireDate),
-          BigInt(formData.amount),
-          BigInt(formData.nonceNameService),
-          BigInt(formData.priorityFee_EVVM),
-          BigInt(formData.nonceEVVM),
-          formData.priorityFlag
-        );
+      // Create EVVM pay action first
+      const evvmAction = await evvm.pay({
+        to: formData.addressNameService as `0x${string}`,
+        tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
+        amount: BigInt(formData.amount),
+        priorityFee: BigInt(formData.priorityFee_EVVM),
+        nonce: BigInt(formData.nonceEVVM),
+        priorityFlag: formData.priorityFlag,
+        executor: formData.addressNameService as `0x${string}`,
+      });
+
+      // Create make offer action
+      const nsAction = await nameService.makeOffer({
+        username: formData.username,
+        expireDate: BigInt(formData.expireDate),
+        amount: BigInt(formData.amount),
+        nonce: BigInt(formData.nonceNameService),
+        evvmSignedAction: evvmAction,
+      });
+
       setDataToGet({
         PayInputData: {
           from: walletData.address as `0x${string}`,
@@ -85,23 +97,11 @@ export const MakeOfferComponent = ({
           amount: BigInt(formData.amount),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priority: priority === "high",
+          priorityFlag: priority === "high",
           executor: formData.addressNameService as `0x${string}`,
-          signature: paySignature,
+          signature: evvmAction.data.signature,
         },
-        MakeOfferInputData: {
-          user: walletData.address as `0x${string}`,
-
-          username: formData.username,
-          expireDate: BigInt(formData.expireDate),
-          amount: BigInt(formData.amount),
-          nonce: BigInt(formData.nonceNameService),
-          signature: actionSignature,
-          priorityFee_EVVM: BigInt(formData.priorityFee_EVVM),
-          nonce_EVVM: BigInt(formData.nonceEVVM),
-          priorityFlag_EVVM: formData.priorityFlag,
-          signature_EVVM: paySignature,
-        },
+        MakeOfferInputData: nsAction.data,
       });
     } catch (error) {
       console.error("Error creating signature:", error);

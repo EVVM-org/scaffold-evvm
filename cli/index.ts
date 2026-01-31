@@ -20,6 +20,7 @@ import { configureProject } from './commands/config.js';
 import { fullStart } from './commands/start.js';
 import { flush } from './commands/flush.js';
 import { manageSources, checkSources } from './commands/sources.js';
+import { monitor } from './commands/monitor.js';
 
 // Load environment variables
 config();
@@ -75,6 +76,11 @@ async function interactiveWizard(): Promise<void> {
         description: 'Check/clone/update Testnet contracts'
       },
       {
+        title: evvmGreen('Blockchain Monitor'),
+        value: 'monitor',
+        description: 'Monitor local blockchain transactions in real-time'
+      },
+      {
         title: 'Exit',
         value: 'exit',
         description: 'Exit the wizard'
@@ -108,6 +114,9 @@ async function interactiveWizard(): Promise<void> {
       break;
     case 'sources':
       await manageSources();
+      break;
+    case 'monitor':
+      await monitor();
       break;
   }
 }
@@ -154,6 +163,9 @@ async function main(): Promise<void> {
     case 'sources':
       await manageSources();
       break;
+    case 'monitor':
+      await monitor();
+      break;
     case 'help':
       showHelp();
       break;
@@ -183,6 +195,7 @@ ${chalk.yellow('Commands:')}
   config        Configure EVVM parameters (addresses, metadata)
   flush         Clear all caches and stop running servers
   sources       Check/clone/update contract source repositories
+  monitor       ${chalk.green('Monitor local blockchain')} transactions in real-time
   help          Show this help message
 
 ${chalk.yellow('Quick Start:')}
