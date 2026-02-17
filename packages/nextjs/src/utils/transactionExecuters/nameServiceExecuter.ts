@@ -44,12 +44,12 @@ const executePreRegistrationUsername = async (
     args: [
       InputData.user,
       InputData.hashPreRegisteredUsername,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -81,13 +81,13 @@ const executeRegistrationUsername = async (
     args: [
       InputData.user,
       InputData.username,
-      InputData.clowNumber,
+      InputData.lockNumber,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -119,14 +119,14 @@ const executeMakeOffer = async (
     args: [
       InputData.user,
       InputData.username,
-      InputData.expireDate,
       InputData.amount,
+      InputData.expirationDate,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -159,12 +159,12 @@ const executeWithdrawOffer = async (
       InputData.user,
       InputData.username,
       InputData.offerID,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -197,12 +197,12 @@ const executeAcceptOffer = async (
       InputData.user,
       InputData.username,
       InputData.offerID,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -234,12 +234,12 @@ const executeRenewUsername = async (
     args: [
       InputData.user,
       InputData.username,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -272,12 +272,12 @@ const executeAddCustomMetadata = async (
       InputData.user,
       InputData.identity,
       InputData.value,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -310,12 +310,12 @@ const executeRemoveCustomMetadata = async (
       InputData.user,
       InputData.identity,
       InputData.key,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -347,12 +347,12 @@ const executeFlushCustomMetadata = async (
     args: [
       InputData.user,
       InputData.identity,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -384,12 +384,12 @@ const executeFlushUsername = async (
     args: [
       InputData.user,
       InputData.username,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {

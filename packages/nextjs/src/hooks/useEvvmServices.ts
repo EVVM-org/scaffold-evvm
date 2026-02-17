@@ -1,14 +1,14 @@
 'use client';
 
 import { useCallback } from 'react';
-import { EVVM, NameService, Staking, P2PSwap, type ISigner } from '@evvm/evvm-js';
+import { Core, NameService, Staking, P2PSwap, type ISigner } from '@evvm/evvm-js';
 import { useEvvmSigner } from './useEvvmSigner';
 import { useEvvmDeployment } from './useEvvmDeployment';
 
 type HexString = `0x${string}`;
 
 export interface EvvmServices {
-  evvm: EVVM;
+  evvm: Core;
   staking: Staking;
   nameService: NameService;
   p2pSwap: P2PSwap;
@@ -46,7 +46,7 @@ export function useEvvmServices() {
     const chainId = await signer.getChainId();
 
     return {
-      evvm: new EVVM({ signer, address: evvmAddress as HexString, chainId }),
+      evvm: new Core({ signer, address: evvmAddress as HexString, chainId }),
       staking: new Staking({ signer, address: (staking || evvmAddress) as HexString, chainId }),
       nameService: new NameService({ signer, address: (nameService || evvmAddress) as HexString, chainId }),
       p2pSwap: new P2PSwap({ signer, address: (p2pSwap || evvmAddress) as HexString, chainId }),
@@ -57,7 +57,7 @@ export function useEvvmServices() {
   /**
    * Get EVVM service instance only
    */
-  const getEvvmService = useCallback(async (): Promise<{ evvm: EVVM; signer: ISigner }> => {
+  const getEvvmService = useCallback(async (): Promise<{ evvm: Core; signer: ISigner }> => {
     if (!isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -70,7 +70,7 @@ export function useEvvmServices() {
     const chainId = await signer.getChainId();
 
     return {
-      evvm: new EVVM({ signer, address: deployment.evvm as HexString, chainId }),
+      evvm: new Core({ signer, address: deployment.evvm as HexString, chainId }),
       signer,
     };
   }, [getSigner, isConnected, deployment]);
@@ -78,7 +78,7 @@ export function useEvvmServices() {
   /**
    * Get Staking service instance only
    */
-  const getStakingService = useCallback(async (): Promise<{ staking: Staking; evvm: EVVM; signer: ISigner }> => {
+  const getStakingService = useCallback(async (): Promise<{ staking: Staking; evvm: Core; signer: ISigner }> => {
     if (!isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -92,7 +92,7 @@ export function useEvvmServices() {
 
     return {
       staking: new Staking({ signer, address: deployment.staking as HexString, chainId }),
-      evvm: new EVVM({ signer, address: deployment.evvm as HexString, chainId }),
+      evvm: new Core({ signer, address: deployment.evvm as HexString, chainId }),
       signer,
     };
   }, [getSigner, isConnected, deployment]);
@@ -100,7 +100,7 @@ export function useEvvmServices() {
   /**
    * Get NameService service instance only
    */
-  const getNameServiceService = useCallback(async (): Promise<{ nameService: NameService; evvm: EVVM; signer: ISigner }> => {
+  const getNameServiceService = useCallback(async (): Promise<{ nameService: NameService; evvm: Core; signer: ISigner }> => {
     if (!isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -114,7 +114,7 @@ export function useEvvmServices() {
 
     return {
       nameService: new NameService({ signer, address: deployment.nameService as HexString, chainId }),
-      evvm: new EVVM({ signer, address: deployment.evvm as HexString, chainId }),
+      evvm: new Core({ signer, address: deployment.evvm as HexString, chainId }),
       signer,
     };
   }, [getSigner, isConnected, deployment]);
@@ -122,7 +122,7 @@ export function useEvvmServices() {
   /**
    * Get P2PSwap service instance only
    */
-  const getP2PSwapService = useCallback(async (): Promise<{ p2pSwap: P2PSwap; evvm: EVVM; signer: ISigner }> => {
+  const getP2PSwapService = useCallback(async (): Promise<{ p2pSwap: P2PSwap; evvm: Core; signer: ISigner }> => {
     if (!isConnected) {
       throw new Error('Wallet not connected');
     }
@@ -136,7 +136,7 @@ export function useEvvmServices() {
 
     return {
       p2pSwap: new P2PSwap({ signer, address: deployment.p2pSwap as HexString, chainId }),
-      evvm: new EVVM({ signer, address: deployment.evvm as HexString, chainId }),
+      evvm: new Core({ signer, address: deployment.evvm as HexString, chainId }),
       signer,
     };
   }, [getSigner, isConnected, deployment]);

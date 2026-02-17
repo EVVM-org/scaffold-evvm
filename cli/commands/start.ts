@@ -864,6 +864,14 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
   }
   cpSync(inputDir, frameworkInputDir, { recursive: true });
 
+  // Write BaseInputs.sol to testnetcontracts submodule input directory
+  // The Deploy.s.sol script imports from ../input/BaseInputs.sol and expects contract name "BaseInputs"
+  const submoduleInputDir = join(PROJECT_ROOT, 'testnetcontracts', 'input');
+  if (existsSync(submoduleInputDir)) {
+    const baseInputsSol = inputsSol.replace('abstract contract Inputs', 'abstract contract BaseInputs');
+    writeFileSync(join(submoduleInputDir, 'BaseInputs.sol'), baseInputsSol);
+  }
+
   // Save scaffold config
   writeFileSync(
     join(PROJECT_ROOT, 'scaffold.config.json'),
@@ -881,20 +889,17 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
  * Uses @scaffold-evvm/ namespace for bundled contracts
  */
 function generateInputsSol(config: FullStartConfig): string {
-  // Select import path (Testnet only)
-  const importPath = 'packages/Testnet-Contracts/input/Inputs.sol';
-
   return `// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
-import {EvvmStructs} from "${importPath}";
+import {CoreStructs} from "@evvm/testnet-contracts/library/structs/CoreStructs.sol";
 
 abstract contract Inputs {
     address admin = ${config.addresses.admin};
     address goldenFisher = ${config.addresses.goldenFisher};
     address activator = ${config.addresses.activator};
 
-    EvvmStructs.EvvmMetadata inputMetadata =
-        EvvmStructs.EvvmMetadata({
+    CoreStructs.EvvmMetadata inputMetadata =
+        CoreStructs.EvvmMetadata({
             EvvmName: "${config.basicMetadata.EvvmName}",
             // evvmID will be set to 0, and it will be assigned when you register the evvm
             EvvmID: 0,
@@ -1069,8 +1074,8 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
     
     await execa('forge', ['clean'], { cwd: FOUNDRY_DIR, stdio: 'pipe' }).catch(() => {});
 
-    // Use Testnet contract package for deployment scripts
-    const scriptDir = join(PROJECT_ROOT, 'packages', 'Testnet-Contracts');
+    // Use testnetcontracts submodule (feat/state) for deployment scripts
+    const scriptDir = join(PROJECT_ROOT, 'testnetcontracts');
     
     const scriptFile = 'script/Deploy.s.sol:DeployScript';
 
@@ -1161,7 +1166,7 @@ function parseFoundryArtifacts(packageDir: string): DeployedAddresses | null {
       artifact.transactions?.find((tx: any) => tx.contractName === name)?.contractAddress || '0x';
 
     return {
-      evvm: findContract('Evvm'),
+      evvm: findContract('Core'),
       staking: findContract('Staking'),
       estimator: findContract('Estimator'),
       nameService: findContract('NameService'),
@@ -1215,7 +1220,7 @@ function parseHardhatArtifacts(packageDir: string): DeployedAddresses | null {
   };
 
   return {
-    evvm: readDeployment('Evvm'),
+    evvm: readDeployment('Core'),
     staking: readDeployment('Staking'),
     estimator: readDeployment('Estimator'),
     nameService: readDeployment('NameService'),

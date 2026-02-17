@@ -1172,7 +1172,9 @@ async function deployWithFoundry(
     // Use default
   }
 
-  const scriptFile = 'script/Deploy.testnet.s.sol:DeployScript';
+  // Use testnetcontracts submodule for deployment scripts (feat/state with Core naming)
+  const scriptDir = join(projectRoot, 'testnetcontracts');
+  const scriptFile = 'script/Deploy.s.sol:DeployScript';
 
   const args = [
     'script',
@@ -1192,12 +1194,12 @@ async function deployWithFoundry(
   }
 
   await execa('forge', args, {
-    cwd: packageDir,
+    cwd: scriptDir,
     stdio: 'inherit'
   });
 
-  // Parse deployment artifacts from the package directory
-  return parseFoundryArtifacts(packageDir);
+  // Parse deployment artifacts from the script directory
+  return parseFoundryArtifacts(scriptDir);
 }
 
 /**
@@ -1279,7 +1281,7 @@ function parseFoundryArtifacts(packageDir: string): DeploymentResult | null {
       artifact.transactions.find((tx: any) => tx.contractName === name)?.contractAddress;
 
     return {
-      evvmAddress: findContract('Evvm') || '0x',
+      evvmAddress: findContract('Core') || '0x',
       stakingAddress: findContract('Staking') || '0x',
       estimatorAddress: findContract('Estimator') || '0x',
       nameServiceAddress: findContract('NameService') || '0x',
@@ -1338,7 +1340,7 @@ function parseHardhatArtifacts(packageDir: string): DeploymentResult | null {
   };
 
   return {
-    evvmAddress: readDeployment('Evvm') || '0x' as Address,
+    evvmAddress: readDeployment('Core') || '0x' as Address,
     stakingAddress: readDeployment('Staking') || '0x' as Address,
     estimatorAddress: readDeployment('Estimator') || '0x' as Address,
     nameServiceAddress: readDeployment('NameService') || '0x' as Address,
@@ -1582,6 +1584,15 @@ async function generateDeploymentConfig(
     mkdirSync(frameworkInputDir, { recursive: true });
   }
   cpSync(inputDir, frameworkInputDir, { recursive: true });
+
+  // Write BaseInputs.sol to testnetcontracts submodule input directory
+  // The Deploy.s.sol script imports from ../input/BaseInputs.sol and expects contract name "BaseInputs"
+  const submoduleInputDir = join(projectRoot, 'testnetcontracts', 'input');
+  if (existsSync(submoduleInputDir)) {
+    const baseInputsSol = inputsSol.replace('abstract contract Inputs', 'abstract contract BaseInputs');
+    writeFileSync(join(submoduleInputDir, 'BaseInputs.sol'), baseInputsSol);
+  }
+
   info(`Generated ${inputFileName} with your configuration`);
 }
 
@@ -1597,19 +1608,19 @@ function generateInputsSol(
   },
   contractSource: 'testnet' = 'testnet'
 ): string {
-  const importPath = '@scaffold-evm/testnet-contracts';
+  const importPath = '@evvm/testnet-contracts';
 
   return `// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
-import {EvvmStructs} from "${importPath}/contracts/evvm/lib/EvvmStructs.sol";
+import {CoreStructs} from "${importPath}/library/structs/CoreStructs.sol";
 
 abstract contract Inputs {
     address admin = ${config.addresses.admin};
     address goldenFisher = ${config.addresses.goldenFisher};
     address activator = ${config.addresses.activator};
 
-    EvvmStructs.EvvmMetadata inputMetadata =
-        EvvmStructs.EvvmMetadata({
+    CoreStructs.EvvmMetadata inputMetadata =
+        CoreStructs.EvvmMetadata({
             EvvmName: "${config.basicMetadata.EvvmName}",
             // evvmID will be set to 0, and it will be assigned when you register the evvm
             EvvmID: 0,

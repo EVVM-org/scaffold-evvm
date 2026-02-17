@@ -16,9 +16,9 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeRegistrationUsername } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   NameService,
-  EvvmABI,
+  CoreABI,
   NameServiceABI,
   type IPayData as PayInputData,
   type IRegistrationUsernameData as RegistrationUsernameInputData,
@@ -64,7 +64,7 @@ export const RegistrationUsernameComponent = ({
       clowNumber: getValue("clowNumberInput_registrationUsername"),
       priorityFee_EVVM: getValue("priorityFeeInput_registrationUsername"),
       nonceEVVM: getValue("nonceEVVMInput_registrationUsername"),
-      priorityFlag: priority === "high",
+      isAsyncExec: priority === "high",
     };
 
     // Validate that required fields are not empty
@@ -90,7 +90,7 @@ export const RegistrationUsernameComponent = ({
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const evvm = new Core({ signer, address: evvmAddress, chainId });
       const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
       await readRewardAmount();
@@ -99,19 +99,19 @@ export const RegistrationUsernameComponent = ({
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: formData.addressNameService as `0x${string}`,
+        toAddress: formData.addressNameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: amount,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonceEVVM),
-        priorityFlag: formData.priorityFlag,
-        executor: formData.addressNameService as `0x${string}`,
+        isAsyncExec: formData.isAsyncExec,
+        senderExecutor: formData.addressNameService as `0x${string}`,
       });
 
       // Create registration action
       const nsAction = await nameService.registrationUsername({
         username: formData.username,
-        clowNumber: BigInt(formData.clowNumber),
+        lockNumber: BigInt(formData.clowNumber),
         nonce: BigInt(formData.nonceNameService),
         evvmSignedAction: evvmAction,
       });
@@ -125,8 +125,8 @@ export const RegistrationUsernameComponent = ({
           amount: amount,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priorityFlag: priority === "high",
-          executor: formData.addressNameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: formData.addressNameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         RegistrationUsernameInputData: nsAction.data,
@@ -153,7 +153,7 @@ export const RegistrationUsernameComponent = ({
           }
 
           readContract(config, {
-            abi: EvvmABI,
+            abi: CoreABI,
             address: evvmAddress as `0x${string}`,
             functionName: "getRewardAmount",
             args: [],

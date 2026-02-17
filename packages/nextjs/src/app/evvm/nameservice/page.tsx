@@ -29,9 +29,9 @@ import {
 } from "@/utils/transactionExecuters";
 import {
   NameServiceABI,
-  EvvmABI,
+  CoreABI,
   createSignerWithViem,
-  EVVM,
+  Core,
   NameService,
   type IPayData as PayInputData,
   type IPreRegistrationUsernameData as PreRegistrationUsernameInputData,
@@ -127,18 +127,18 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first (with 0 amount for pre-registration)
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: 0n,
         priorityFee: BigInt(formData.priorityFee_EVVM || "0"),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: formData.priorityFlag_EVVM,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.priorityFlag_EVVM,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Hash the username with clowNumber for pre-registration
@@ -169,8 +169,8 @@ export default function NameServicePage() {
           amount: BigInt(0),
           priorityFee: BigInt(formData.priorityFee_EVVM || "0"),
           nonce: BigInt(formData.nonce_EVVM),
-          priorityFlag: priority === "high",
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -198,7 +198,7 @@ export default function NameServicePage() {
         clowNumber: getValue("clowNumberInput_registrationUsername"),
         priorityFee_EVVM: getValue("priorityFeeInput_registrationUsername"),
         nonceEVVM: getValue("nonceEVVMInput_registrationUsername"),
-        priorityFlag: priority === "high",
+        isAsyncExec: priority === "high",
       };
 
       validateRequiredFields({
@@ -226,25 +226,25 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first
       const payAmount = rewardAmount ? rewardAmount * BigInt(100) : BigInt(0);
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: payAmount,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonceEVVM),
-        priorityFlag: formData.priorityFlag,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.isAsyncExec,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Create registration action
       const nsAction = await nameService.registrationUsername({
         username: formData.username,
-        clowNumber: BigInt(formData.clowNumber),
+        lockNumber: BigInt(formData.clowNumber),
         nonce: BigInt(formData.nonceNameService),
         evvmSignedAction: evvmAction,
       });
@@ -264,8 +264,8 @@ export default function NameServicePage() {
           amount: payAmount,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priorityFlag: priority === "high",
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -296,7 +296,7 @@ export default function NameServicePage() {
       }
 
       const reward = await readContract(config, {
-        abi: EvvmABI,
+        abi: CoreABI,
         address: evvmAddress as `0x${string}`,
         functionName: "getRewardAmount",
         args: [],
@@ -326,7 +326,7 @@ export default function NameServicePage() {
         amountToRenew: BigInt(getValue("amountToRenew_renewUsername")),
         priorityFee_EVVM: BigInt(getValue("priorityFeeInput_renewUsername")),
         nonceEVVM: BigInt(getValue("nonceEVVMInput_renewUsername")),
-        priorityFlag: priority === "high",
+        isAsyncExec: priority === "high",
       };
 
       const walletClient = await getWalletClient(config);
@@ -334,18 +334,18 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: formData.amountToRenew,
         priorityFee: formData.priorityFee_EVVM,
         nonce: formData.nonceEVVM,
-        priorityFlag: formData.priorityFlag,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.isAsyncExec,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Create renew action
@@ -364,8 +364,8 @@ export default function NameServicePage() {
           amount: formData.amountToRenew,
           priorityFee: BigInt(0),
           nonce: formData.nonceEVVM,
-          priorityFlag: priority === "high",
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -415,7 +415,7 @@ export default function NameServicePage() {
         expireDate: dateToUnixTimestamp(getValue("expireDateInput_makeOffer")),
         priorityFee_EVVM: getValue("priorityFeeInput_makeOffer"),
         nonceEVVM: getValue("nonceEVVMInput_makeOffer"),
-        priorityFlag: priority === "high",
+        isAsyncExec: priority === "high",
       };
 
       const walletClient = await getWalletClient(config);
@@ -423,24 +423,24 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonceEVVM),
-        priorityFlag: formData.priorityFlag,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.isAsyncExec,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Create make offer action
       const nsAction = await nameService.makeOffer({
         username: formData.username,
-        expireDate: BigInt(formData.expireDate),
+        expirationDate: BigInt(formData.expireDate),
         amount: BigInt(formData.amount),
         nonce: BigInt(formData.nonceNameService),
         evvmSignedAction: evvmAction,
@@ -455,8 +455,8 @@ export default function NameServicePage() {
           amount: BigInt(formData.amount),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priorityFlag: priority === "high",
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -492,18 +492,18 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first (with 0 amount for accept offer)
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: 0n,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: formData.priorityFlag_EVVM,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.priorityFlag_EVVM,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Create accept offer action
@@ -523,8 +523,8 @@ export default function NameServicePage() {
           amount: BigInt(0),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priorityFlag: priority === "high",
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -560,18 +560,18 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first (with 0 amount for withdraw offer)
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: 0n,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: formData.priorityFlag_EVVM,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.priorityFlag_EVVM,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Create withdraw offer action
@@ -591,8 +591,8 @@ export default function NameServicePage() {
           amount: BigInt(0),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priorityFlag: priority === "high",
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -622,7 +622,7 @@ export default function NameServicePage() {
         value: getValue("valueInput_addCustomMetadata"),
         priorityFee_EVVM: getValue("priorityFeeInput_addCustomMetadata"),
         nonceEVVM: getValue("nonceEVVMInput_addCustomMetadata"),
-        priorityFlag: priority === "high",
+        isAsyncExec: priority === "high",
       };
 
       const valueCustomMetadata = `${formData.schema}:${formData.subschema}>${formData.value}`;
@@ -632,7 +632,7 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       await getPriceToAddCustomMetadata();
@@ -643,13 +643,13 @@ export default function NameServicePage() {
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: payAmount,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonceEVVM),
-        priorityFlag: formData.priorityFlag,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.isAsyncExec,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Create add custom metadata action
@@ -669,8 +669,8 @@ export default function NameServicePage() {
           amount: payAmount,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priorityFlag: priority === "high",
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -718,7 +718,7 @@ export default function NameServicePage() {
         key: getValue("keyInput_removeCustomMetadata"),
         priorityFee_EVVM: getValue("priorityFeeInput_removeCustomMetadata"),
         nonceEVVM: getValue("nonceEVVMInput_removeCustomMetadata"),
-        priorityFlag: priority === "high",
+        isAsyncExec: priority === "high",
       };
 
       const walletClient = await getWalletClient(config);
@@ -726,7 +726,7 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       const price = await readContract(config, {
@@ -742,13 +742,13 @@ export default function NameServicePage() {
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: price as bigint,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonceEVVM),
-        priorityFlag: formData.priorityFlag,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.isAsyncExec,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Create remove custom metadata action
@@ -768,8 +768,8 @@ export default function NameServicePage() {
           amount: price as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priorityFlag: priority === "high",
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -804,7 +804,7 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       const price = await readContract(config, {
@@ -816,13 +816,13 @@ export default function NameServicePage() {
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: price as bigint,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: formData.priorityFlag_EVVM,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.priorityFlag_EVVM,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Create flush custom metadata action
@@ -841,8 +841,8 @@ export default function NameServicePage() {
           amount: price as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priorityFlag: priority === "high",
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -877,7 +877,7 @@ export default function NameServicePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
 
       const priceToFlushUsername = await readContract(config, {
@@ -893,13 +893,13 @@ export default function NameServicePage() {
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: deployment.nameService as `0x${string}`,
+        toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: priceToFlushUsername as bigint,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: formData.priorityFlag_EVVM,
-        executor: deployment.nameService as `0x${string}`,
+        isAsyncExec: formData.priorityFlag_EVVM,
+        senderExecutor: deployment.nameService as `0x${string}`,
       });
 
       // Create flush username action
@@ -918,8 +918,8 @@ export default function NameServicePage() {
           amount: priceToFlushUsername as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priorityFlag: formData.priorityFlag_EVVM,
-          executor: deployment.nameService as `0x${string}`,
+          isAsyncExec: formData.priorityFlag_EVVM,
+          senderExecutor: deployment.nameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,

@@ -15,7 +15,7 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeAddCustomMetadata } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   NameService,
   NameServiceABI,
   type IPayData as PayInputData,
@@ -65,7 +65,7 @@ export const AddCustomMetadataComponent = ({
       value: getValue("valueInput_addCustomMetadata"),
       priorityFee_EVVM: getValue("priorityFeeInput_addCustomMetadata"),
       nonceEVVM: getValue("nonceEVVMInput_addCustomMetadata"),
-      priorityFlag: priority === "high",
+      isAsyncExec: priority === "high",
     };
 
     let valueCustomMetadata = `${formData.schema}:${formData.subschema}>${formData.value}`;
@@ -76,7 +76,7 @@ export const AddCustomMetadataComponent = ({
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const evvm = new Core({ signer, address: evvmAddress, chainId });
       const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
       await getPriceToAddCustomMetadata();
@@ -87,13 +87,13 @@ export const AddCustomMetadataComponent = ({
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: formData.addressNameService as `0x${string}`,
+        toAddress: formData.addressNameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: amount,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonceEVVM),
-        priorityFlag: formData.priorityFlag,
-        executor: formData.addressNameService as `0x${string}`,
+        isAsyncExec: formData.isAsyncExec,
+        senderExecutor: formData.addressNameService as `0x${string}`,
       });
 
       // Create add custom metadata action
@@ -113,8 +113,8 @@ export const AddCustomMetadataComponent = ({
           amount: amount,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priorityFlag: priority === "high",
-          executor: formData.addressNameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: formData.addressNameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         AddCustomMetadataInputData: nsAction.data,

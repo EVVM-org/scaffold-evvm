@@ -11,7 +11,6 @@ import {
   HelperInfo,
   NumberInputField,
   StakingActionSelector,
-  PrioritySelector,
 } from "@/components/SigConstructors/InputsAndModules";
 import {
   executeGoldenStaking,
@@ -22,7 +21,7 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import {
   // Import patched classes from evvmSignatures to fix getEvvmID bug
   createSignerWithViem,
-  EVVM,
+  Core,
   Staking,
   type PayInputData,
   type GoldenStakingInputData,
@@ -273,19 +272,19 @@ function GoldenStakingComponent({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const evvmId = BigInt(formData.evvmID || deployment.evvmID || 0);
       const staking = new Staking({ signer, address: stakingAddress, chainId, evvmId });
 
       // Create EVVM pay action first (Golden Staking ALWAYS uses sync/low priority)
       const evvmAction = await evvm.pay({
-        to: formData.stakingAddress as `0x${string}`,
+        toAddress: formData.stakingAddress as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: amountOfToken,
         priorityFee: 0n,
         nonce: BigInt(formData.nonce),
-        priorityFlag: false, // Golden Staking always uses sync (low priority)
-        executor: formData.stakingAddress as `0x${string}`,
+        isAsyncExec: false, // Golden Staking always uses sync (low priority)
+        senderExecutor: formData.stakingAddress as `0x${string}`,
       });
 
       // Create Golden Staking action
@@ -304,8 +303,8 @@ function GoldenStakingComponent({
           amount: amountOfToken,
           priorityFee: BigInt(0),
           nonce: BigInt(formData.nonce),
-          priorityFlag: false, // Golden Staking always uses sync (low priority)
-          executor: formData.stakingAddress as `0x${string}`,
+          isAsyncExec: false, // Golden Staking always uses sync (low priority)
+          senderExecutor: formData.stakingAddress as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         GoldenStakingInputData: stakingAction.data,
@@ -463,7 +462,6 @@ function PresaleStakingComponent({
   deployment: any;
 }) {
   const [isStaking, setIsStaking] = useState(true);
-  const [priority, setPriority] = useState("low");
   const [dataToGet, setDataToGet] = useState<PresaleStakingData | null>(null);
 
   const makeSig = async () => {
@@ -478,7 +476,6 @@ function PresaleStakingComponent({
       priorityFee_EVVM: getValue("priorityFeeInput_presaleStaking"),
       nonce_EVVM: getValue("nonceEVVMInput_presaleStaking"),
       nonce: getValue("nonceStakingInput_presaleStaking"),
-      priorityFlag_EVVM: priority === "high",
     };
 
     const amountOfToken = (1 * 10 ** 18).toLocaleString("fullwide", {
@@ -490,19 +487,19 @@ function PresaleStakingComponent({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const evvmId = BigInt(formData.evvmID || deployment.evvmID || 0);
       const staking = new Staking({ signer, address: stakingAddress, chainId, evvmId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: formData.stakingAddress as `0x${string}`,
+        toAddress: formData.stakingAddress as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: BigInt(amountOfToken),
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: formData.priorityFlag_EVVM,
-        executor: formData.stakingAddress as `0x${string}`,
+        isAsyncExec: true, // Staking contract always validates with isAsyncExec=true
+        senderExecutor: formData.stakingAddress as `0x${string}`,
       });
 
       // Create Presale Staking action
@@ -522,8 +519,8 @@ function PresaleStakingComponent({
           amount: BigInt(amountOfToken),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priorityFlag: priority === "high",
-          executor: formData.stakingAddress as `0x${string}`,
+          isAsyncExec: true, // Staking contract always validates with isAsyncExec=true
+          senderExecutor: formData.stakingAddress as `0x${string}`,
           signature: evvmAction.data.signature,
         },
       });
@@ -573,23 +570,19 @@ function PresaleStakingComponent({
         placeholder="Enter priority fee"
       />
 
-      <PrioritySelector onPriorityChange={setPriority} />
-
       <NumberInputWithGenerator
-        label="EVVM Nonce"
+        label="EVVM Async Nonce"
         inputId="nonceEVVMInput_presaleStaking"
-        placeholder="Enter nonce"
-        showRandomBtn={priority !== "low"}
+        placeholder="Enter async nonce (any unused number)"
+        showRandomBtn={true}
       />
 
-      {priority === "low" && (
-        <HelperInfo label="How to find my sync nonce?">
-          <div>
-            You can retrieve your next sync nonce from the EVVM contract using the{" "}
-            <code>getNextCurrentSyncNonce</code> function.
-          </div>
-        </HelperInfo>
-      )}
+      <HelperInfo label="Why async nonce?">
+        <div>
+          Presale staking always uses async execution mode in the contract.
+          Use any unused nonce value (the random generator is recommended).
+        </div>
+      </HelperInfo>
 
       <button onClick={makeSig} className={styles.submitButton} style={{ marginTop: "1rem" }}>
         Create Signature
@@ -611,7 +604,6 @@ function PublicStakingComponent({
   deployment: any;
 }) {
   const [isStaking, setIsStaking] = useState(true);
-  const [priority, setPriority] = useState("low");
   const [dataToGet, setDataToGet] = useState<PublicStakingData | null>(null);
   const [account, setAccount] = useState<`0x${string}` | null>(null);
   const [publicStakingStatus, setPublicStakingStatus] = useState<{
@@ -789,19 +781,19 @@ function PublicStakingComponent({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const evvmId = BigInt(formData.evvmID || deployment.evvmID || 0);
       const staking = new Staking({ signer, address: stakingAddress, chainId, evvmId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: formData.stakingAddress as `0x${string}`,
+        toAddress: formData.stakingAddress as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: amountOfToken,
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonceEVVM),
-        priorityFlag: priority === "high",
-        executor: formData.stakingAddress as `0x${string}`,
+        isAsyncExec: true, // Staking contract always validates with isAsyncExec=true
+        senderExecutor: formData.stakingAddress as `0x${string}`,
       });
 
       // Create Public Staking action
@@ -822,8 +814,8 @@ function PublicStakingComponent({
           amount: BigInt(amountOfToken),
           priorityFee: BigInt(formData.priorityFee),
           nonce: BigInt(formData.nonceEVVM),
-          priorityFlag: priority === "high",
-          executor: formData.stakingAddress as `0x${string}`,
+          isAsyncExec: true, // Staking contract always validates with isAsyncExec=true
+          senderExecutor: formData.stakingAddress as `0x${string}`,
           signature: evvmAction.data.signature,
         },
       });
@@ -1006,23 +998,19 @@ function PublicStakingComponent({
         placeholder="Enter priority fee"
       />
 
-      <PrioritySelector onPriorityChange={setPriority} />
-
       <NumberInputWithGenerator
-        label="EVVM Nonce"
+        label="EVVM Async Nonce"
         inputId="nonceEVVMInput_PublicStaking"
-        placeholder="Enter nonce"
-        showRandomBtn={priority !== "low"}
+        placeholder="Enter async nonce (any unused number)"
+        showRandomBtn={true}
       />
 
-      {priority === "low" && (
-        <HelperInfo label="How to find my sync nonce?">
-          <div>
-            You can retrieve your next sync nonce from the EVVM contract using the{" "}
-            <code>getNextCurrentSyncNonce</code> function.
-          </div>
-        </HelperInfo>
-      )}
+      <HelperInfo label="Why async nonce?">
+        <div>
+          Public staking always uses async execution mode in the contract.
+          Use any unused nonce value (the random generator is recommended).
+        </div>
+      </HelperInfo>
 
       <button onClick={makeSig} className={styles.submitButton} style={{ marginTop: "1rem" }}>
         Create Signature

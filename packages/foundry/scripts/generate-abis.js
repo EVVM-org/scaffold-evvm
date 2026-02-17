@@ -16,7 +16,7 @@ const __dirname = dirname(__filename);
 
 // Contract names to extract
 const CONTRACTS = [
-  'Evvm',
+  'Core',
   'Staking',
   'Estimator',
   'NameService',
@@ -83,7 +83,7 @@ ${exports.join('\n')}
 
 // Deployed contract addresses type
 export interface DeployedContracts {
-  evvm: \`0x\${string}\`;
+  core: \`0x\${string}\`;
   staking: \`0x\${string}\`;
   estimator: \`0x\${string}\`;
   nameService: \`0x\${string}\`;

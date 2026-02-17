@@ -1,9 +1,9 @@
 import type { WalletClient, PublicClient } from 'viem';
-import type { PayInputData, DispersePayInputData, StakingInputData } from '@/types/evvm';
+import type { PayInputData, DispersePayInputData } from '@/types/evvm';
 import { config } from '@/config';
 import { writeContract } from '@wagmi/core';
 import {
-  EvvmABI,
+  CoreABI,
   StakingABI,
   NameServiceABI,
   execute as evvmExecute,
@@ -13,7 +13,7 @@ import {
 } from '@evvm/evvm-js';
 
 // Re-export ABIs for backward compatibility
-export { EvvmABI, StakingABI, NameServiceABI };
+export { CoreABI, StakingABI, NameServiceABI };
 
 // ============================================
 // SIGNED ACTION EXECUTOR
@@ -71,14 +71,14 @@ export async function executePay(
     token: data.token,
     amount: data.amount.toString(),
     priorityFee: data.priorityFee.toString(),
+    senderExecutor: data.executor,
     nonce: data.nonce.toString(),
-    priority: data.priority,
-    executor: data.executor,
+    isAsyncExec: data.priority,
     signature: data.signature,
   });
 
   const hash = await writeContract(config, {
-    abi: EvvmABI,
+    abi: CoreABI,
     address: evvmAddress,
     functionName: "pay",
     args: [
@@ -88,10 +88,10 @@ export async function executePay(
       data.token,
       data.amount,
       data.priorityFee,
+      data.executor as `0x${string}`,
       data.nonce,
       data.priority,
-      data.executor,
-      data.signature,  // Full signature, NOT v,r,s
+      data.signature,
     ],
   });
 
@@ -126,14 +126,14 @@ export async function executeDispersePay(
     token: data.token,
     amount: data.recipients.reduce((sum, r) => sum + r.amount, 0n).toString(),
     priorityFee: data.priorityFee.toString(),
+    senderExecutor: data.executor,
     nonce: data.nonce.toString(),
-    priority: data.priority,
-    executor: data.executor,
+    isAsyncExec: data.priority,
     signature: data.signature,
   });
 
   const hash = await writeContract(config, {
-    abi: EvvmABI,
+    abi: CoreABI,
     address: evvmAddress,
     functionName: "dispersePay",
     args: [
@@ -142,55 +142,14 @@ export async function executeDispersePay(
       data.token,
       data.recipients.reduce((sum, r) => sum + r.amount, 0n),
       data.priorityFee,
+      data.executor as `0x${string}`,
       data.nonce,
       data.priority,
-      data.executor,
-      data.signature,  // Full signature, NOT v,r,s
+      data.signature,
     ],
   });
 
   console.log("Disperse pay transaction submitted:", hash);
-  return hash as `0x${string}`;
-}
-
-// ============================================
-// STAKING EXECUTORS (Legacy API)
-// ============================================
-
-/**
- * Execute a staking transaction
- * Following the reference implementation pattern
- */
-export async function executeStaking(
-  walletClient: WalletClient,
-  publicClient: PublicClient,
-  stakingAddress: `0x${string}`,
-  data: StakingInputData
-): Promise<`0x${string}`> {
-  if (!data) {
-    throw new Error("No data to execute staking");
-  }
-
-  console.log("Executing stakePublic with args:", {
-    from: data.from,
-    amount: data.amount.toString(),
-    nonce: data.nonce.toString(),
-    signature: data.signature,
-  });
-
-  const hash = await writeContract(config, {
-    abi: StakingABI,
-    address: stakingAddress,
-    functionName: "stakePublic",
-    args: [
-      data.from,
-      data.amount,
-      data.nonce,
-      data.signature,  // Full signature, NOT v,r,s
-    ],
-  });
-
-  console.log("Staking transaction submitted:", hash);
   return hash as `0x${string}`;
 }
 
@@ -209,7 +168,7 @@ export async function readBalance(
 ): Promise<bigint> {
   const balance = await publicClient.readContract({
     address: evvmAddress,
-    abi: EvvmABI,
+    abi: CoreABI,
     functionName: 'getBalance',
     args: [account, token],
   });
@@ -227,7 +186,7 @@ export async function readNextNonce(
 ): Promise<bigint> {
   const nonce = await publicClient.readContract({
     address: evvmAddress,
-    abi: EvvmABI,
+    abi: CoreABI,
     functionName: 'getNextCurrentSyncNonce',
     args: [account],
   });
@@ -264,7 +223,7 @@ export async function readIsStaker(
 ): Promise<boolean> {
   const isStaker = await publicClient.readContract({
     address: evvmAddress,
-    abi: EvvmABI,
+    abi: CoreABI,
     functionName: 'isAddressStaker',
     args: [account],
   });

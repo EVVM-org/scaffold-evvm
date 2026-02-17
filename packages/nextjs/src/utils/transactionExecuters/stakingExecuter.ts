@@ -15,20 +15,6 @@ import {
   type IPublicStakingData as PublicStakingInputData,
 } from "@evvm/evvm-js";
 
-// PublicServiceStakingInputData is not in evvm-js, define locally
-interface PublicServiceStakingInputData {
-  user: `0x${string}`;
-  service: `0x${string}`;
-  isStaking: boolean;
-  amountOfStaking: bigint;
-  nonce: bigint;
-  signature: string;
-  priorityFee_EVVM: bigint;
-  nonce_EVVM: bigint;
-  priorityFlag_EVVM: boolean;
-  signature_EVVM: string;
-}
-
 const executeGoldenStaking = async (
   InputData: GoldenStakingInputData,
   stakingAddress: `0x${string}`
@@ -44,7 +30,7 @@ const executeGoldenStaking = async (
     args: [
       InputData.isStaking,
       InputData.amountOfStaking,
-      InputData.signature_EVVM,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -77,12 +63,12 @@ const executePresaleStaking = async (
     args: [
       InputData.user,
       InputData.isStaking,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -115,51 +101,12 @@ const executePublicStaking = async (
       InputData.user,
       InputData.isStaking,
       InputData.amountOfStaking,
+      InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
-    ],
-  })
-    .then(() => {
-      return Promise.resolve();
-    })
-    .catch((error) => {
-      return Promise.reject(error);
-    });
-};
-
-/**
- * Executes public service staking transaction.
- * @param InputData PublicServiceStakingInputData containing staking details
- * @param stakingAddress Staking contract address
- * @returns Promise<void>
- */
-const executePublicServiceStaking = async (
-  InputData: PublicServiceStakingInputData,
-  stakingAddress: `0x${string}`
-) => {
-  if (!InputData) {
-    return Promise.reject("No data to execute payment");
-  }
-
-  return writeContract(config, {
-    abi: StakingABI,
-    address: stakingAddress,
-    functionName: "publicServiceStaking",
-    args: [
-      InputData.user,
-      InputData.service,
-      InputData.isStaking,
-      InputData.amountOfStaking,
-      InputData.nonce,
-      InputData.signature,
-      InputData.priorityFee_EVVM,
-      InputData.nonce_EVVM,
-      InputData.priorityFlag_EVVM,
-      InputData.signature_EVVM,
+      InputData.priorityFeePay,
+      InputData.noncePay,
+      InputData.signaturePay,
     ],
   })
     .then(() => {
@@ -174,5 +121,4 @@ export {
   executeGoldenStaking,
   executePresaleStaking,
   executePublicStaking,
-  executePublicServiceStaking,
 };

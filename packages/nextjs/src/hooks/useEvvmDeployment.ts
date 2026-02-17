@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { EvvmDeployment } from '@/types/evvm';
 import { createPublicClient, http } from 'viem';
 import { sepolia, arbitrumSepolia, localhost } from 'viem/chains';
-import { EvvmABI } from '@evvm/evvm-js';
+import { CoreABI } from '@evvm/evvm-js';
 import { loadEvvmConfig, clearEvvmConfig } from '@/lib/evvmConfigStorage';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -188,22 +188,22 @@ export function useEvvmDeployment() {
             [stakingAddress, nameServiceAddress, estimatorAddress, evvmID] = await Promise.all([
               publicClient.readContract({
                 address: evvmAddress,
-                abi: EvvmABI,
+                abi: CoreABI,
                 functionName: 'getStakingAddress',
               }) as Promise<`0x${string}`>,
               publicClient.readContract({
                 address: evvmAddress,
-                abi: EvvmABI,
+                abi: CoreABI,
                 functionName: 'getNameServiceAddress',
               }) as Promise<`0x${string}`>,
               publicClient.readContract({
                 address: evvmAddress,
-                abi: EvvmABI,
+                abi: CoreABI,
                 functionName: 'getEstimatorAddress',
               }) as Promise<`0x${string}`>,
               publicClient.readContract({
                 address: evvmAddress,
-                abi: EvvmABI,
+                abi: CoreABI,
                 functionName: 'getEvvmID',
               }) as Promise<number>,
             ]);

@@ -5,21 +5,16 @@
  * Uses the official @evvm/evvm-js SDK for signature construction.
  *
  * IMPORTANT: All functions follow the exact patterns from EVVM-Signature-Constructor-Front
- *
- * WORKAROUND: The npm package @evvm/evvm-js has a bug where service classes
- * (Staking, NameService, P2PSwap) call getEvvmID() on their own contract
- * instead of the EVVM contract. We create patched subclasses that override
- * getEvvmID() to return the evvmId passed to the constructor.
  */
 
 import { getWalletClient } from '@wagmi/core';
 import { config } from '@/config';
 import {
   createSignerWithViem,
-  EVVM,
-  Staking as BaseStaking,
-  NameService as BaseNameService,
-  P2PSwap as BaseP2PSwap,
+  Core,
+  Staking,
+  NameService,
+  P2PSwap,
   execute,
   type IPayData,
   type IDispersePayData,
@@ -42,69 +37,11 @@ import {
   type SignedAction,
 } from '@evvm/evvm-js';
 
-// ====================================================================================
-// PATCHED SERVICE CLASSES
-// ====================================================================================
-// These classes fix a bug in @evvm/evvm-js where getEvvmID() is called on the
-// service contract (which doesn't have this function) instead of the EVVM contract.
-// We override getEvvmID() to return the evvmId passed during construction.
-
-/**
- * Patched Staking class that properly returns evvmId without calling the contract
- */
-class Staking extends BaseStaking {
-  private _evvmId: bigint;
-
-  constructor(props: { signer: ISigner; address: `0x${string}`; chainId: number; evvmId: bigint }) {
-    super(props);
-    this._evvmId = props.evvmId;
-  }
-
-  override async getEvvmID(): Promise<bigint> {
-    return this._evvmId;
-  }
-}
-
-/**
- * Patched NameService class that properly returns evvmId without calling the contract
- */
-class NameService extends BaseNameService {
-  private _evvmId: bigint;
-
-  constructor(props: { signer: ISigner; address: `0x${string}`; chainId: number; evvmId: bigint }) {
-    super(props);
-    this._evvmId = props.evvmId;
-  }
-
-  override async getEvvmID(): Promise<bigint> {
-    return this._evvmId;
-  }
-}
-
-/**
- * Patched P2PSwap class that properly returns evvmId without calling the contract
- */
-class P2PSwap extends BaseP2PSwap {
-  private _evvmId: bigint;
-
-  constructor(props: { signer: ISigner; address: `0x${string}`; chainId: number; evvmId: bigint }) {
-    super(props);
-    this._evvmId = props.evvmId;
-  }
-
-  override async getEvvmID(): Promise<bigint> {
-    return this._evvmId;
-  }
-}
-
-// Export patched service classes for direct use
-export { Staking, NameService, P2PSwap };
-
-// Re-export base classes with different names in case needed
-export { BaseStaking, BaseNameService, BaseP2PSwap };
+// Export service classes for direct use
+export { Core, Staking, NameService, P2PSwap };
 
 // Re-export other utilities from evvm-js that components might need
-export { EVVM, createSignerWithViem };
+export { createSignerWithViem };
 
 // Re-export types for backward compatibility
 export type {
@@ -170,30 +107,24 @@ export async function signPay(params: SignPayParams): Promise<{
   signedAction: SignedAction<IPayData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const core = new Core({ signer, address: params.evvmAddress, chainId });
 
   const isAddress = params.to.startsWith('0x');
 
-  const signedAction = await evvm.pay({
-    to: params.to,
+  const signedAction = await core.pay({
+    toAddress: isAddress ? (params.to as `0x${string}`) : undefined,
+    toIdentity: isAddress ? undefined : params.to,
     tokenAddress: params.tokenAddress,
     amount: BigInt(params.amount),
     priorityFee: BigInt(params.priorityFee),
     nonce: BigInt(params.nonce),
-    priorityFlag: params.priority,
-    executor: params.executor,
+    isAsyncExec: params.priority,
+    senderExecutor: params.executor,
   });
-
-  // Map to legacy format for backward compatibility
-  const inputData: IPayData = {
-    ...signedAction.data,
-    to_address: isAddress ? (params.to as `0x${string}`) : ('0x0000000000000000000000000000000000000000' as `0x${string}`),
-    to_identity: isAddress ? '' : params.to,
-  };
 
   return {
     signature: signedAction.data.signature,
-    inputData,
+    inputData: signedAction.data,
     signedAction,
   };
 }
@@ -237,9 +168,9 @@ export async function signDispersePay(params: SignDispersePayParams): Promise<{
   signedAction: SignedAction<IDispersePayData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
+  const core = new Core({ signer, address: params.evvmAddress, chainId });
 
-  const signedAction = await evvm.dispersePay({
+  const signedAction = await core.dispersePay({
     toData: params.toData.map(item =>
       item.toAddress
         ? { amount: item.amount, toAddress: item.toAddress, toIdentity: undefined as undefined }
@@ -249,8 +180,8 @@ export async function signDispersePay(params: SignDispersePayParams): Promise<{
     amount: BigInt(params.totalAmount),
     priorityFee: BigInt(params.priorityFee),
     nonce: BigInt(params.nonce),
-    priorityFlag: params.priority,
-    executor: params.executor,
+    isAsyncExec: params.priority,
+    senderExecutor: params.executor,
   });
 
   return {
@@ -277,11 +208,7 @@ export interface SignGoldenStakingParams {
 /**
  * Sign golden staking transaction using evvm-js
  *
- * CRITICAL: Golden staking ALWAYS uses sync mode (priorityFlag: false)
- *
- * NOTE: We pass evvmId directly to bypass npm package bug where Staking.getEvvmID()
- * incorrectly tries to read from Staking contract instead of EVVM contract.
- * The evvmId is extracted from the evvmID parameter or defaults to 0n for local dev.
+ * CRITICAL: Golden staking ALWAYS uses sync mode (isAsyncExec: false)
  */
 export async function signGoldenStaking(params: SignGoldenStakingParams): Promise<{
   goldenStakingData: IGoldenStakingData;
@@ -289,34 +216,33 @@ export async function signGoldenStaking(params: SignGoldenStakingParams): Promis
   signedAction: SignedAction<IGoldenStakingData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  // Pass evvmId to constructor to bypass getEvvmID() bug in @evvm/evvm-js
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const staking = new Staking({ signer, address: params.stakingAddress, chainId, evvmId });
 
   const amountOfToken = BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
-  // Create EVVM pay action first (golden staking always uses sync nonce)
-  const evvmAction = await evvm.pay({
-    to: params.stakingAddress,
+  // Create Core pay action first (golden staking always uses sync nonce)
+  const coreAction = await core.pay({
+    toAddress: params.stakingAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: amountOfToken,
     priorityFee: 0n,
     nonce: BigInt(params.nonce),
-    priorityFlag: false, // MUST be false for golden staking
-    executor: params.stakingAddress,
+    isAsyncExec: false, // MUST be false for golden staking
+    senderExecutor: params.stakingAddress,
   });
 
   // Create golden staking action
   const stakingAction = await staking.goldenStaking({
     isStaking: params.isStaking,
     amountOfStaking: BigInt(params.amountOfStaking),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     goldenStakingData: stakingAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: stakingAction,
   };
 }
@@ -334,9 +260,6 @@ export interface SignPresaleStakingParams {
 
 /**
  * Sign presale staking transaction (dual signature)
- *
- * NOTE: We pass evvmId directly to bypass npm package bug where Staking.getEvvmID()
- * incorrectly tries to read from Staking contract instead of EVVM contract.
  */
 export async function signPresaleStaking(params: SignPresaleStakingParams): Promise<{
   presaleStakingData: IPresaleStakingData;
@@ -344,34 +267,34 @@ export async function signPresaleStaking(params: SignPresaleStakingParams): Prom
   signedAction: SignedAction<IPresaleStakingData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  // Pass evvmId to constructor to bypass getEvvmID() bug in @evvm/evvm-js
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const staking = new Staking({ signer, address: params.stakingAddress, chainId, evvmId });
 
   const amountOfToken = BigInt(1) * BigInt(10) ** BigInt(18); // 1 token
 
-  // Create EVVM pay action first
-  const evvmAction = await evvm.pay({
-    to: params.stakingAddress,
+  // Create Core pay action first
+  // NOTE: Staking contract always validates EVVM pay with isAsyncExec=true
+  const coreAction = await core.pay({
+    toAddress: params.stakingAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: amountOfToken,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonce_EVVM),
-    priorityFlag: params.priorityFlag_EVVM,
-    executor: params.stakingAddress,
+    isAsyncExec: true,
+    senderExecutor: params.stakingAddress,
   });
 
   // Create presale staking action
   const stakingAction = await staking.presaleStaking({
     isStaking: params.isStaking,
     nonce: BigInt(params.nonce),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     presaleStakingData: stakingAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: stakingAction,
   };
 }
@@ -390,9 +313,6 @@ export interface SignPublicStakingParams {
 
 /**
  * Sign public staking transaction (dual signature)
- *
- * NOTE: We pass evvmId directly to bypass npm package bug where Staking.getEvvmID()
- * incorrectly tries to read from Staking contract instead of EVVM contract.
  */
 export async function signPublicStaking(params: SignPublicStakingParams): Promise<{
   publicStakingData: IPublicStakingData;
@@ -400,22 +320,22 @@ export async function signPublicStaking(params: SignPublicStakingParams): Promis
   signedAction: SignedAction<IPublicStakingData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
-  // Pass evvmId to constructor to bypass getEvvmID() bug in @evvm/evvm-js
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const staking = new Staking({ signer, address: params.stakingAddress, chainId, evvmId });
 
   const amountOfToken = BigInt(params.amountOfStaking) * (BigInt(5083) * BigInt(10) ** BigInt(18));
 
-  // Create EVVM pay action first
-  const evvmAction = await evvm.pay({
-    to: params.stakingAddress,
+  // Create Core pay action first
+  // NOTE: Staking contract always validates EVVM pay with isAsyncExec=true
+  const coreAction = await core.pay({
+    toAddress: params.stakingAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: amountOfToken,
     priorityFee: BigInt(params.priorityFee),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priority,
-    executor: params.stakingAddress,
+    isAsyncExec: true,
+    senderExecutor: params.stakingAddress,
   });
 
   // Create public staking action
@@ -423,12 +343,12 @@ export async function signPublicStaking(params: SignPublicStakingParams): Promis
     isStaking: params.isStaking,
     amountOfStaking: BigInt(params.amountOfStaking),
     nonce: BigInt(params.nonceStaking),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     publicStakingData: stakingAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: stakingAction,
   };
 }
@@ -451,9 +371,6 @@ export interface SignPreRegistrationUsernameParams {
 
 /**
  * Sign pre-registration username (dual signature)
- *
- * NOTE: We pass evvmId directly to bypass npm package bug where NameService.getEvvmID()
- * incorrectly tries to read from NameService contract instead of EVVM contract.
  */
 export async function signPreRegistrationUsername(
   params: SignPreRegistrationUsernameParams
@@ -463,19 +380,19 @@ export async function signPreRegistrationUsername(
   signedAction: SignedAction<IPreRegistrationUsernameData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first (0 amount for pre-registration)
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first (0 amount for pre-registration)
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: 0n,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonce_EVVM),
-    priorityFlag: params.priorityFlag_EVVM,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.priorityFlag_EVVM,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Hash the username with clow number
@@ -485,12 +402,12 @@ export async function signPreRegistrationUsername(
   const nsAction = await nameService.preRegistrationUsername({
     hashPreRegisteredUsername: hashUsername,
     nonce: BigInt(params.nonce),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     preRegistrationData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -513,14 +430,11 @@ export interface SignRegistrationUsernameParams {
   rewardAmount: bigint;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
-  priorityFlag: boolean;
+  isAsyncExec: boolean;
 }
 
 /**
  * Sign registration username (dual signature)
- *
- * NOTE: We pass evvmId directly to bypass npm package bug where NameService.getEvvmID()
- * incorrectly tries to read from NameService contract instead of EVVM contract.
  */
 export async function signRegistrationUsername(
   params: SignRegistrationUsernameParams
@@ -530,32 +444,32 @@ export async function signRegistrationUsername(
   signedAction: SignedAction<IRegistrationUsernameData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: params.rewardAmount * 100n,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priorityFlag,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.isAsyncExec,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Create registration action
   const nsAction = await nameService.registrationUsername({
     username: params.username,
-    clowNumber: BigInt(params.clowNumber),
+    lockNumber: BigInt(params.clowNumber),
     nonce: BigInt(params.nonceNameService),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     registrationData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -570,7 +484,7 @@ export interface SignMakeOfferParams {
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
-  priorityFlag: boolean;
+  isAsyncExec: boolean;
 }
 
 /**
@@ -582,33 +496,33 @@ export async function signMakeOffer(params: SignMakeOfferParams): Promise<{
   signedAction: SignedAction<IMakeOfferData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: BigInt(params.amount),
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priorityFlag,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.isAsyncExec,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Create make offer action
   const nsAction = await nameService.makeOffer({
     username: params.username,
-    expireDate: BigInt(params.expireDate),
+    expirationDate: BigInt(params.expireDate),
     amount: BigInt(params.amount),
     nonce: BigInt(params.nonceNameService),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     makeOfferData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -622,7 +536,7 @@ export interface SignWithdrawOfferParams {
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
-  priorityFlag: boolean;
+  isAsyncExec: boolean;
 }
 
 /**
@@ -636,19 +550,19 @@ export async function signWithdrawOffer(
   signedAction: SignedAction<IWithdrawOfferData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first (0 amount)
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first (0 amount)
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: 0n,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priorityFlag,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.isAsyncExec,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Create withdraw offer action
@@ -656,12 +570,12 @@ export async function signWithdrawOffer(
     username: params.username,
     offerID: BigInt(params.offerID),
     nonce: BigInt(params.nonceNameService),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     withdrawOfferData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -675,7 +589,7 @@ export interface SignAcceptOfferParams {
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
-  priorityFlag: boolean;
+  isAsyncExec: boolean;
 }
 
 /**
@@ -687,19 +601,19 @@ export async function signAcceptOffer(params: SignAcceptOfferParams): Promise<{
   signedAction: SignedAction<IAcceptOfferData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first (0 amount)
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first (0 amount)
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: 0n,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priorityFlag,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.isAsyncExec,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Create accept offer action
@@ -707,12 +621,12 @@ export async function signAcceptOffer(params: SignAcceptOfferParams): Promise<{
     username: params.username,
     offerID: BigInt(params.offerID),
     nonce: BigInt(params.nonceNameService),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     acceptOfferData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -725,7 +639,7 @@ export interface SignRenewUsernameParams {
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
-  priorityFlag: boolean;
+  isAsyncExec: boolean;
 }
 
 /**
@@ -739,31 +653,31 @@ export async function signRenewUsername(
   signedAction: SignedAction<IRenewUsernameData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first (0 amount)
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first (0 amount)
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: 0n,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priorityFlag,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.isAsyncExec,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Create renew username action
   const nsAction = await nameService.renewUsername({
     username: params.username,
     nonce: BigInt(params.nonceNameService),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     renewUsernameData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -778,7 +692,7 @@ export interface SignAddCustomMetadataParams {
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
-  priorityFlag: boolean;
+  isAsyncExec: boolean;
 }
 
 /**
@@ -792,19 +706,19 @@ export async function signAddCustomMetadata(
   signedAction: SignedAction<IAddCustomMetadataData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first (0 amount)
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first (0 amount)
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: 0n,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priorityFlag,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.isAsyncExec,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Create add custom metadata action
@@ -812,12 +726,12 @@ export async function signAddCustomMetadata(
     identity: params.username,
     value: params.value,
     nonce: BigInt(params.nonceNameService),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     addCustomMetadataData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -831,7 +745,7 @@ export interface SignRemoveCustomMetadataParams {
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
-  priorityFlag: boolean;
+  isAsyncExec: boolean;
 }
 
 /**
@@ -845,19 +759,19 @@ export async function signRemoveCustomMetadata(
   signedAction: SignedAction<IRemoveCustomMetadataData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first (0 amount)
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first (0 amount)
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: 0n,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priorityFlag,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.isAsyncExec,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Create remove custom metadata action
@@ -865,12 +779,12 @@ export async function signRemoveCustomMetadata(
     identity: params.username,
     key: BigInt(params.key),
     nonce: BigInt(params.nonceNameService),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     removeCustomMetadataData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -883,7 +797,7 @@ export interface SignFlushCustomMetadataParams {
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
-  priorityFlag: boolean;
+  isAsyncExec: boolean;
 }
 
 /**
@@ -897,31 +811,31 @@ export async function signFlushCustomMetadata(
   signedAction: SignedAction<IFlushCustomMetadataData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first (0 amount)
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first (0 amount)
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: 0n,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priorityFlag,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.isAsyncExec,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Create flush custom metadata action
   const nsAction = await nameService.flushCustomMetadata({
     identity: params.username,
     nonce: BigInt(params.nonceNameService),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     flushCustomMetadataData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -934,7 +848,7 @@ export interface SignFlushUsernameParams {
   nonceNameService: string | number;
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
-  priorityFlag: boolean;
+  isAsyncExec: boolean;
 }
 
 /**
@@ -948,31 +862,31 @@ export async function signFlushUsername(
   signedAction: SignedAction<IFlushUsernameData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const nameService = new NameService({ signer, address: params.nameServiceAddress, chainId, evvmId });
 
-  // Create EVVM pay action first (0 amount)
-  const evvmAction = await evvm.pay({
-    to: params.nameServiceAddress,
+  // Create Core pay action first (0 amount)
+  const coreAction = await core.pay({
+    toAddress: params.nameServiceAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: 0n,
     priorityFee: BigInt(params.priorityFee_EVVM),
     nonce: BigInt(params.nonceEVVM),
-    priorityFlag: params.priorityFlag,
-    executor: params.nameServiceAddress,
+    isAsyncExec: params.isAsyncExec,
+    senderExecutor: params.nameServiceAddress,
   });
 
   // Create flush username action
   const nsAction = await nameService.flushUsername({
     username: params.username,
     nonce: BigInt(params.nonceNameService),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
     flushUsernameData: nsAction.data,
-    payData: evvmAction.data,
+    payData: coreAction.data,
     signedAction: nsAction,
   };
 }
@@ -1003,19 +917,19 @@ export async function signMakeOrder(params: SignMakeOrderParams): Promise<{
   signedAction: SignedAction<IMakeOrderData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const p2pSwap = new P2PSwap({ signer, address: params.p2pSwapAddress, chainId, evvmId });
 
-  // Create EVVM pay action first
-  const evvmAction = await evvm.pay({
-    to: params.p2pSwapAddress,
+  // Create Core pay action first
+  const coreAction = await core.pay({
+    toAddress: params.p2pSwapAddress,
     tokenAddress: params.tokenA,
     amount: BigInt(params.amountA),
     priorityFee: BigInt(params.priorityFee),
     nonce: BigInt(params.nonce_EVVM),
-    priorityFlag: params.priority,
-    executor: params.p2pSwapAddress,
+    isAsyncExec: params.priority,
+    senderExecutor: params.p2pSwapAddress,
   });
 
   // Create make order action
@@ -1025,7 +939,7 @@ export async function signMakeOrder(params: SignMakeOrderParams): Promise<{
     tokenB: params.tokenB,
     amountA: BigInt(params.amountA),
     amountB: BigInt(params.amountB),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {
@@ -1054,19 +968,19 @@ export async function signCancelOrder(
   signedAction: SignedAction<ICancelOrderData>;
 }> {
   const { signer, chainId } = await getSignerAndChainId();
-  const evvm = new EVVM({ signer, address: params.evvmAddress, chainId });
   const evvmId = BigInt(params.evvmID || 0);
+  const core = new Core({ signer, address: params.evvmAddress, chainId, evvmId });
   const p2pSwap = new P2PSwap({ signer, address: params.p2pSwapAddress, chainId, evvmId });
 
-  // Create EVVM pay action first (0 amount)
-  const evvmAction = await evvm.pay({
-    to: params.p2pSwapAddress,
+  // Create Core pay action first (0 amount)
+  const coreAction = await core.pay({
+    toAddress: params.p2pSwapAddress,
     tokenAddress: MATE_TOKEN_ADDRESS,
     amount: 0n,
     priorityFee: 0n,
     nonce: 0n,
-    priorityFlag: false,
-    executor: params.p2pSwapAddress,
+    isAsyncExec: false,
+    senderExecutor: params.p2pSwapAddress,
   });
 
   // Create cancel order action
@@ -1075,7 +989,7 @@ export async function signCancelOrder(
     tokenA: params.tokenA,
     tokenB: params.tokenB,
     orderId: BigInt(params.orderId),
-    evvmSignedAction: evvmAction,
+    evvmSignedAction: coreAction,
   });
 
   return {

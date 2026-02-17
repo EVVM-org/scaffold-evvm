@@ -15,7 +15,7 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeFlushUsername } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   NameService,
   NameServiceABI,
   type IPayData as PayInputData,
@@ -62,7 +62,7 @@ export const FlushUsernameComponent = ({
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const evvm = new Core({ signer, address: evvmAddress, chainId });
       const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
       const priceToFlushUsername = await readContract(config, {
@@ -78,13 +78,13 @@ export const FlushUsernameComponent = ({
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: formData.addressNameService as `0x${string}`,
+        toAddress: formData.addressNameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: priceToFlushUsername as bigint,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: formData.priorityFlag_EVVM,
-        executor: formData.addressNameService as `0x${string}`,
+        isAsyncExec: formData.priorityFlag_EVVM,
+        senderExecutor: formData.addressNameService as `0x${string}`,
       });
 
       // Create flush username action
@@ -103,8 +103,8 @@ export const FlushUsernameComponent = ({
           amount: priceToFlushUsername as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priorityFlag: formData.priorityFlag_EVVM,
-          executor: formData.addressNameService as `0x${string}`,
+          isAsyncExec: formData.priorityFlag_EVVM,
+          senderExecutor: formData.addressNameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         FlushUsernameInputData: nsAction.data,

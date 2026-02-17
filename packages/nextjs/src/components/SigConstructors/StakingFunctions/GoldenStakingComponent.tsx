@@ -6,7 +6,6 @@ import { useAccount, useChainId } from "wagmi";
 
 import {
   NumberInputWithGenerator,
-  PrioritySelector,
   DataDisplayWithClear,
   HelperInfo,
   NumberInputField,
@@ -19,7 +18,7 @@ import { readGoldenFisher } from "@/lib/evvmExecutors";
 
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   Staking,
   type IGoldenStakingData as GoldenStakingInputData,
   type IPayData as PayInputData,
@@ -45,7 +44,6 @@ export const GoldenStakingComponent = ({
   const chainId = useChainId();
 
   const [isStaking, setIsStaking] = React.useState(true);
-  const [priority, setPriority] = React.useState("low");
   const [dataToGet, setDataToGet] = React.useState<InfoData | null>(null);
   const [goldenFisherAddress, setGoldenFisherAddress] = React.useState<`0x${string}` | null>(null);
   const [isAuthorized, setIsAuthorized] = React.useState<boolean | null>(null);
@@ -112,21 +110,21 @@ export const GoldenStakingComponent = ({
       const chainId = await signer.getChainId();
       console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
-      // Golden staking ALWAYS uses sync mode (priorityFlag: false)
+      // Golden staking ALWAYS uses sync mode (isAsyncExec: false)
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const evvm = new Core({ signer, address: evvmAddress, chainId });
       console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
 
       // Create EVVM pay action first (golden staking always uses sync nonce)
       console.log('📝 [evvm-js] Creating EVVM pay action for golden staking...');
       const evvmAction = await evvm.pay({
-        to: formData.stakingAddress as `0x${string}`,
+        toAddress: formData.stakingAddress as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: amountOfToken,
         priorityFee: 0n,
         nonce: BigInt(formData.nonce),
-        priorityFlag: false, // MUST be false for golden staking
-        executor: formData.stakingAddress as `0x${string}`,
+        isAsyncExec: false, // MUST be false for golden staking
+        senderExecutor: formData.stakingAddress as `0x${string}`,
       });
       console.log('✅ [evvm-js] EVVM pay SignedAction created');
 
@@ -150,8 +148,8 @@ export const GoldenStakingComponent = ({
           amount: amountOfToken,
           priorityFee: BigInt(0),
           nonce: BigInt(formData.nonce),
-          priorityFlag: false, // Golden staking always uses sync
-          executor: formData.stakingAddress as `0x${string}`,
+          isAsyncExec: false, // Golden staking always uses sync
+          senderExecutor: formData.stakingAddress as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         GoldenStakingInputData: stakingAction.data,
@@ -262,27 +260,21 @@ export const GoldenStakingComponent = ({
         placeholder="Enter amount"
       />
 
-      {/* Priority configuration */}
-      <PrioritySelector onPriorityChange={setPriority} />
-
-      {/* Nonce section with automatic generator */}
-
+      {/* Nonce section - Golden staking always uses sync nonce */}
       <NumberInputWithGenerator
-        label="Nonce"
+        label="Sync Nonce"
         inputId="nonceInput_GoldenStaking"
-        placeholder="Enter nonce"
-        showRandomBtn={priority !== "low"}
+        placeholder="Enter sync nonce"
+        showRandomBtn={false}
       />
 
       <div>
-        {priority === "low" && (
-          <HelperInfo label="How to find my sync nonce?">
-            <div>
-              You can retrieve your next sync nonce from the EVVM contract using
-              the <code>getNextCurrentSyncNonce</code> function.
-            </div>
-          </HelperInfo>
-        )}
+        <HelperInfo label="How to find my sync nonce?">
+          <div>
+            Golden staking always uses sync mode. Retrieve your next sync nonce
+            from the EVVM contract using the <code>getNextCurrentSyncNonce</code> function.
+          </div>
+        </HelperInfo>
       </div>
 
       {/* Create signature button */}

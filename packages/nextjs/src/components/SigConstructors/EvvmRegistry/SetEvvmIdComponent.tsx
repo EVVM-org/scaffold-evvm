@@ -8,7 +8,7 @@ import {
   NumberInputField,
 } from "@/components/SigConstructors/InputsAndModules";
 
-import { EvvmABI } from "@evvm/evvm-js";
+import { CoreABI } from "@evvm/evvm-js";
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 
 interface SetEvvmIdComponentProps {
@@ -52,7 +52,7 @@ export const SetEvvmIdComponent = ({
       // Execute the transaction
       const hash = await writeContract(config, {
         address: evvmAddress as `0x${string}`,
-        abi: EvvmABI,
+        abi: CoreABI,
         functionName: "setEvvmID",
         args: [newEvvmId],
       });

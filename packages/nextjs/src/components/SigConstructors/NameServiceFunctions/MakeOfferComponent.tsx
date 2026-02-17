@@ -17,7 +17,7 @@ import { executeMakeOffer } from "@/utils/transactionExecuters/nameServiceExecut
 import { dateToUnixTimestamp } from "@/utils/dateToUnixTimestamp";
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   NameService,
   type IPayData as PayInputData,
   type IMakeOfferData as MakeOfferInputData,
@@ -56,7 +56,7 @@ export const MakeOfferComponent = ({
       expireDate: dateToUnixTimestamp(getValue("expireDateInput_makeOffer")),
       priorityFee_EVVM: getValue("priorityFeeInput_makeOffer"),
       nonceEVVM: getValue("nonceEVVMInput_makeOffer"),
-      priorityFlag: priority === "high",
+      isAsyncExec: priority === "high",
     };
 
     try {
@@ -65,24 +65,24 @@ export const MakeOfferComponent = ({
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const evvm = new Core({ signer, address: evvmAddress, chainId });
       const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: formData.addressNameService as `0x${string}`,
+        toAddress: formData.addressNameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonceEVVM),
-        priorityFlag: formData.priorityFlag,
-        executor: formData.addressNameService as `0x${string}`,
+        isAsyncExec: formData.isAsyncExec,
+        senderExecutor: formData.addressNameService as `0x${string}`,
       });
 
       // Create make offer action
       const nsAction = await nameService.makeOffer({
         username: formData.username,
-        expireDate: BigInt(formData.expireDate),
+        expirationDate: BigInt(formData.expireDate),
         amount: BigInt(formData.amount),
         nonce: BigInt(formData.nonceNameService),
         evvmSignedAction: evvmAction,
@@ -97,8 +97,8 @@ export const MakeOfferComponent = ({
           amount: BigInt(formData.amount),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priorityFlag: priority === "high",
-          executor: formData.addressNameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: formData.addressNameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         MakeOfferInputData: nsAction.data,

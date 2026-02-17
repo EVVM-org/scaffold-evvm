@@ -15,7 +15,7 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executePreRegistrationUsername } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   NameService,
   type IPayData as PayInputData,
   type IPreRegistrationUsernameData as PreRegistrationUsernameInputData,
@@ -92,7 +92,7 @@ export const PreRegistrationUsernameComponent = ({
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const evvm = new Core({ signer, address: evvmAddress, chainId });
       const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
       // Hash the username with clow number
@@ -103,13 +103,13 @@ export const PreRegistrationUsernameComponent = ({
 
       // Create EVVM pay action first (0 amount for pre-registration)
       const evvmAction = await evvm.pay({
-        to: formData.addressNameService as `0x${string}`,
+        toAddress: formData.addressNameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: 0n,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: formData.priorityFlag_EVVM,
-        executor: formData.addressNameService as `0x${string}`,
+        isAsyncExec: formData.priorityFlag_EVVM,
+        senderExecutor: formData.addressNameService as `0x${string}`,
       });
 
       // Create pre-registration action
@@ -128,8 +128,8 @@ export const PreRegistrationUsernameComponent = ({
           amount: BigInt(0),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priorityFlag: priority === "high",
-          executor: formData.addressNameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: formData.addressNameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         PreRegistrationUsernameInputData: nsAction.data,

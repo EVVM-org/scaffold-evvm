@@ -25,7 +25,7 @@ import {
 } from "@/utils/transactionExecuters";
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   P2PSwap,
   type IMakeOrderData as MakeOrderInputData,
   type ICancelOrderData as CancelOrderInputData,
@@ -178,18 +178,18 @@ export default function P2PSwapPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const p2pSwap = new P2PSwap({ signer, address: deployment.p2pSwap as `0x${string}`, chainId });
 
       // Create EVVM pay() action first
       const evvmAction = await evvm.pay({
-        to: deployment.p2pSwap as `0x${string}`,
+        toAddress: deployment.p2pSwap as `0x${string}`,
         tokenAddress: formData.tokenA as `0x${string}`,
         amount: BigInt(formData.amountA),
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: priorityMake === "high",
-        executor: deployment.p2pSwap as `0x${string}`,
+        isAsyncExec: priorityMake === "high",
+        senderExecutor: deployment.p2pSwap as `0x${string}`,
       });
 
       // Create P2PSwap makeOrder() action
@@ -296,18 +296,18 @@ export default function P2PSwapPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const p2pSwap = new P2PSwap({ signer, address: deployment.p2pSwap as `0x${string}`, chainId });
 
       // Create EVVM pay() action first
       const evvmAction = await evvm.pay({
-        to: deployment.p2pSwap as `0x${string}`,
+        toAddress: deployment.p2pSwap as `0x${string}`,
         tokenAddress: formData.tokenB as `0x${string}`,
         amount: amountOfTokenBToFill,
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: priorityDispatchFixed === "high",
-        executor: deployment.p2pSwap as `0x${string}`,
+        isAsyncExec: priorityDispatchFixed === "high",
+        senderExecutor: deployment.p2pSwap as `0x${string}`,
       });
 
       if (!feeFixed) throw new Error("Error calculating fee");
@@ -420,18 +420,18 @@ export default function P2PSwapPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const p2pSwap = new P2PSwap({ signer, address: deployment.p2pSwap as `0x${string}`, chainId });
 
       // Create EVVM pay() action first
       const evvmAction = await evvm.pay({
-        to: deployment.p2pSwap as `0x${string}`,
+        toAddress: deployment.p2pSwap as `0x${string}`,
         tokenAddress: formData.tokenB as `0x${string}`,
         amount: amountOfTokenBToFill,
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: priorityDispatchProp === "high",
-        executor: deployment.p2pSwap as `0x${string}`,
+        isAsyncExec: priorityDispatchProp === "high",
+        senderExecutor: deployment.p2pSwap as `0x${string}`,
       });
 
       if (!feeProp) throw new Error("Error calculating fee");
@@ -535,18 +535,18 @@ export default function P2PSwapPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const p2pSwap = new P2PSwap({ signer, address: deployment.p2pSwap as `0x${string}`, chainId });
 
       // Create EVVM pay() action first (with 0 amount for cancel)
       const evvmAction = await evvm.pay({
-        to: deployment.p2pSwap as `0x${string}`,
+        toAddress: deployment.p2pSwap as `0x${string}`,
         tokenAddress: MATE_TOKEN_ADDRESS,
         amount: 0n,
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: priorityCancel === "high",
-        executor: deployment.p2pSwap as `0x${string}`,
+        isAsyncExec: priorityCancel === "high",
+        senderExecutor: deployment.p2pSwap as `0x${string}`,
       });
 
       // Create P2PSwap cancelOrder() action

@@ -15,7 +15,7 @@ import { getAccountWithRetry } from '@/utils/getAccountWithRetry'
 import { getWalletClient } from 'wagmi/actions'
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   P2PSwap,
   type IMakeOrderData as MakeOrderInputData,
 } from '@evvm/evvm-js'
@@ -61,18 +61,18 @@ export const MakeOrderComponent = ({
       const signer = await createSignerWithViem(walletClient as any)
       const chainId = await signer.getChainId()
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId })
+      const evvm = new Core({ signer, address: evvmAddress, chainId })
       const p2pSwap = new P2PSwap({ signer, address: p2pSwapAddress as `0x${string}`, chainId })
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: p2pSwapAddress as `0x${string}`,
+        toAddress: p2pSwapAddress as `0x${string}`,
         tokenAddress: tokenA,
         amount: amountA,
         priorityFee,
         nonce: nonce_EVVM,
-        priorityFlag: priority === 'high',
-        executor: p2pSwapAddress as `0x${string}`,
+        isAsyncExec: priority === 'high',
+        senderExecutor: p2pSwapAddress as `0x${string}`,
       })
 
       // Create make order action

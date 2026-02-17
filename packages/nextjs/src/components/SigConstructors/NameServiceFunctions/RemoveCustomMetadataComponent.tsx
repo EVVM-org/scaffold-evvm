@@ -15,7 +15,7 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import { executeRemoveCustomMetadata } from "@/utils/transactionExecuters/nameServiceExecuter";
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   NameService,
   NameServiceABI,
   type IPayData as PayInputData,
@@ -54,7 +54,7 @@ export const RemoveCustomMetadataComponent = ({
       key: getValue("keyInput_removeCustomMetadata"),
       priorityFee_EVVM: getValue("priorityFeeInput_removeCustomMetadata"),
       nonceEVVM: getValue("nonceEVVMInput_removeCustomMetadata"),
-      priorityFlag: priority === "high",
+      isAsyncExec: priority === "high",
     };
 
     try {
@@ -63,7 +63,7 @@ export const RemoveCustomMetadataComponent = ({
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const evvm = new Core({ signer, address: evvmAddress, chainId });
       const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
       const price = await readContract(config, {
@@ -79,13 +79,13 @@ export const RemoveCustomMetadataComponent = ({
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: formData.addressNameService as `0x${string}`,
+        toAddress: formData.addressNameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: price as bigint,
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonceEVVM),
-        priorityFlag: formData.priorityFlag,
-        executor: formData.addressNameService as `0x${string}`,
+        isAsyncExec: formData.isAsyncExec,
+        senderExecutor: formData.addressNameService as `0x${string}`,
       });
 
       // Create remove custom metadata action
@@ -105,8 +105,8 @@ export const RemoveCustomMetadataComponent = ({
           amount: price as bigint,
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonceEVVM),
-          priorityFlag: priority === "high",
-          executor: formData.addressNameService as `0x${string}`,
+          isAsyncExec: priority === "high",
+          senderExecutor: formData.addressNameService as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         RemoveCustomMetadataInputData: nsAction.data,

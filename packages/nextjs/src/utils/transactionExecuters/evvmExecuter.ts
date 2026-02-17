@@ -10,7 +10,7 @@ import { writeContract } from "@wagmi/core";
 import {
   type IDispersePayData as DispersePayInputData,
   type IPayData as PayInputData,
-  EvvmABI,
+  CoreABI,
 } from "@evvm/evvm-js";
 import { config } from "@/config";
 
@@ -28,7 +28,7 @@ const executePay = async (
     return Promise.reject("No data to execute payment");
   }
 
-  console.log('🔄 [evvm-js] executePay: Using EvvmABI from @evvm/evvm-js');
+  console.log('🔄 [evvm-js] executePay: Using CoreABI from @evvm/evvm-js');
   console.log('📋 [evvm-js] executePay: Transaction details:', {
     from: InputData.from,
     to: InputData.to_address || InputData.to_identity,
@@ -38,7 +38,7 @@ const executePay = async (
   });
 
   return writeContract(config, {
-    abi: EvvmABI,
+    abi: CoreABI,
     address: evvmAddress,
     functionName: "pay",
     args: [
@@ -48,9 +48,9 @@ const executePay = async (
       InputData.token,
       InputData.amount,
       InputData.priorityFee,
+      InputData.senderExecutor,
       InputData.nonce,
-      InputData.priorityFlag,
-      InputData.executor,
+      InputData.isAsyncExec,
       InputData.signature,
     ],
   })
@@ -78,7 +78,7 @@ const executeDispersePay = async (
   }
 
   return writeContract(config, {
-    abi: EvvmABI,
+    abi: CoreABI,
     address: evvmAddress,
     functionName: "dispersePay",
     args: [
@@ -87,9 +87,9 @@ const executeDispersePay = async (
       InputData.token,
       InputData.amount,
       InputData.priorityFee,
+      InputData.senderExecutor,
       InputData.nonce,
-      InputData.priorityFlag,
-      InputData.executor,
+      InputData.isAsyncExec,
       InputData.signature,
     ],
   })
@@ -101,42 +101,4 @@ const executeDispersePay = async (
     });
 };
 
-/**
- * Executes multiple payment transactions on the EVVM contract.
- * @param InputData Array of PayInputData containing payment details
- * @param evvmAddress EVVM contract address
- * @returns Promise<void>
- */
-const executePayMultiple = async (
-  InputData: PayInputData[],
-  evvmAddress: `0x${string}`
-) => {
-  if (!InputData || InputData.length === 0) {
-    return Promise.reject("No data to execute multiple payments");
-  }
-
-  return writeContract(config, {
-    abi: EvvmABI,
-    address: evvmAddress,
-    functionName: "payMultiple",
-    args: InputData.map((data) => [
-      data.from,
-      data.to_address,
-      data.to_identity,
-      data.token,
-      data.amount,
-      data.priorityFee,
-      data.nonce,
-      data.executor,
-      data.signature,
-    ]),
-  })
-    .then(() => {
-      return Promise.resolve();
-    })
-    .catch((error) => {
-      return Promise.reject(error);
-    });
-};
-
-export { executePay, executeDispersePay, executePayMultiple };
+export { executePay, executeDispersePay };

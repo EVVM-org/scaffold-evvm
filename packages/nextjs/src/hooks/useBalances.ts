@@ -5,7 +5,7 @@ import { readContract } from '@wagmi/core';
 import { useAccount, useChainId } from 'wagmi';
 import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
-import { EvvmABI } from '@evvm/evvm-js';
+import { CoreABI } from '@evvm/evvm-js';
 import { MATE_TOKEN_ADDRESS, ETH_TOKEN_ADDRESS } from '@/utils/constants';
 import { isContractDeployed } from '@/lib/viemClients';
 
@@ -50,7 +50,7 @@ export function useBalances(): UseBalancesReturn {
   ): Promise<bigint> => {
     try {
       const result = await readContract(config, {
-        abi: EvvmABI,
+        abi: CoreABI,
         address: evvmAddress,
         functionName: 'getBalance',
         args: [user, token],

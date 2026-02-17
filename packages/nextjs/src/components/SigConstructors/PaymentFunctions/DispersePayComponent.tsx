@@ -15,7 +15,7 @@ import {
 
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   type IDispersePayData as DispersePayInputData,
 } from "@evvm/evvm-js";
 
@@ -92,7 +92,7 @@ export const DispersePayComponent = ({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: evvmAddress as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: evvmAddress as `0x${string}`, chainId });
 
       const signedAction = await evvm.dispersePay({
         toData: toData.map(item =>
@@ -104,8 +104,8 @@ export const DispersePayComponent = ({
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce),
-        priorityFlag: priorityDisperse === "high",
-        executor: formData.executor as `0x${string}`,
+        isAsyncExec: priorityDisperse === "high",
+        senderExecutor: formData.executor as `0x${string}`,
       });
 
       setDataToGet({
@@ -114,9 +114,9 @@ export const DispersePayComponent = ({
         token: formData.tokenAddress as `0x${string}`,
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
-        priorityFlag: priorityDisperse === "high",
+        isAsyncExec: priorityDisperse === "high",
         nonce: BigInt(formData.nonce),
-        executor: formData.executor as `0x${string}`,
+        senderExecutor: formData.executor as `0x${string}`,
         signature: signedAction.data.signature,
       });
     } catch (error) {

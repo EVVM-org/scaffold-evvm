@@ -5,7 +5,6 @@ import { getWalletClient } from "@wagmi/core";
 import {
   TitleAndLink,
   NumberInputWithGenerator,
-  PrioritySelector,
   DataDisplayWithClear,
   HelperInfo,
   NumberInputField,
@@ -15,7 +14,7 @@ import { executePresaleStaking } from "@/utils/transactionExecuters/stakingExecu
 import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   Staking,
   type IPayData as PayInputData,
   type IPresaleStakingData as PresaleStakingInputData,
@@ -36,7 +35,6 @@ export const PresaleStakingComponent = ({
   stakingAddress,
 }: PresaleStakingComponentProps) => {
   const [isStaking, setIsStaking] = React.useState(true);
-  const [priority, setPriority] = React.useState("low");
 
   const [dataToGet, setDataToGet] = React.useState<InputData | null>(null);
 
@@ -53,7 +51,6 @@ export const PresaleStakingComponent = ({
       priorityFee_EVVM: getValue("priorityFeeInput_presaleStaking"),
       nonce_EVVM: getValue("nonceEVVMInput_presaleStaking"),
       nonce: getValue("nonceStakingInput_presaleStaking"),
-      priorityFlag_EVVM: priority === "high",
     };
 
     const amountOfToken = (1 * 10 ** 18).toLocaleString("fullwide", {
@@ -69,19 +66,19 @@ export const PresaleStakingComponent = ({
       console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`;
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId });
+      const evvm = new Core({ signer, address: evvmAddress, chainId });
       console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
 
       // Create EVVM pay action first
       console.log('📝 [evvm-js] Creating EVVM pay action (first signature)...');
       const evvmAction = await evvm.pay({
-        to: formData.stakingAddress as `0x${string}`,
+        toAddress: formData.stakingAddress as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: BigInt(amountOfToken),
         priorityFee: BigInt(formData.priorityFee_EVVM),
         nonce: BigInt(formData.nonce_EVVM),
-        priorityFlag: formData.priorityFlag_EVVM,
-        executor: formData.stakingAddress as `0x${string}`,
+        isAsyncExec: true, // Staking contract always validates with isAsyncExec=true
+        senderExecutor: formData.stakingAddress as `0x${string}`,
       });
       console.log('✅ [evvm-js] EVVM pay SignedAction created');
 
@@ -106,8 +103,8 @@ export const PresaleStakingComponent = ({
           amount: BigInt(amountOfToken),
           priorityFee: BigInt(formData.priorityFee_EVVM),
           nonce: BigInt(formData.nonce_EVVM),
-          priorityFlag: priority === "high",
-          executor: formData.stakingAddress as `0x${string}`,
+          isAsyncExec: true, // Staking contract always validates with isAsyncExec=true
+          senderExecutor: formData.stakingAddress as `0x${string}`,
           signature: evvmAction.data.signature,
         },
       });
@@ -164,25 +161,20 @@ export const PresaleStakingComponent = ({
         placeholder="Enter priority fee"
       />
 
-      {/* Priority Selection */}
-      <PrioritySelector onPriorityChange={setPriority} />
-
       <NumberInputWithGenerator
-        label="EVVM Nonce"
+        label="EVVM Async Nonce"
         inputId="nonceEVVMInput_presaleStaking"
-        placeholder="Enter nonce"
-        showRandomBtn={priority !== "low"}
+        placeholder="Enter async nonce (any unused number)"
+        showRandomBtn={true}
       />
 
       <div>
-        {priority === "low" && (
-          <HelperInfo label="How to find my sync nonce?">
-            <div>
-              You can retrieve your next sync nonce from the EVVM contract using
-              the <code>getNextCurrentSyncNonce</code> function.
-            </div>
-          </HelperInfo>
-        )}
+        <HelperInfo label="Why async nonce?">
+          <div>
+            Presale staking always uses async execution mode.
+            Use any unused nonce value (the random generator is recommended).
+          </div>
+        </HelperInfo>
       </div>
 
       {/* Action Button */}

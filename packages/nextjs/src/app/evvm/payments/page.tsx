@@ -25,7 +25,7 @@ import {
 } from "@/lib/evvmExecutors";
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   type IPayData as PayInputData,
   type IDispersePayData as DispersePayInputData,
 } from "@evvm/evvm-js";
@@ -169,17 +169,17 @@ export default function PaymentsPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
 
       // The evvm.pay() `to` param accepts both address (0x...) and identity (username) directly
       const signedAction = await evvm.pay({
-        to: formData.to.startsWith("0x") ? (formData.to as `0x${string}`) : formData.to,
+        toAddress: formData.to.startsWith("0x") ? (formData.to as `0x${string}`) : formData.to as `0x${string}`,
         tokenAddress: formData.tokenAddress as `0x${string}`,
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce),
-        priorityFlag: priority === "high",
-        executor: formData.executor as `0x${string}`,
+        isAsyncExec: priority === "high",
+        senderExecutor: formData.executor as `0x${string}`,
       });
 
       const signature = signedAction.data.signature;
@@ -209,7 +209,7 @@ export default function PaymentsPage() {
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce),
         priority: priority === "high",
-        executor: formData.executor,
+        senderExecutor: formData.executor,
         signature: signature as `0x${string}`,
       };
 
@@ -355,7 +355,7 @@ export default function PaymentsPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signer = await createSignerWithViem(walletClient as any);
       const chainId = await signer.getChainId();
-      const evvm = new EVVM({ signer, address: deployment.evvm as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
 
       // Convert toData to the format expected by evvm-js dispersePay
       // API expects: { amount, toAddress, toIdentity: undefined } | { amount, toAddress: undefined, toIdentity }
@@ -371,8 +371,8 @@ export default function PaymentsPage() {
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce),
-        priorityFlag: priorityDisperse === "high",
-        executor: formData.executor as `0x${string}`,
+        isAsyncExec: priorityDisperse === "high",
+        senderExecutor: formData.executor as `0x${string}`,
       });
 
       const dispersePaySignature = signedAction.data.signature;
@@ -399,7 +399,7 @@ export default function PaymentsPage() {
         priorityFee: BigInt(formData.priorityFee),
         priority: priorityDisperse === "high",
         nonce: BigInt(formData.nonce),
-        executor: formData.executor,
+        senderExecutor: formData.executor,
         signature: dispersePaySignature as `0x${string}`,
       };
 

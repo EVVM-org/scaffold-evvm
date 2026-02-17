@@ -8,15 +8,15 @@ import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
 import { DebugProvider } from './DebugContext'
 
 // Verify evvm-js is loaded correctly at startup
-import { EVVM, Staking, NameService, P2PSwap, createSignerWithViem, EvvmABI } from '@evvm/evvm-js'
+import { Core, Staking, NameService, P2PSwap, createSignerWithViem, CoreABI } from '@evvm/evvm-js'
 console.log('═══════════════════════════════════════════════════════════════');
 console.log('📦 [evvm-js] Library verification at startup:');
-console.log('   ✅ EVVM service:', typeof EVVM === 'function' ? 'loaded' : 'MISSING');
+console.log('   ✅ Core service:', typeof Core === 'function' ? 'loaded' : 'MISSING');
 console.log('   ✅ Staking service:', typeof Staking === 'function' ? 'loaded' : 'MISSING');
 console.log('   ✅ NameService service:', typeof NameService === 'function' ? 'loaded' : 'MISSING');
 console.log('   ✅ P2PSwap service:', typeof P2PSwap === 'function' ? 'loaded' : 'MISSING');
 console.log('   ✅ createSignerWithViem:', typeof createSignerWithViem === 'function' ? 'loaded' : 'MISSING');
-console.log('   ✅ EvvmABI:', Array.isArray(EvvmABI) ? `loaded (${EvvmABI.length} functions)` : 'MISSING');
+console.log('   ✅ CoreABI:', Array.isArray(CoreABI) ? `loaded (${CoreABI.length} functions)` : 'MISSING');
 console.log('═══════════════════════════════════════════════════════════════');
 
 // Set up queryClient

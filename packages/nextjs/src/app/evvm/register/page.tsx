@@ -5,7 +5,7 @@ import { useAccount } from 'wagmi';
 import { writeContract, waitForTransactionReceipt, readContract } from '@wagmi/core';
 import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
-import { EvvmABI } from '@evvm/evvm-js';
+import { CoreABI } from '@evvm/evvm-js';
 import { getExplorerTxUrl } from '@/lib/evvmConfig';
 import styles from '@/styles/pages/Register.module.css';
 
@@ -56,7 +56,7 @@ export default function RegisterPage() {
 
     try {
       const id = await readContract(config, {
-        abi: EvvmABI,
+        abi: CoreABI,
         address: deployment.evvm as `0x${string}`,
         functionName: 'getEvvmID',
       });
@@ -136,7 +136,7 @@ export default function RegisterPage() {
     try {
       // Set EVVM ID on the deployed contract
       const hash = await writeContract(config, {
-        abi: EvvmABI,
+        abi: CoreABI,
         address: deployment.evvm as `0x${string}`,
         functionName: 'setEvvmID',
         args: [BigInt(assignedId)],

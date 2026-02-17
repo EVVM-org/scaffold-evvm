@@ -305,9 +305,9 @@ async function main() {
   ], provider);
   const stakingAddress = await staking.getAddress();
 
-  // 2. Deploy Evvm
-  console.log("\n2. Deploying Evvm...");
-  const evvm = await deployContract(signer, "Evvm", [
+  // 2. Deploy Core
+  console.log("\n2. Deploying Core...");
+  const core = await deployContract(signer, "Core", [
     config.addresses.admin,
     stakingAddress,
     [
@@ -321,7 +321,7 @@ async function main() {
       metadata.reward,
     ],
   ], provider);
-  const evvmAddress = await evvm.getAddress();
+  const evvmAddress = await core.getAddress();
 
   // 3. Deploy Estimator
   console.log("\n3. Deploying Estimator...");
@@ -341,9 +341,9 @@ async function main() {
   ], provider);
   const nameServiceAddress = await nameService.getAddress();
 
-  // 5. Setup Staking with Estimator and Evvm
-  console.log("\n5. Setting up Staking with Estimator and Evvm...");
-  const setupStakingFn = staking.getFunction("_setupEstimatorAndEvvm");
+  // 5. Setup Staking with Estimator and Core
+  console.log("\n5. Setting up Staking with Estimator and Core...");
+  const setupStakingFn = staking.getFunction("initializeSystemContracts");
   const setupStakingTx = await setupStakingFn(estimatorAddress, evvmAddress, { nonce: currentNonce });
   currentNonce!++;
   await setupStakingTx.wait();
@@ -354,13 +354,13 @@ async function main() {
   const treasury = await deployContract(signer, "Treasury", [evvmAddress], provider);
   const treasuryAddress = await treasury.getAddress();
 
-  // 7. Setup Evvm with NameService and Treasury
-  console.log("\n7. Setting up Evvm with NameService and Treasury...");
-  const setupEvvmFn = evvm.getFunction("_setupNameServiceAndTreasuryAddress");
-  const setupEvvmTx = await setupEvvmFn(nameServiceAddress, treasuryAddress, { nonce: currentNonce });
+  // 7. Setup Core with NameService and Treasury
+  console.log("\n7. Setting up Core with NameService and Treasury...");
+  const setupCoreFn = core.getFunction("initializeSystemContracts");
+  const setupCoreTx = await setupCoreFn(nameServiceAddress, treasuryAddress, { nonce: currentNonce });
   currentNonce!++;
-  await setupEvvmTx.wait();
-  console.log("  Evvm setup complete");
+  await setupCoreTx.wait();
+  console.log("  Core setup complete");
 
   // 8. Deploy P2PSwap
   console.log("\n8. Deploying P2PSwap...");
@@ -379,7 +379,7 @@ async function main() {
   console.log("");
   console.log("Deployed Contracts:");
   console.log(`  Staking:     ${stakingAddress}`);
-  console.log(`  Evvm:        ${evvmAddress}`);
+  console.log(`  Core:        ${evvmAddress}`);
   console.log(`  Estimator:   ${estimatorAddress}`);
   console.log(`  NameService: ${nameServiceAddress}`);
   console.log(`  Treasury:    ${treasuryAddress}`);

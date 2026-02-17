@@ -16,7 +16,7 @@ import { executePay } from "@/utils/transactionExecuters/evvmExecuter";
 
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   type IPayData as PayInputData,
 } from "@evvm/evvm-js";
 
@@ -63,19 +63,19 @@ export const PaySignaturesComponent = ({
       const chainId = await signer.getChainId();
       console.log('🔑 [evvm-js] Signer created from @evvm/evvm-js createSignerWithViem');
 
-      const evvm = new EVVM({ signer, address: evvmAddress as `0x${string}`, chainId });
+      const evvm = new Core({ signer, address: evvmAddress as `0x${string}`, chainId });
       console.log('📦 [evvm-js] EVVM service instantiated from @evvm/evvm-js');
 
       const isAddress = formData.to.startsWith("0x");
       console.log('📝 [evvm-js] Calling evvm.pay() to create EIP-191 signed action...');
       const signedAction = await evvm.pay({
-        to: formData.to,
+        toAddress: formData.to as `0x${string}`,
         tokenAddress: formData.tokenAddress as `0x${string}`,
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce),
-        priorityFlag: priority === "high",
-        executor: formData.executor as `0x${string}`,
+        isAsyncExec: priority === "high",
+        senderExecutor: formData.executor as `0x${string}`,
       });
       console.log('✅ [evvm-js] SignedAction created successfully:', {
         functionName: signedAction.functionName,
@@ -95,8 +95,8 @@ export const PaySignaturesComponent = ({
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce),
-        priorityFlag: priority === "high",
-        executor: formData.executor as `0x${string}`,
+        isAsyncExec: priority === "high",
+        senderExecutor: formData.executor as `0x${string}`,
         signature,
       });
     } catch (error) {

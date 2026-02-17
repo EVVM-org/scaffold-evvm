@@ -15,7 +15,7 @@ import { getAccountWithRetry } from '@/utils/getAccountWithRetry'
 import { getWalletClient } from 'wagmi/actions'
 import {
   createSignerWithViem,
-  EVVM,
+  Core,
   P2PSwap,
   type IDispatchOrderData as DispatchOrderFillPropotionalFeeInputData,
 } from '@evvm/evvm-js'
@@ -76,18 +76,18 @@ export const DispatchOrderFillPropotionalFeeComponent = ({
       const signer = await createSignerWithViem(walletClient as any)
       const chainId = await signer.getChainId()
       const evvmAddress = process.env.NEXT_PUBLIC_EVVM_ADDRESS as `0x${string}`
-      const evvm = new EVVM({ signer, address: evvmAddress, chainId })
+      const evvm = new Core({ signer, address: evvmAddress, chainId })
       const p2pSwap = new P2PSwap({ signer, address: p2pSwapAddress as `0x${string}`, chainId })
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
-        to: p2pSwapAddress as `0x${string}`,
+        toAddress: p2pSwapAddress as `0x${string}`,
         tokenAddress: tokenB,
         amount: amountOfTokenBToFill,
         priorityFee,
         nonce: nonce_EVVM,
-        priorityFlag: priority === 'high',
-        executor: p2pSwapAddress as `0x${string}`,
+        isAsyncExec: priority === 'high',
+        senderExecutor: p2pSwapAddress as `0x${string}`,
       })
 
       if (!fee) throw new Error('Error calculating fee')

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPublicClient, http } from 'viem';
 import { arbitrumSepolia, sepolia, baseSepolia } from 'viem/chains';
-import { EvvmABI, StakingABI } from '@evvm/evvm-js';
+import { CoreABI, StakingABI } from '@evvm/evvm-js';
 import { saveEvvmConfig, loadEvvmConfig, clearEvvmConfig, hasStoredConfig, formatConfigAge, getConfigAge } from '@/lib/evvmConfigStorage';
 import styles from '@/styles/pages/Config.module.css';
 
@@ -100,35 +100,35 @@ export default function ConfigPage() {
       console.log('  Fetching EVVM ID...');
       const evvmID = await publicClient.readContract({
         address: evvmAddress as `0x${string}`,
-        abi: EvvmABI,
+        abi: CoreABI,
         functionName: 'getEvvmID',
       });
 
       console.log('  Fetching EVVM metadata...');
       const evvmMetadata = await publicClient.readContract({
         address: evvmAddress as `0x${string}`,
-        abi: EvvmABI,
+        abi: CoreABI,
         functionName: 'getEvvmMetadata',
       });
 
       console.log('  Fetching staking address...');
       const stakingAddress = await publicClient.readContract({
         address: evvmAddress as `0x${string}`,
-        abi: EvvmABI,
+        abi: CoreABI,
         functionName: 'getStakingContractAddress',
       });
 
       console.log('  Fetching name service address...');
       const nameServiceAddress = await publicClient.readContract({
         address: evvmAddress as `0x${string}`,
-        abi: EvvmABI,
+        abi: CoreABI,
         functionName: 'getNameServiceAddress',
       });
 
       console.log('  Fetching current admin...');
       const adminAddress = await publicClient.readContract({
         address: evvmAddress as `0x${string}`,
-        abi: EvvmABI,
+        abi: CoreABI,
         functionName: 'getCurrentAdmin',
       });
 

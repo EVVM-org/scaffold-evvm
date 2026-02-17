@@ -8,15 +8,15 @@ import { join } from "path";
  *
  * Deploys all 6 EVVM contracts in the correct order:
  * 1. Staking (admin, goldenFisher)
- * 2. Evvm (admin, staking, metadata)
- * 3. Estimator (activator, evvm, staking, admin)
- * 4. NameService (evvm, admin)
- * 5. Treasury (evvm)
- * 6. P2PSwap (evvm, staking, admin)
+ * 2. Core (admin, staking, metadata)
+ * 3. Estimator (activator, core, staking, admin)
+ * 4. NameService (core, admin)
+ * 5. Treasury (core)
+ * 6. P2PSwap (core, staking, admin)
  *
  * Then sets up inter-contract relationships:
- * - Staking._setupEstimatorAndEvvm(estimator, evvm)
- * - Evvm._setupNameServiceAndTreasuryAddress(nameService, treasury)
+ * - Staking.initializeSystemContracts(estimator, core)
+ * - Core.initializeSystemContracts(nameService, treasury)
  */
 
 interface AddressConfig {
@@ -72,7 +72,7 @@ const deployEvvm: DeployFunction = async function (hre: HardhatRuntimeEnvironmen
 
   // Check if contracts are synced
   const contractsPath = join(__dirname, "..", "contracts");
-  if (!existsSync(join(contractsPath, "evvm", "Evvm.sol"))) {
+  if (!existsSync(join(contractsPath, "core", "Core.sol"))) {
     log("ERROR: Contracts not found!");
     log("Run 'npm run sync-contracts' first to sync from Testnet-Contracts.");
     throw new Error("Contracts not synced");
@@ -102,9 +102,9 @@ const deployEvvm: DeployFunction = async function (hre: HardhatRuntimeEnvironmen
   });
   log(`   Staking deployed at: ${stakingDeployment.address}\n`);
 
-  // 2. Deploy Evvm
-  log("2. Deploying Evvm...");
-  const evvmDeployment = await deploy("Evvm", {
+  // 2. Deploy Core
+  log("2. Deploying Core...");
+  const evvmDeployment = await deploy("Core", {
     from: deployer,
     args: [
       config.addresses.admin,
@@ -123,7 +123,7 @@ const deployEvvm: DeployFunction = async function (hre: HardhatRuntimeEnvironmen
     log: true,
     waitConfirmations: hre.network.name === "localhost" || hre.network.name === "hardhat" ? 1 : 2,
   });
-  log(`   Evvm deployed at: ${evvmDeployment.address}\n`);
+  log(`   Core deployed at: ${evvmDeployment.address}\n`);
 
   // 3. Deploy Estimator
   log("3. Deploying Estimator...");
@@ -150,12 +150,12 @@ const deployEvvm: DeployFunction = async function (hre: HardhatRuntimeEnvironmen
   });
   log(`   NameService deployed at: ${nameServiceDeployment.address}\n`);
 
-  // 5. Setup Staking with Estimator and Evvm
-  log("5. Setting up Staking with Estimator and Evvm...");
+  // 5. Setup Staking with Estimator and Core
+  log("5. Setting up Staking with Estimator and Core...");
   await execute(
     "Staking",
     { from: deployer, log: true },
-    "_setupEstimatorAndEvvm",
+    "initializeSystemContracts",
     estimatorDeployment.address,
     evvmDeployment.address
   );
@@ -171,16 +171,16 @@ const deployEvvm: DeployFunction = async function (hre: HardhatRuntimeEnvironmen
   });
   log(`   Treasury deployed at: ${treasuryDeployment.address}\n`);
 
-  // 7. Setup Evvm with NameService and Treasury
-  log("7. Setting up Evvm with NameService and Treasury...");
+  // 7. Setup Core with NameService and Treasury
+  log("7. Setting up Core with NameService and Treasury...");
   await execute(
-    "Evvm",
+    "Core",
     { from: deployer, log: true },
-    "_setupNameServiceAndTreasuryAddress",
+    "initializeSystemContracts",
     nameServiceDeployment.address,
     treasuryDeployment.address
   );
-  log("   Evvm setup complete\n");
+  log("   Core setup complete\n");
 
   // 8. Deploy P2PSwap
   log("8. Deploying P2PSwap...");
@@ -204,7 +204,7 @@ const deployEvvm: DeployFunction = async function (hre: HardhatRuntimeEnvironmen
   log("");
   log("Deployed Contracts:");
   log(`  Staking:     ${stakingDeployment.address}`);
-  log(`  Evvm:        ${evvmDeployment.address}`);
+  log(`  Core:        ${evvmDeployment.address}`);
   log(`  Estimator:   ${estimatorDeployment.address}`);
   log(`  NameService: ${nameServiceDeployment.address}`);
   log(`  Treasury:    ${treasuryDeployment.address}`);
@@ -290,4 +290,4 @@ function loadConfig(): { addresses: AddressConfig; basic: BasicMetadata; advance
 export default deployEvvm;
 
 // Tags for selective deployment
-deployEvvm.tags = ["Evvm", "all"];
+deployEvvm.tags = ["Core", "all"];

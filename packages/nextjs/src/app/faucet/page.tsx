@@ -5,7 +5,7 @@ import { useAccount } from 'wagmi';
 import { writeContract, waitForTransactionReceipt } from '@wagmi/core';
 import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
-import { EvvmABI } from '@evvm/evvm-js';
+import { CoreABI } from '@evvm/evvm-js';
 import { getExplorerTxUrl } from '@/lib/evvmConfig';
 import styles from '@/styles/pages/Faucet.module.css';
 
@@ -177,7 +177,7 @@ export default function FaucetPage() {
 
       // Call addBalance function on EVVM contract
       const hash = await writeContract(config, {
-        abi: EvvmABI,
+        abi: CoreABI,
         address: deployment.evvm as `0x${string}`,
         functionName: 'addBalance',
         args: [recipient as `0x${string}`, tokenAddress as `0x${string}`, amountInWei],
