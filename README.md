@@ -101,6 +101,16 @@ Common issues solved by `flush`:
 - Port 8545 already in use
 - Transaction reverted / deployment failed
 
+**Stuck transactions after redeploying:**
+
+When you redeploy the local blockchain (e.g., restarting Anvil/Hardhat), the chain resets to nonce 0 but your wallet still remembers the old nonce. This causes transactions to hang or fail. To fix:
+
+1. Run `npm run cli flush` to reset the server-side state
+2. In your wallet (MetaMask/Rabby), **clear activity and nonce data**:
+   - **MetaMask:** Settings → Advanced → Clear activity tab data
+   - **Rabby:** Settings → Clear pending transactions
+3. Restart with `npm run wizard`
+
 ---
 
 ## 📦 Core Contracts
