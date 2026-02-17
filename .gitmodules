@@ -1,0 +1,8 @@
+[submodule "testnetcontracts"]
+	path = testnetcontracts
+	url = https://github.com/EVVM-org/testnet-Contracts.git
+	branch = feat/state
+[submodule "evvm-js"]
+	path = evvm-js
+	url = https://github.com/EVVM-org/evvm-js.git
+	branch = feat/state

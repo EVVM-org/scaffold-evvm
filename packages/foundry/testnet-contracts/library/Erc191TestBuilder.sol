@@ -11,78 +11,86 @@ pragma solidity ^0.8.0;
  *         https://book.getfoundry.sh/cheatcodes/sign
  */
 
-
-import {AdvancedStrings} from "@evvm/testnet-contracts/library/utils/AdvancedStrings.sol";
+import {
+    CoreStructs
+} from "@evvm/testnet-contracts/library/structs/CoreStructs.sol";
+import {
+    AdvancedStrings
+} from "@evvm/testnet-contracts/library/utils/AdvancedStrings.sol";
+import {
+    CoreHashUtils
+} from "@evvm/testnet-contracts/library/utils/signature/CoreHashUtils.sol";
+import {
+    NameServiceHashUtils
+} from "@evvm/testnet-contracts/library/utils/signature/NameServiceHashUtils.sol";
+import {
+    P2PSwapHashUtils
+} from "@evvm/testnet-contracts/library/utils/signature/P2PSwapHashUtils.sol";
+import {
+    StakingHashUtils
+} from "@evvm/testnet-contracts/library/utils/signature/StakingHashUtils.sol";
 
 library Erc191TestBuilder {
     //-----------------------------------------------------------------------------------
     // EVVM
     //-----------------------------------------------------------------------------------
+
     function buildMessageSignedForPay(
         uint256 evvmID,
-        address _receiverAddress,
-        string memory _receiverIdentity,
-        address _token,
-        uint256 _amount,
-        uint256 _priorityFee,
-        uint256 _nonce,
-        bool _priority_boolean,
-        address _executor
-    ) internal pure returns (bytes32 messageHash) {
-        string memory messageToSign = string.concat(
-            AdvancedStrings.uintToString(evvmID),
-            ",",
-            "pay",
-            ",",
-            _receiverAddress == address(0)
-                ? _receiverIdentity
-                : AdvancedStrings.addressToString(_receiverAddress),
-            ",",
-            AdvancedStrings.addressToString(_token),
-            ",",
-            AdvancedStrings.uintToString(_amount),
-            ",",
-            AdvancedStrings.uintToString(_priorityFee),
-            ",",
-            AdvancedStrings.uintToString(_nonce),
-            ",",
-            _priority_boolean ? "true" : "false",
-            ",",
-            AdvancedStrings.addressToString(_executor)
-        );
-        messageHash = buildHashForSign(messageToSign);
+        address servicePointer,
+        address to_address,
+        string memory to_identity,
+        address token,
+        uint256 amount,
+        uint256 priorityFee,
+        address senderExecutor,
+        uint256 nonce,
+        bool isAsyncExec
+    ) internal pure returns (bytes32) {
+        return
+            buildHashForSign(
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    CoreHashUtils.hashDataForPay(
+                        to_address,
+                        to_identity,
+                        token,
+                        amount,
+                        priorityFee
+                    ),
+                    senderExecutor,
+                    nonce,
+                    isAsyncExec
+                )
+            );
     }
 
     function buildMessageSignedForDispersePay(
         uint256 evvmID,
-        bytes32 hashList,
-        address _token,
-        uint256 _amount,
-        uint256 _priorityFee,
-        uint256 _nonce,
-        bool _priority_boolean,
-        address _executor
-    ) public pure returns (bytes32 messageHash) {
+        address servicePointer,
+        CoreStructs.DispersePayMetadata[] memory toData,
+        address token,
+        uint256 amount,
+        uint256 priorityFee,
+        address senderExecutor,
+        uint256 nonce,
+        bool isAsyncExec
+    ) public pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "dispersePay",
-                    ",",
-                    AdvancedStrings.bytes32ToString(hashList),
-                    ",",
-                    AdvancedStrings.addressToString(_token),
-                    ",",
-                    AdvancedStrings.uintToString(_amount),
-                    ",",
-                    AdvancedStrings.uintToString(_priorityFee),
-                    ",",
-                    AdvancedStrings.uintToString(_nonce),
-                    ",",
-                    _priority_boolean ? "true" : "false",
-                    ",",
-                    AdvancedStrings.addressToString(_executor)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    CoreHashUtils.hashDataForDispersePay(
+                        toData,
+                        token,
+                        amount,
+                        priorityFee
+                    ),
+                    senderExecutor,
+                    nonce,
+                    isAsyncExec
                 )
             );
     }
@@ -93,211 +101,230 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForPreRegistrationUsername(
         uint256 evvmID,
-        bytes32 _hashUsername,
-        uint256 _nameServiceNonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        bytes32 hashPreRegisteredUsername,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "preRegistrationUsername",
-                    ",",
-                    AdvancedStrings.bytes32ToString(_hashUsername),
-                    ",",
-                    AdvancedStrings.uintToString(_nameServiceNonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForPreRegistrationUsername(
+                        hashPreRegisteredUsername
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForRegistrationUsername(
         uint256 evvmID,
-        string memory _username,
-        uint256 _clowNumber,
-        uint256 _nameServiceNonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        string memory username,
+        uint256 lockNumber,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "registrationUsername",
-                    ",",
-                    _username,
-                    ",",
-                    AdvancedStrings.uintToString(_clowNumber),
-                    ",",
-                    AdvancedStrings.uintToString(_nameServiceNonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForRegistrationUsername(
+                        username,
+                        lockNumber
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForMakeOffer(
         uint256 evvmID,
-        string memory _username,
-        uint256 _dateExpire,
-        uint256 _amount,
-        uint256 _nameServiceNonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        string memory username,
+        uint256 amount,
+        uint256 expirationDate,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "makeOffer",
-                    ",",
-                    _username,
-                    ",",
-                    AdvancedStrings.uintToString(_dateExpire),
-                    ",",
-                    AdvancedStrings.uintToString(_amount),
-                    ",",
-                    AdvancedStrings.uintToString(_nameServiceNonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForMakeOffer(
+                        username,
+                        amount,
+                        expirationDate
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForWithdrawOffer(
         uint256 evvmID,
-        string memory _username,
-        uint256 _offerId,
-        uint256 _nameServiceNonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        string memory username,
+        uint256 offerId,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "withdrawOffer",
-                    ",",
-                    _username,
-                    ",",
-                    AdvancedStrings.uintToString(_offerId),
-                    ",",
-                    AdvancedStrings.uintToString(_nameServiceNonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForWithdrawOffer(
+                        username,
+                        offerId
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForAcceptOffer(
         uint256 evvmID,
-        string memory _username,
-        uint256 _offerId,
-        uint256 _nameServiceNonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        string memory username,
+        uint256 offerId,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "acceptOffer",
-                    ",",
-                    _username,
-                    ",",
-                    AdvancedStrings.uintToString(_offerId),
-                    ",",
-                    AdvancedStrings.uintToString(_nameServiceNonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForAcceptOffer(
+                        username,
+                        offerId
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForRenewUsername(
         uint256 evvmID,
-        string memory _username,
-        uint256 _nameServiceNonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        string memory username,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "renewUsername",
-                    ",",
-                    _username,
-                    ",",
-                    AdvancedStrings.uintToString(_nameServiceNonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForRenewUsername(username),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForAddCustomMetadata(
         uint256 evvmID,
-        string memory _username,
-        string memory _value,
-        uint256 _nameServiceNonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        string memory username,
+        string memory value,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "addCustomMetadata",
-                    ",",
-                    _username,
-                    ",",
-                    _value,
-                    ",",
-                    AdvancedStrings.uintToString(_nameServiceNonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForAddCustomMetadata(
+                        username,
+                        value
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForRemoveCustomMetadata(
         uint256 evvmID,
-        string memory _username,
-        uint256 _key,
-        uint256 _nonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        string memory username,
+        uint256 key,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "removeCustomMetadata",
-                    ",",
-                    _username,
-                    ",",
-                    AdvancedStrings.uintToString(_key),
-                    ",",
-                    AdvancedStrings.uintToString(_nonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForRemoveCustomMetadata(
+                        username,
+                        key
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForFlushCustomMetadata(
         uint256 evvmID,
-        string memory _username,
-        uint256 _nonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        string memory username,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "flushCustomMetadata",
-                    ",",
-                    _username,
-                    ",",
-                    AdvancedStrings.uintToString(_nonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForFlushCustomMetadata(
+                        username
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForFlushUsername(
         uint256 evvmID,
-        string memory _username,
-        uint256 _nonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        string memory username,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "flushUsername",
-                    ",",
-                    _username,
-                    ",",
-                    AdvancedStrings.uintToString(_nonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    NameServiceHashUtils.hashDataForFlushUsername(username),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
@@ -306,71 +333,50 @@ library Erc191TestBuilder {
     // staking functions
     //-----------------------------------------------------------------------------------
 
-    function buildMessageSignedForPublicServiceStake(
+    function buildMessageSignedForPresaleStaking(
         uint256 evvmID,
-        address _serviceAddress,
-        bool _isStaking,
-        uint256 _amountOfStaking,
-        uint256 _nonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        bool isStaking,
+        uint256 amountOfStaking,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "publicServiceStaking",
-                    ",",
-                    AdvancedStrings.addressToString(_serviceAddress),
-                    ",",
-                    _isStaking ? "true" : "false",
-                    ",",
-                    AdvancedStrings.uintToString(_amountOfStaking),
-                    ",",
-                    AdvancedStrings.uintToString(_nonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    StakingHashUtils.hashDataForPresaleStake(
+                        isStaking,
+                        amountOfStaking
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForPublicStaking(
         uint256 evvmID,
-        bool _isStaking,
-        uint256 _amountOfStaking,
-        uint256 _nonce
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        bool isStaking,
+        uint256 amountOfStaking,
+        address originExecutor,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "publicStaking",
-                    ",",
-                    _isStaking ? "true" : "false",
-                    ",",
-                    AdvancedStrings.uintToString(_amountOfStaking),
-                    ",",
-                    AdvancedStrings.uintToString(_nonce)
-                )
-            );
-    }
-
-    function buildMessageSignedForPresaleStaking(
-        uint256 evvmID,
-        bool _isStaking,
-        uint256 _amountOfStaking,
-        uint256 _nonce
-    ) internal pure returns (bytes32 messageHash) {
-        return
-            buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "presaleStaking",
-                    ",",
-                    _isStaking ? "true" : "false",
-                    ",",
-                    AdvancedStrings.uintToString(_amountOfStaking),
-                    ",",
-                    AdvancedStrings.uintToString(_nonce)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    StakingHashUtils.hashDataForPublicStake(
+                        isStaking,
+                        amountOfStaking
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
@@ -381,78 +387,110 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForMakeOrder(
         uint256 evvmID,
-        uint256 _nonce,
-        address _tokenA,
-        address _tokenB,
-        uint256 _amountA,
-        uint256 _amountB
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        address originExecutor,
+        uint256 nonce,
+        address tokenA,
+        address tokenB,
+        uint256 amountA,
+        uint256 amountB
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "makeOrder",
-                    ",",
-                    AdvancedStrings.uintToString(_nonce),
-                    ",",
-                    AdvancedStrings.addressToString(_tokenA),
-                    ",",
-                    AdvancedStrings.addressToString(_tokenB),
-                    ",",
-                    AdvancedStrings.uintToString(_amountA),
-                    ",",
-                    AdvancedStrings.uintToString(_amountB)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    P2PSwapHashUtils.hashDataForMakeOrder(
+                        tokenA,
+                        tokenB,
+                        amountA,
+                        amountB
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForCancelOrder(
         uint256 evvmID,
-        uint256 _nonce,
-        address _tokenA,
-        address _tokenB,
-        uint256 _orderId
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        address originExecutor,
+        uint256 nonce,
+        address tokenA,
+        address tokenB,
+        uint256 orderId
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "cancelOrder",
-                    ",",
-                    AdvancedStrings.uintToString(_nonce),
-                    ",",
-                    AdvancedStrings.addressToString(_tokenA),
-                    ",",
-                    AdvancedStrings.addressToString(_tokenB),
-                    ",",
-                    AdvancedStrings.uintToString(_orderId)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    P2PSwapHashUtils.hashDataForCancelOrder(
+                        tokenA,
+                        tokenB,
+                        orderId
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
                 )
             );
     }
 
     function buildMessageSignedForDispatchOrder(
         uint256 evvmID,
-        uint256 _nonce,
-        address _tokenA,
-        address _tokenB,
-        uint256 _orderId
-    ) internal pure returns (bytes32 messageHash) {
+        address servicePointer,
+        address originExecutor,
+        uint256 nonce,
+        address tokenA,
+        address tokenB,
+        uint256 orderId
+    ) internal pure returns (bytes32) {
         return
             buildHashForSign(
-                string.concat(
-                    AdvancedStrings.uintToString(evvmID),
-                    ",",
-                    "dispatchOrder",
-                    ",",
-                    AdvancedStrings.uintToString(_nonce),
-                    ",",
-                    AdvancedStrings.addressToString(_tokenA),
-                    ",",
-                    AdvancedStrings.addressToString(_tokenB),
-                    ",",
-                    AdvancedStrings.uintToString(_orderId)
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    P2PSwapHashUtils.hashDataForDispatchOrder(
+                        tokenA,
+                        tokenB,
+                        orderId
+                    ),
+                    originExecutor,
+                    nonce,
+                    true
+                )
+            );
+    }
+
+    //-----------------------------------------------------------------------------------
+    // nonceConsumer functions
+    //-----------------------------------------------------------------------------------
+
+    function buildMessageSignedForStateTest(
+        uint256 evvmID,
+        address servicePointer,
+        string memory testA,
+        uint256 testB,
+        address testC,
+        bool testD,
+        address originExecutor,
+        uint256 nonce,
+        bool isAsyncExec
+    ) internal pure returns (bytes32) {
+        return
+            buildHashForSign(
+                AdvancedStrings.buildSignaturePayload(
+                    evvmID,
+                    servicePointer,
+                    keccak256(
+                        abi.encode("StateTest", testA, testB, testC, testD)
+                    ),
+                    originExecutor,
+                    nonce,
+                    isAsyncExec
                 )
             );
     }
@@ -461,6 +499,12 @@ library Erc191TestBuilder {
     // General functions
     //-----------------------------------------------------------------------------------
 
+    /**
+     * @notice Creates an EIP-191 formatted hash from a message string
+     * @dev Prepends the Ethereum Signed Message prefix and message length
+     * @param messageToSign The message string to hash
+     * @return The EIP-191 formatted hash ready for signature verification
+     */
     function buildHashForSign(
         string memory messageToSign
     ) internal pure returns (bytes32) {
@@ -474,6 +518,14 @@ library Erc191TestBuilder {
             );
     }
 
+    /**
+     * @notice Combines signature components into a 65-byte signature
+     * @dev Packs r, s, and v into the standard EIP-191 signature format
+     * @param v Recovery identifier (27 or 28)
+     * @param r First 32 bytes of the signature
+     * @param s Second 32 bytes of the signature
+     * @return 65-byte encoded signature in (r, s, v) format
+     */
     function buildERC191Signature(
         uint8 v,
         bytes32 r,

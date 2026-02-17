@@ -2,103 +2,50 @@
 // Full license terms available at: https://www.evvm.info/docs/EVVMNoncommercialLicense
 
 pragma solidity ^0.8.0;
+/**
+ * @title EVVM Service Base Contract
+ * @author Mate Labs
+ * @notice Abstract base contract for building EVVM services with payment, staking, and nonce management
+ * @dev Inherits StakingServiceUtils, CoreExecution, StateManagment. Signatures validated via Core.sol. Community can build custom services.
+ */
 
-import {IEvvm} from "@evvm/testnet-contracts/interfaces/IEvvm.sol";
-import {IStaking} from "@evvm/testnet-contracts/interfaces/IStaking.sol";
-import {SignatureUtil} from "@evvm/testnet-contracts/library/utils/SignatureUtil.sol";
-import {AsyncNonceService} from "@evvm/testnet-contracts/library/utils/service/AsyncNonceService.sol";
+import {
+    CoreExecution
+} from "@evvm/testnet-contracts/library/utils/service/CoreExecution.sol";
+import {
+    StakingServiceUtils
+} from "@evvm/testnet-contracts/library/utils/service/StakingServiceUtils.sol";
 
-abstract contract EvvmService is AsyncNonceService {
+abstract contract EvvmService is CoreExecution, StakingServiceUtils {
+    /// @dev Thrown when signature validation fails
     error InvalidServiceSignature();
 
-    IEvvm evvm;
-    IStaking staking;
+    /**
+     * @notice Initializes EVVM service with core contract references
+     * @dev Initializes StakingServiceUtils, CoreExecution, StateManagment in order
+     * @param coreAddress Address of Core.sol contract
+     * @param stakingAddress Address of Staking.sol contract
+     */
+    constructor(
+        address coreAddress,
+        address stakingAddress
+    ) StakingServiceUtils(stakingAddress) CoreExecution(coreAddress) {}
 
-    constructor(address evvmAddress, address stakingAddress) {
-        evvm = IEvvm(evvmAddress);
-        staking = IStaking(stakingAddress);
+    /**
+     * @notice Gets unique EVVM instance identifier for signature validation
+     * @dev Returns core.getEvvmID(). Prevents cross-chain replays.
+     * @return Unique EVVM instance identifier
+     */
+    function getEvvmID() internal view returns (uint256) {
+        return core.getEvvmID();
     }
 
-    function validateServiceSignature(
-        string memory functionName,
-        string memory inputs,
-        bytes memory signature,
-        address expectedSigner
-    ) internal view virtual {
-        if (
-            !SignatureUtil.verifySignature(
-                evvm.getEvvmID(),
-                functionName,
-                inputs,
-                signature,
-                expectedSigner
-            )
-        ) revert InvalidServiceSignature();
-    }
-
-    function requestPay(
-        address from,
-        address token,
-        uint256 amount,
-        uint256 priorityFee,
-        uint256 nonce,
-        bool priorityFlag,
-        bytes memory signature
-    ) internal virtual {
-        evvm.pay(
-            from,
-            address(this),
-            "",
-            token,
-            amount,
-            priorityFee,
-            nonce,
-            priorityFlag,
-            address(this),
-            signature
-        );
-    }
-
-    function makeCaPay(
-        address to,
-        address token,
-        uint256 amount
-    ) internal virtual {
-        evvm.caPay(to, token, amount);
-    }
-
-    function _makeStakeService(uint256 amountToStake) internal {
-        staking.prepareServiceStaking(amountToStake);
-        evvm.caPay(
-            address(staking),
-            getPrincipalTokenAddress(),
-            staking.priceOfStaking() * amountToStake
-        );
-        staking.confirmServiceStaking();
-    }
-
-    function _makeUnstakeService(uint256 amountToUnstake) internal {
-        staking.serviceUnstaking(amountToUnstake);
-    }
-
-    function _changeEvvmAddress(address newEvvmAddress) internal {
-        evvm = IEvvm(newEvvmAddress);
-    }
-
-    function _changeStakingAddress(address newStakingAddress) internal {
-        staking = IStaking(newStakingAddress);
-    }
-
-    function getPrincipalTokenAddress()
-        internal
-        pure
-        virtual
-        returns (address)
-    {
-        return address(1);
-    }
-
-    function getEtherAddress() internal pure virtual returns (address) {
-        return address(0);
+    /**
+     * @notice Gets Principal Token (MATE) address
+     * @dev Returns core.getPrincipalTokenAddress(). Used for payment operations.
+     * @return Address of Principal Token (MATE)
+     */
+    function getPrincipalTokenAddress() internal view returns (address) {
+        return core.getPrincipalTokenAddress();
     }
 }

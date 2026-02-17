@@ -1,13 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.4;
+// SPDX-License-Identifier: EVVM-NONCOMMERCIAL-1.0
+// Full license terms available at: https://www.evvm.info/docs/EVVMNoncommercialLicense
+pragma solidity ^0.8.0;
 
 library ExternalChainStationStructs {
-    struct AddressTypeProposal {
-        address current;
-        address proposal;
-        uint256 timeToAccept;
-    }
-
     struct AxelarConfig {
         string hostChainStationChainName;
         string hostChainStationAddress;
@@ -16,13 +11,9 @@ library ExternalChainStationStructs {
     }
 
     struct CrosschainConfig {
-        uint32 hostChainStationDomainId;
-        address mailboxAddress;
-        uint32 hostChainStationEid;
-        address endpointAddress;
-        string hostChainStationChainName;
-        address gasServiceAddress;
-        address gatewayAddress;
+        HyperlaneConfig hyperlane;
+        LayerZeroConfig layerZero;
+        AxelarConfig axelar;
     }
 
     struct HyperlaneConfig {
@@ -38,7 +29,15 @@ library ExternalChainStationStructs {
     }
 }
 
-interface TreasuryExternalChainStation {
+library ProposalStructs {
+    struct AddressTypeProposal {
+        address current;
+        address proposal;
+        uint256 timeToAccept;
+    }
+}
+
+interface ITreasuryExternalChainStation {
     struct EnforcedOptionParam {
         uint32 eid;
         uint16 msgType;
@@ -53,6 +52,7 @@ interface TreasuryExternalChainStation {
 
     error AddressEmptyCode(address target);
     error AddressInsufficientBalance(address account);
+    error AsyncNonceAlreadyUsed();
     error ChainIdNotAuthorized();
     error FailedInnerCall();
     error InsufficientBalance();
@@ -74,6 +74,7 @@ interface TreasuryExternalChainStation {
     error SafeCastOverflowedUintDowncast(uint8 bits, uint256 value);
     error SafeERC20FailedOperation(address token);
     error SenderNotAuthorized();
+    error WindowToChangeEvvmIDExpired();
 
     event EnforcedOptionSet(EnforcedOptionParam[] _enforcedOptions);
     event FisherBridgeSend(
@@ -87,8 +88,7 @@ interface TreasuryExternalChainStation {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event PeerSet(uint32 eid, bytes32 peer);
 
-    function _setHostChainAddress(address hostChainStationAddress, string memory hostChainStationAddressString)
-        external;
+    function _setHostChainAddress(address hostChainStationAddress, string memory hostChainStationAddressString) external;
     function acceptAdmin() external;
     function acceptFisherExecutor() external;
     function acceptHostChainAddress() external;
@@ -98,9 +98,7 @@ interface TreasuryExternalChainStation {
         view
         returns (bytes memory);
     function depositCoin(address toAddress, uint256 amount, bytes1 protocolToExecute) external payable;
-    function depositERC20(address toAddress, address token, uint256 amount, bytes1 protocolToExecute)
-        external
-        payable;
+    function depositERC20(address toAddress, address token, uint256 amount, bytes1 protocolToExecute) external payable;
     function endpoint() external view returns (address);
     function enforcedOptions(uint32 eid, uint16 msgType) external view returns (bytes memory enforcedOption);
     function execute(bytes32 commandId, string memory sourceChain, string memory sourceAddress, bytes memory payload)
@@ -111,6 +109,7 @@ interface TreasuryExternalChainStation {
         address tokenAddress,
         uint256 priorityFee,
         uint256 amount,
+        uint256 nonce,
         bytes memory signature
     ) external;
     function fisherBridgeSendCoin(
@@ -118,6 +117,7 @@ interface TreasuryExternalChainStation {
         address addressToReceive,
         uint256 priorityFee,
         uint256 amount,
+        uint256 nonce,
         bytes memory signature
     ) external payable;
     function fisherBridgeSendERC20(
@@ -126,15 +126,16 @@ interface TreasuryExternalChainStation {
         address tokenAddress,
         uint256 priorityFee,
         uint256 amount,
+        uint256 nonce,
         bytes memory signature
     ) external;
     function gateway() external view returns (address);
-    function getAdmin() external view returns (ExternalChainStationStructs.AddressTypeProposal memory);
+    function getAdmin() external view returns (ProposalStructs.AddressTypeProposal memory);
     function getAxelarConfig() external view returns (ExternalChainStationStructs.AxelarConfig memory);
-    function getFisherExecutor() external view returns (ExternalChainStationStructs.AddressTypeProposal memory);
+    function getFisherExecutor() external view returns (ProposalStructs.AddressTypeProposal memory);
     function getHyperlaneConfig() external view returns (ExternalChainStationStructs.HyperlaneConfig memory);
+    function getIfUsedAsyncNonce(address user, uint256 nonce) external view returns (bool);
     function getLayerZeroConfig() external view returns (ExternalChainStationStructs.LayerZeroConfig memory);
-    function getNextFisherExecutionNonce(address user) external view returns (uint256);
     function getOptions() external view returns (bytes memory);
     function getQuoteHyperlane(address toAddress, address token, uint256 amount) external view returns (uint256);
     function handle(uint32 _origin, bytes32 _sender, bytes memory _data) external payable;
@@ -161,6 +162,7 @@ interface TreasuryExternalChainStation {
     function renounceOwnership() external;
     function setDelegate(address _delegate) external;
     function setEnforcedOptions(EnforcedOptionParam[] memory _enforcedOptions) external;
+    function setEvvmID(uint256 newEvvmID) external;
     function setPeer(uint32 _eid, bytes32 _peer) external;
     function transferOwnership(address newOwner) external;
 }

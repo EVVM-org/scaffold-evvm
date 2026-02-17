@@ -1,13 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.4;
+// SPDX-License-Identifier: EVVM-NONCOMMERCIAL-1.0
+// Full license terms available at: https://www.evvm.info/docs/EVVMNoncommercialLicense
+pragma solidity ^0.8.0;
 
 library HostChainStationStructs {
-    struct AddressTypeProposal {
-        address current;
-        address proposal;
-        uint256 timeToAccept;
-    }
-
     struct AxelarConfig {
         string externalChainStationChainName;
         string externalChainStationAddress;
@@ -16,13 +11,9 @@ library HostChainStationStructs {
     }
 
     struct CrosschainConfig {
-        uint32 externalChainStationDomainId;
-        address mailboxAddress;
-        uint32 externalChainStationEid;
-        address endpointAddress;
-        string externalChainStationChainName;
-        address gasServiceAddress;
-        address gatewayAddress;
+        HyperlaneConfig hyperlane;
+        LayerZeroConfig layerZero;
+        AxelarConfig axelar;
     }
 
     struct HyperlaneConfig {
@@ -38,7 +29,15 @@ library HostChainStationStructs {
     }
 }
 
-interface TreasuryHostChainStation {
+library ProposalStructs {
+    struct AddressTypeProposal {
+        address current;
+        address proposal;
+        uint256 timeToAccept;
+    }
+}
+
+interface ITreasuryHostChainStation {
     struct EnforcedOptionParam {
         uint32 eid;
         uint16 msgType;
@@ -61,7 +60,6 @@ interface TreasuryHostChainStation {
     error InvalidEndpointCall();
     error InvalidOptionType(uint16 optionType);
     error InvalidOptions(bytes options);
-    error InvalidSignature();
     error LzTokenUnavailable();
     error MailboxNotAuthorized();
     error NoPeer(uint32 eid);
@@ -110,6 +108,7 @@ interface TreasuryHostChainStation {
         address tokenAddress,
         uint256 priorityFee,
         uint256 amount,
+        uint256 nonce,
         bytes memory signature
     ) external;
     function fisherBridgeSend(
@@ -118,16 +117,17 @@ interface TreasuryHostChainStation {
         address tokenAddress,
         uint256 priorityFee,
         uint256 amount,
+        uint256 nonce,
         bytes memory signature
     ) external;
     function gateway() external view returns (address);
-    function getAdmin() external view returns (HostChainStationStructs.AddressTypeProposal memory);
+    function getAdmin() external view returns (ProposalStructs.AddressTypeProposal memory);
     function getAxelarConfig() external view returns (HostChainStationStructs.AxelarConfig memory);
-    function getEvvmAddress() external view returns (address);
-    function getFisherExecutor() external view returns (HostChainStationStructs.AddressTypeProposal memory);
+    function getCoreAddress() external view returns (address);
+    function getFisherExecutor() external view returns (ProposalStructs.AddressTypeProposal memory);
     function getHyperlaneConfig() external view returns (HostChainStationStructs.HyperlaneConfig memory);
+    function getIfUsedAsyncNonce(address user, uint256 nonce) external view returns (bool);
     function getLayerZeroConfig() external view returns (HostChainStationStructs.LayerZeroConfig memory);
-    function getNextFisherExecutionNonce(address user) external view returns (uint256);
     function getOptions() external view returns (bytes memory);
     function getQuoteHyperlane(address toAddress, address token, uint256 amount) external view returns (uint256);
     function handle(uint32 _origin, bytes32 _sender, bytes memory _data) external payable;

@@ -65,6 +65,7 @@ helping docs/
 CLAUDE.md
 PLAN.md
 CONTEXT.md
+MIGRATION_PLAN.md
 *.claude.md
 .claude/
 

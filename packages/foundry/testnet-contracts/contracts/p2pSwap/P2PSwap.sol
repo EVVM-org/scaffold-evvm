@@ -2,6 +2,22 @@
 // Full license terms available at: https://www.evvm.org/docs/EVVMNoncommercialLicense
 
 pragma solidity ^0.8.0;
+
+import {
+    P2PSwapHashUtils as Hash
+} from "@evvm/testnet-contracts/library/utils/signature/P2PSwapHashUtils.sol";
+import {
+    P2PSwapStructs as Structs
+} from "@evvm/testnet-contracts/library/structs/P2PSwapStructs.sol";
+
+import {Staking} from "@evvm/testnet-contracts/contracts/staking/Staking.sol";
+import {EvvmService} from "@evvm/testnet-contracts/library/EvvmService.sol";
+import {CoreStructs} from "@evvm/testnet-contracts/interfaces/ICore.sol";
+
+import {
+    AdvancedStrings
+} from "@evvm/testnet-contracts/library/utils/AdvancedStrings.sol";
+
 /**
  /$$$$$$$  /$$$$$$ /$$$$$$$  /$$$$$$                                
 | $$__  $$/$$__  $| $$__  $$/$$__  $$                               
@@ -15,97 +31,21 @@ pragma solidity ^0.8.0;
                                                           | $$      
                                                           |__/      
 
- * @title P2P Swap Service
+ * @title EVVM P2P Swap
  * @author Mate labs  
- * @notice Peer-to-peer decentralized exchange for token trading within the EVVM ecosystem
- * @dev Implements order book-style trading with dynamic market creation, fee distribution,
- *      and integration with EVVM's staking and payment systems. Supports both proportional
- *      and fixed fee models with time-delayed governance for parameter updates.
- * 
- * Key Features:
- * - Dynamic market creation for any token pair
- * - Order management (create, cancel, execute)
- * - Configurable fee structure with multi-party distribution
- * - Service staking capabilities via StakingServiceHooks inheritance
- * - ERC-191 signature verification for all operations
- * - Time-delayed administrative governance
- * 
- * Fee Distribution:
- * - Seller: 50% (configurable)
- * - Service: 40% (configurable) 
- * - Staker Rewards: 10% (configurable)
+ * @notice Peer-to-peer decentralized exchange for token trading within EVVM.
+ * @dev Supports order book-style trading with customizable fee models. 
+ *      Integrates with Core.sol for asset locking and settlements, and Staking.sol for validator rewards.
  */
 
-import {Evvm} from "@evvm/testnet-contracts/contracts/evvm/Evvm.sol";
-import {Staking} from "@evvm/testnet-contracts/contracts/staking/Staking.sol";
-import {AdvancedStrings} from "@evvm/testnet-contracts/library/utils/AdvancedStrings.sol";
-import {EvvmStructs} from "@evvm/testnet-contracts/contracts/evvm/lib/EvvmStructs.sol";
-import {StakingServiceUtils} from "@evvm/testnet-contracts/library/utils/service/StakingServiceUtils.sol";
-import {SignatureUtils} from "@evvm/testnet-contracts/contracts/p2pSwap/lib/SignatureUtils.sol";
-
-contract P2PSwap is StakingServiceUtils {
+contract P2PSwap is EvvmService, Structs {
     address owner;
     address owner_proposal;
     uint256 owner_timeToAccept;
 
-    address evvmAddress;
-    address stakingAddress;
-
     address constant MATE_TOKEN_ADDRESS =
         0x0000000000000000000000000000000000000001;
     address constant ETH_ADDRESS = 0x0000000000000000000000000000000000000000;
-
-    struct MarketInformation {
-        address tokenA;
-        address tokenB;
-        uint256 maxSlot;
-        uint256 ordersAvailable;
-    }
-
-    struct Order {
-        address seller;
-        uint256 amountA;
-        uint256 amountB;
-    }
-
-    struct OrderForGetter {
-        uint256 marketId;
-        uint256 orderId;
-        address seller;
-        uint256 amountA;
-        uint256 amountB;
-    }
-
-    struct Percentage {
-        uint256 seller;
-        uint256 service;
-        uint256 mateStaker;
-    }
-
-    struct MetadataMakeOrder {
-        uint256 nonce;
-        address tokenA;
-        address tokenB;
-        uint256 amountA;
-        uint256 amountB;
-    }
-
-    struct MetadataCancelOrder {
-        uint256 nonce;
-        address tokenA;
-        address tokenB;
-        uint256 orderId;
-        bytes signature;
-    }
-
-    struct MetadataDispatchOrder {
-        uint256 nonce;
-        address tokenA;
-        address tokenB;
-        uint256 orderId;
-        uint256 amountOfTokenBToFill;
-        bytes signature;
-    }
 
     Percentage rewardPercentage;
     Percentage rewardPercentage_proposal;
@@ -126,8 +66,6 @@ contract P2PSwap is StakingServiceUtils {
 
     uint256 marketCount;
 
-    mapping(address user => mapping(uint256 nonce => bool isUsed)) nonceP2PSwap;
-
     mapping(address tokenA => mapping(address tokenB => uint256 id)) marketId;
 
     mapping(uint256 id => MarketInformation info) marketMetadata;
@@ -137,11 +75,10 @@ contract P2PSwap is StakingServiceUtils {
     mapping(address => uint256) balancesOfContract;
 
     constructor(
-        address _evvmAddress,
+        address _coreAddress,
         address _stakingAddress,
         address _owner
-    ) StakingServiceUtils(_stakingAddress) {
-        evvmAddress = _evvmAddress;
+    ) EvvmService(_coreAddress, _stakingAddress) {
         owner = _owner;
         maxLimitFillFixedFee = 0.001 ether;
         percentageFee = 500;
@@ -150,45 +87,51 @@ contract P2PSwap is StakingServiceUtils {
             service: 4000,
             mateStaker: 1000
         });
-        stakingAddress = _stakingAddress;
     }
 
+    /**
+     * @notice Creates a new limit order in a specific trading market.
+     * @dev Locks tokenA in Core.sol and opens an order slot.
+     *      Markets are automatically created for new token pairs.
+     * @param user Seller address.
+     * @param metadata Order details (tokens, amounts, nonce).
+     * @param signature Seller's authorization signature.
+     * @param priorityFeePay Optional priority fee for the executor.
+     * @param noncePay Nonce for the Core payment (locks tokenA).
+     * @param signaturePay Signature for the Core payment.
+     * @return market The ID of the market.
+     * @return orderId The ID of the order within that market.
+     */
     function makeOrder(
         address user,
         MetadataMakeOrder memory metadata,
         bytes memory signature,
-        uint256 _priorityFee_Evvm,
-        uint256 _nonce_Evvm,
-        bool _priority_Evvm,
-        bytes memory _signature_Evvm
+        uint256 priorityFeePay,
+        uint256 noncePay,
+        bytes memory signaturePay
     ) external returns (uint256 market, uint256 orderId) {
-        if (
-            !SignatureUtils.verifyMessageSignedForMakeOrder(
-                Evvm(evvmAddress).getEvvmID(),
-                user,
-                metadata.nonce,
+        core.validateAndConsumeNonce(
+            user,
+            Hash.hashDataForMakeOrder(
                 metadata.tokenA,
                 metadata.tokenB,
                 metadata.amountA,
-                metadata.amountB,
-                signature
-            )
-        ) {
-            revert("Invalid signature");
-        }
+                metadata.amountB
+            ),
+            address(0),
+            metadata.nonce,
+            true,
+            signature
+        );
 
-        if (nonceP2PSwap[user][metadata.nonce]) {
-            revert("Nonce already used");
-        }
-
-        makePay(
+        requestPay(
             user,
             metadata.tokenA,
-            _nonce_Evvm,
             metadata.amountA,
-            _priorityFee_Evvm,
-            _priority_Evvm,
-            _signature_Evvm
+            priorityFeePay,
+            noncePay,
+            true,
+            signaturePay
         );
 
         market = findMarket(metadata.tokenA, metadata.tokenB);
@@ -219,69 +162,85 @@ contract P2PSwap is StakingServiceUtils {
             metadata.amountB
         );
 
-        if (Evvm(evvmAddress).isAddressStaker(msg.sender)) {
-            if (_priorityFee_Evvm > 0) {
+        if (core.isAddressStaker(msg.sender)) {
+            if (priorityFeePay > 0) {
                 // send the executor the priorityFee
-                makeCaPay(msg.sender, metadata.tokenA, _priorityFee_Evvm);
+                makeCaPay(msg.sender, metadata.tokenA, priorityFeePay);
             }
-
-            // send some mate token reward to the executor (independent of the priorityFee the user attached)
-            makeCaPay(
-                msg.sender,
-                MATE_TOKEN_ADDRESS,
-                _priorityFee_Evvm > 0
-                    ? (Evvm(evvmAddress).getRewardAmount() * 3)
-                    : (Evvm(evvmAddress).getRewardAmount() * 2)
-            );
         }
 
-        nonceP2PSwap[user][metadata.nonce] = true;
+        // send some mate token reward to the executor (independent of the priorityFee the user attached)
+        _rewardExecutor(msg.sender, priorityFeePay > 0 ? 3 : 2);
     }
 
+    /**
+     * @notice Cancels existing order and refunds locked tokens
+     * @dev Validates ownership, refunds tokenA, deletes order
+     *
+     * Cancellation Flow:
+     * 1. Validates signature via Core.sol
+     * 2. Validates user is order owner
+     * 3. Processes optional priority fee
+     * 4. Refunds locked tokenA to user
+     * 5. Deletes order (sets seller to address(0))
+     * 6. Rewards staker if applicable
+     *
+     * Core.sol Integration:
+     * - Validates signature with State.validateAndConsumeNonce
+     * - Uses async nonce (isAsyncExec = true)
+     * - Hash includes tokenA, tokenB, orderId
+     * - Prevents replay attacks and double cancellation
+     *
+     * Core.sol Integration:
+     * - Refunds tokenA via makeCaPay (order.amountA)
+     * - Priority fee via requestPay (if > 0)
+     * - Staker reward: 2-3x MATE via _rewardExecutor
+     * - makeCaPay handles staker priority fee distribution
+     *
+     * Security:
+     * - Only order owner can cancel
+     * - Atomic refund + deletion
+     * - Market slot becomes available for reuse
+     *
+     * @param user Address that owns the order
+     * @param metadata Cancel details (tokens, orderId, nonce)
+     * @param priorityFeePay Optional priority fee for staker
+     * @param noncePay Nonce for EVVM payment transaction
+     * @param signaturePay Signature for EVVM payment
+     */
     function cancelOrder(
         address user,
         MetadataCancelOrder memory metadata,
-        uint256 _priorityFee_Evvm,
-        uint256 _nonce_Evvm,
-        bool _priority_Evvm,
-        bytes memory _signature_Evvm
+        uint256 priorityFeePay,
+        uint256 noncePay,
+        bytes memory signaturePay
     ) external {
-        if (
-            !SignatureUtils.verifyMessageSignedForCancelOrder(
-                Evvm(evvmAddress).getEvvmID(),
-                user,
-                metadata.nonce,
+        core.validateAndConsumeNonce(
+            user,
+            Hash.hashDataForCancelOrder(
                 metadata.tokenA,
                 metadata.tokenB,
-                metadata.orderId,
-                metadata.signature
-            )
-        ) {
-            revert("Invalid signature");
-        }
+                metadata.orderId
+            ),
+            metadata.originExecutor,
+            metadata.nonce,
+            true,
+            metadata.signature
+        );
 
         uint256 market = findMarket(metadata.tokenA, metadata.tokenB);
 
-        if (nonceP2PSwap[user][metadata.nonce]) {
-            revert("Invalid nonce");
-        }
+        _validateOrderOwnership(market, metadata.orderId, user);
 
-        if (
-            market == 0 ||
-            ordersInsideMarket[market][metadata.orderId].seller != user
-        ) {
-            revert("Invalid order");
-        }
-
-        if (_priorityFee_Evvm > 0) {
-            makePay(
+        if (priorityFeePay > 0) {
+            requestPay(
                 user,
                 MATE_TOKEN_ADDRESS,
-                _nonce_Evvm,
                 0,
-                _priorityFee_Evvm,
-                _priority_Evvm,
-                _signature_Evvm
+                priorityFeePay,
+                noncePay,
+                true,
+                signaturePay
             );
         }
 
@@ -291,271 +250,258 @@ contract P2PSwap is StakingServiceUtils {
             ordersInsideMarket[market][metadata.orderId].amountA
         );
 
-        ordersInsideMarket[market][metadata.orderId].seller = address(0);
+        _clearOrderAndUpdateMarket(market, metadata.orderId);
 
-        if (Evvm(evvmAddress).isAddressStaker(msg.sender)) {
-            makeCaPay(
-                msg.sender,
-                MATE_TOKEN_ADDRESS,
-                _priorityFee_Evvm > 0
-                    ? ((Evvm(evvmAddress).getRewardAmount() * 3) +
-                        _priorityFee_Evvm)
-                    : (Evvm(evvmAddress).getRewardAmount() * 2)
-            );
+        if (core.isAddressStaker(msg.sender) && priorityFeePay > 0) {
+            makeCaPay(msg.sender, MATE_TOKEN_ADDRESS, priorityFeePay);
         }
-        marketMetadata[market].ordersAvailable--;
-        nonceP2PSwap[user][metadata.nonce] = true;
+        _rewardExecutor(msg.sender, priorityFeePay > 0 ? 3 : 2);
     }
 
+    /**
+     * @notice Fills order using proportional fee model
+     * @dev Fee = amountB * percentageFee / 10,000
+     *
+     * Proportional Fee Execution Flow:
+     * 1. Validates signature via Core.sol
+     * 2. Validates market and order exist
+     * 3. Calculates fee: (amountB * percentageFee) / 10,000
+     * 4. Validates amountOfTokenBToFill >= amountB + fee
+     * 5. Collects tokenB + fee via Evvm.requestPay
+     * 6. Handles overpayment refund if any
+     * 7. Distributes payments (seller, service, staker)
+     * 8. Transfers tokenA to buyer via Evvm.makeCaPay
+     * 9. Rewards staker (4-5x MATE)
+     * 10. Deletes order
+     *
+     * Core.sol Integration:
+     * - Validates signature with State.validateAndConsumeNonce
+     * - Uses async nonce (isAsyncExec = true)
+     * - Hash includes tokenA, tokenB, orderId
+     * - Prevents double filling
+     *
+     * Core.sol Integration:
+     * - Collects tokenB via requestPay (amountB + fee)
+     * - Distributes via makeDisperseCaPay:
+     *   * Seller: amountB + (fee * seller%)
+     *   * Staker: priorityFee + (fee * staker%)
+     *   * Service: fee * service% (accumulated)
+     * - Transfers tokenA to buyer via makeCaPay
+     * - Staker reward: 4-5x MATE via _rewardExecutor
+     *
+     * Fee Calculation:
+     * - Base: amountB (order requirement)
+     * - Fee: (amountB * percentageFee) / 10,000
+     * - Total: amountB + fee
+     * - Example: 5% fee = 500 / 10,000
+     *
+     * @param user Address filling the order (buyer)
+     * @param metadata Dispatch details (tokens, orderId, amount)
+     * @param priorityFeePay Optional priority fee for staker
+     * @param noncePay Nonce for EVVM payment transaction
+     * @param signaturePay Signature for EVVM payment
+     */
     function dispatchOrder_fillPropotionalFee(
         address user,
         MetadataDispatchOrder memory metadata,
-        uint256 _priorityFee_Evvm,
-        uint256 _nonce_Evvm,
-        bool _priority_Evvm,
-        bytes memory _signature_Evvm
+        uint256 priorityFeePay,
+        uint256 noncePay,
+        bytes memory signaturePay
     ) external {
-        if (
-            !SignatureUtils.verifyMessageSignedForDispatchOrder(
-                Evvm(evvmAddress).getEvvmID(),
-                user,
-                metadata.nonce,
+        core.validateAndConsumeNonce(
+            user,
+            Hash.hashDataForDispatchOrder(
                 metadata.tokenA,
                 metadata.tokenB,
-                metadata.orderId,
-                metadata.signature
-            )
-        ) {
-            revert("Invalid signature");
-        }
+                metadata.orderId
+            ),
+            metadata.originExecutor,
+            metadata.nonce,
+            true,
+            metadata.signature
+        );
 
         uint256 market = findMarket(metadata.tokenA, metadata.tokenB);
 
-        if (nonceP2PSwap[user][metadata.nonce]) {
-            revert("Invalid nonce");
-        }
+        Order storage order = _validateMarketAndOrder(market, metadata.orderId);
 
-        if (
-            market == 0 ||
-            ordersInsideMarket[market][metadata.orderId].seller == address(0)
-        ) {
-            revert("Invalid order");
-        }
+        uint256 fee = calculateFillPropotionalFee(order.amountB);
+        uint256 requiredAmount = order.amountB + fee;
 
-        uint256 fee = calculateFillPropotionalFee(
-            ordersInsideMarket[market][metadata.orderId].amountB
-        );
-
-        if (
-            metadata.amountOfTokenBToFill <
-            ordersInsideMarket[market][metadata.orderId].amountB + fee
-        ) {
+        if (metadata.amountOfTokenBToFill < requiredAmount) {
             revert("Insuficient amountOfTokenToFill");
         }
 
-        makePay(
+        requestPay(
             user,
             metadata.tokenB,
-            _nonce_Evvm,
             metadata.amountOfTokenBToFill,
-            _priorityFee_Evvm,
-            _priority_Evvm,
-            _signature_Evvm
+            priorityFeePay,
+            noncePay,
+            true,
+            signaturePay
         );
 
         // si es mas del fee + el monto de la orden hacemos caPay al usuario del sobranate
-        if (
-            metadata.amountOfTokenBToFill >
-            ordersInsideMarket[market][metadata.orderId].amountB + fee
-        ) {
-            makeCaPay(
-                user,
-                metadata.tokenB,
-                metadata.amountOfTokenBToFill -
-                    (ordersInsideMarket[market][metadata.orderId].amountB + fee)
-            );
-        }
-
-        EvvmStructs.DisperseCaPayMetadata[]
-            memory toData = new EvvmStructs.DisperseCaPayMetadata[](2);
-
-        uint256 sellerAmount = ordersInsideMarket[market][metadata.orderId]
-            .amountB + ((fee * rewardPercentage.seller) / 10_000);
-        uint256 executorAmount = _priorityFee_Evvm +
-            ((fee * rewardPercentage.mateStaker) / 10_000);
-
-        // pay seller
-        toData[0] = EvvmStructs.DisperseCaPayMetadata(
-            sellerAmount,
-            ordersInsideMarket[market][metadata.orderId].seller
-        );
-        // pay executor
-        toData[1] = EvvmStructs.DisperseCaPayMetadata(
-            executorAmount,
-            msg.sender
-        );
-
-        balancesOfContract[metadata.tokenB] +=
-            (fee * rewardPercentage.service) /
-            10_000;
-
-        makeDisperseCaPay(
-            toData,
+        bool didRefund = _handleOverpaymentRefund(
+            user,
             metadata.tokenB,
-            toData[0].amount + toData[1].amount
+            metadata.amountOfTokenBToFill,
+            requiredAmount
+        );
+
+        // distribute payments to seller and executor
+        _distributePayments(
+            metadata.tokenB,
+            order.amountB,
+            fee,
+            order.seller,
+            msg.sender,
+            priorityFeePay
         );
 
         // pay user with token A
-        makeCaPay(
-            user,
-            metadata.tokenA,
-            ordersInsideMarket[market][metadata.orderId].amountA
-        );
+        makeCaPay(user, metadata.tokenA, order.amountA);
 
-        if (Evvm(evvmAddress).isAddressStaker(msg.sender)) {
-            makeCaPay(
-                msg.sender,
-                MATE_TOKEN_ADDRESS,
-                metadata.amountOfTokenBToFill >
-                    ordersInsideMarket[market][metadata.orderId].amountB + fee
-                    ? Evvm(evvmAddress).getRewardAmount() * 5
-                    : Evvm(evvmAddress).getRewardAmount() * 4
-            );
-        }
+        _rewardExecutor(msg.sender, didRefund ? 5 : 4);
 
-        ordersInsideMarket[market][metadata.orderId].seller = address(0);
-        marketMetadata[market].ordersAvailable--;
-        nonceP2PSwap[user][metadata.nonce] = true;
+        _clearOrderAndUpdateMarket(market, metadata.orderId);
     }
 
+    /**
+     * @notice Fills order using fixed/capped fee model
+     * @dev Fee = min(proportionalFee, maxLimitFillFixedFee)
+     * with -10% tolerance
+     *
+     * Fixed Fee Execution Flow:
+     * 1. Validates signature via Core.sol
+     * 2. Validates market and order exist
+     * 3. Calculates capped fee and 10% tolerance
+     * 4. Validates amountOfTokenBToFill >= amountB + fee - 10%
+     * 5. Collects tokenB + amount via Evvm.requestPay
+     * 6. Calculates final fee based on actual payment
+     * 7. Handles overpayment refund if any
+     * 8. Distributes payments (seller, service, staker)
+     * 9. Transfers tokenA to buyer via Evvm.makeCaPay
+     * 10. Rewards staker (4-5x MATE)
+     * 11. Deletes order
+     *
+     * Core.sol Integration:
+     * - Validates signature with State.validateAndConsumeNonce
+     * - Uses async nonce (isAsyncExec = true)
+     * - Hash includes tokenA, tokenB, orderId
+     * - Prevents double filling
+     *
+     * Core.sol Integration:
+     * - Collects tokenB via requestPay (variable amount)
+     * - Distributes via makeDisperseCaPay:
+     *   * Seller: amountB + (finalFee * seller%)
+     *   * Staker: priorityFee + (finalFee * staker%)
+     *   * Service: finalFee * service% (accumulated)
+     * - Transfers tokenA to buyer via makeCaPay
+     * - Staker reward: 4-5x MATE via _rewardExecutor
+     *
+     * Fee Calculation:
+     * - Base: amountB (order requirement)
+     * - ProportionalFee: (amountB * percentageFee) / 10,000
+     * - Fee: min(proportionalFee, maxLimitFillFixedFee)
+     * - Tolerance: fee * 10% (fee10)
+     * - MinRequired: amountB + fee - fee10
+     * - FullRequired: amountB + fee
+     * - FinalFee: Based on actual payment amount
+     *
+     * Tolerance Range:
+     * - Accepts payment between [amountB + 90% fee] and
+     *   [amountB + 100% fee]
+     * - Calculates actual fee from payment received
+     * - Enables flexible fee payment for users
+     *
+     * @param user Address filling the order (buyer)
+     * @param metadata Dispatch details (tokens, orderId, amount)
+     * @param priorityFeePay Optional priority fee for staker
+     * @param noncePay Nonce for EVVM payment transaction
+     * @param signaturePay Signature for EVVM payment
+     * @param maxFillFixedFee Max fee cap (for testing)
+     */
     function dispatchOrder_fillFixedFee(
         address user,
         MetadataDispatchOrder memory metadata,
-        uint256 _priorityFee_Evvm,
-        uint256 _nonce_Evvm,
-        bool _priority_Evvm,
-        bytes memory _signature_Evvm,
+        uint256 priorityFeePay,
+        uint256 noncePay,
+        bytes memory signaturePay,
         uint256 maxFillFixedFee ///@dev for testing purposes
     ) external {
-        if (
-            !SignatureUtils.verifyMessageSignedForDispatchOrder(
-                Evvm(evvmAddress).getEvvmID(),
-                user,
-                metadata.nonce,
+        core.validateAndConsumeNonce(
+            user,
+            Hash.hashDataForDispatchOrder(
                 metadata.tokenA,
                 metadata.tokenB,
-                metadata.orderId,
-                metadata.signature
-            )
-        ) {
-            revert("Invalid signature");
-        }
+                metadata.orderId
+            ),
+            metadata.originExecutor,
+            metadata.nonce,
+            true,
+            metadata.signature
+        );
 
         uint256 market = findMarket(metadata.tokenA, metadata.tokenB);
 
-        if (nonceP2PSwap[user][metadata.nonce]) {
-            revert("Invalid nonce");
-        }
-
-        if (
-            market == 0 ||
-            ordersInsideMarket[market][metadata.orderId].seller == address(0)
-        ) {
-            revert("Invalid order");
-        }
+        Order storage order = _validateMarketAndOrder(market, metadata.orderId);
 
         (uint256 fee, uint256 fee10) = calculateFillFixedFee(
-            ordersInsideMarket[market][metadata.orderId].amountB,
+            order.amountB,
             maxFillFixedFee
         );
 
-        if (
-            metadata.amountOfTokenBToFill <
-            ordersInsideMarket[market][metadata.orderId].amountB + fee - fee10
-        ) {
+        uint256 minRequired = order.amountB + fee - fee10;
+        uint256 fullRequired = order.amountB + fee;
+
+        if (metadata.amountOfTokenBToFill < minRequired) {
             revert("Insuficient amountOfTokenBToFill");
         }
 
-        makePay(
+        requestPay(
             user,
             metadata.tokenB,
-            _nonce_Evvm,
             metadata.amountOfTokenBToFill,
-            _priorityFee_Evvm,
-            _priority_Evvm,
-            _signature_Evvm
+            priorityFeePay,
+            noncePay,
+            true,
+            signaturePay
         );
 
-        uint256 finalFee = metadata.amountOfTokenBToFill >=
-            ordersInsideMarket[market][metadata.orderId].amountB +
-                fee -
-                fee10 &&
-            metadata.amountOfTokenBToFill <
-            ordersInsideMarket[market][metadata.orderId].amountB + fee
-            ? metadata.amountOfTokenBToFill -
-                ordersInsideMarket[market][metadata.orderId].amountB
-            : fee;
+        uint256 finalFee = _calculateFinalFee(
+            metadata.amountOfTokenBToFill,
+            order.amountB,
+            fee,
+            fee10
+        );
 
         // si es mas del fee + el monto de la orden hacemos caPay al usuario del sobranate
-        if (
-            metadata.amountOfTokenBToFill >
-            ordersInsideMarket[market][metadata.orderId].amountB + fee
-        ) {
-            makeCaPay(
-                user,
-                metadata.tokenB,
-                metadata.amountOfTokenBToFill -
-                    (ordersInsideMarket[market][metadata.orderId].amountB + fee)
-            );
-        }
-
-        EvvmStructs.DisperseCaPayMetadata[]
-            memory toData = new EvvmStructs.DisperseCaPayMetadata[](2);
-
-        toData[0] = EvvmStructs.DisperseCaPayMetadata(
-            ordersInsideMarket[market][metadata.orderId].amountB +
-                ((finalFee * rewardPercentage.seller) / 10_000),
-            ordersInsideMarket[market][metadata.orderId].seller
-        );
-        toData[1] = EvvmStructs.DisperseCaPayMetadata(
-            _priorityFee_Evvm +
-                ((finalFee * rewardPercentage.mateStaker) / 10_000),
-            msg.sender
-        );
-
-        balancesOfContract[metadata.tokenB] +=
-            (finalFee * rewardPercentage.service) /
-            10_000;
-
-        makeDisperseCaPay(
-            toData,
-            metadata.tokenB,
-            toData[0].amount + toData[1].amount
-        );
-
-        makeCaPay(
+        bool didRefund = _handleOverpaymentRefund(
             user,
-            metadata.tokenA,
-            ordersInsideMarket[market][metadata.orderId].amountA
+            metadata.tokenB,
+            metadata.amountOfTokenBToFill,
+            fullRequired
         );
 
-        if (Evvm(evvmAddress).isAddressStaker(msg.sender)) {
-            makeCaPay(
-                msg.sender,
-                MATE_TOKEN_ADDRESS,
-                metadata.amountOfTokenBToFill >
-                    ordersInsideMarket[market][metadata.orderId].amountB + fee
-                    ? Evvm(evvmAddress).getRewardAmount() * 5
-                    : Evvm(evvmAddress).getRewardAmount() * 4
-            );
-        }
+        // distribute payments to seller and executor
+        _distributePayments(
+            metadata.tokenB,
+            order.amountB,
+            finalFee,
+            order.seller,
+            msg.sender,
+            priorityFeePay
+        );
 
-        ordersInsideMarket[market][metadata.orderId].seller = address(0);
-        marketMetadata[market].ordersAvailable--;
-        nonceP2PSwap[user][metadata.nonce] = true;
+        makeCaPay(user, metadata.tokenA, order.amountA);
+
+        _rewardExecutor(msg.sender, didRefund ? 5 : 4);
+
+        _clearOrderAndUpdateMarket(market, metadata.orderId);
     }
 
-    //devolver el 0.05% del monto de la orden
     function calculateFillPropotionalFee(
         uint256 amount
     ) internal view returns (uint256 fee) {
@@ -575,6 +521,151 @@ contract P2PSwap is StakingServiceUtils {
         }
     }
 
+    /**
+     * @dev Calculates the final fee for fixed fee dispatch considering tolerance range
+     * @param amountPaid Amount paid by user
+     * @param orderAmount Base order amount
+     * @param fee Full fee amount
+     * @param fee10 10% tolerance of fee
+     * @return finalFee The calculated final fee
+     */
+    function _calculateFinalFee(
+        uint256 amountPaid,
+        uint256 orderAmount,
+        uint256 fee,
+        uint256 fee10
+    ) internal pure returns (uint256 finalFee) {
+        uint256 minRequired = orderAmount + fee - fee10;
+        uint256 fullRequired = orderAmount + fee;
+
+        if (amountPaid >= minRequired && amountPaid < fullRequired) {
+            finalFee = amountPaid - orderAmount;
+        } else {
+            finalFee = fee;
+        }
+    }
+
+    //◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢
+    // Internal helper functions to avoid Stack too deep
+    //◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢
+
+    /**
+     * @dev Validates that a market and order exist and are valid
+     * @param market The market ID
+     * @param orderId The order ID within the market
+     * @return order The order data if valid
+     */
+    function _validateMarketAndOrder(
+        uint256 market,
+        uint256 orderId
+    ) internal view returns (Order storage order) {
+        if (market == 0) {
+            revert("Invalid order");
+        }
+        order = ordersInsideMarket[market][orderId];
+        if (order.seller == address(0)) {
+            revert("Invalid order");
+        }
+    }
+
+    /**
+     * @dev Validates that a market exists and the user is the seller of the order
+     * @param market The market ID
+     * @param orderId The order ID
+     * @param user The expected seller address
+     */
+    function _validateOrderOwnership(
+        uint256 market,
+        uint256 orderId,
+        address user
+    ) internal view {
+        if (market == 0 || ordersInsideMarket[market][orderId].seller != user) {
+            revert("Invalid order");
+        }
+    }
+
+    /**
+     * @dev Rewards the executor (staker) with MATE tokens based on operation complexity
+     * @param executor The address of the executor
+     * @param multiplier The reward multiplier (2, 3, 4, or 5)
+     */
+    function _rewardExecutor(address executor, uint256 multiplier) internal {
+        if (core.isAddressStaker(executor)) {
+            makeCaPay(
+                executor,
+                MATE_TOKEN_ADDRESS,
+                core.getRewardAmount() * multiplier
+            );
+        }
+    }
+
+    /**
+     * @dev Clears an order and updates market metadata
+     * @param market The market ID
+     * @param orderId The order ID to clear
+     */
+    function _clearOrderAndUpdateMarket(
+        uint256 market,
+        uint256 orderId
+    ) internal {
+        ordersInsideMarket[market][orderId].seller = address(0);
+        marketMetadata[market].ordersAvailable--;
+    }
+
+    /**
+     * @dev Handles refund to user if they overpaid
+     * @param user The user address to refund
+     * @param token The token address
+     * @param amountPaid The amount the user paid
+     * @param amountRequired The required amount (order amount + fee)
+     * @return didRefund Whether a refund was made
+     */
+    function _handleOverpaymentRefund(
+        address user,
+        address token,
+        uint256 amountPaid,
+        uint256 amountRequired
+    ) internal returns (bool didRefund) {
+        if (amountPaid > amountRequired) {
+            makeCaPay(user, token, amountPaid - amountRequired);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @dev Distributes payment to seller and executor, and accumulates service fee
+     * @param token The token address for payment
+     * @param orderAmount The base order amount
+     * @param fee The fee amount to distribute
+     * @param seller The seller address
+     * @param executor The executor address
+     * @param priorityFee The priority fee for executor
+     */
+    function _distributePayments(
+        address token,
+        uint256 orderAmount,
+        uint256 fee,
+        address seller,
+        address executor,
+        uint256 priorityFee
+    ) internal {
+        uint256 sellerAmount = orderAmount +
+            ((fee * rewardPercentage.seller) / 10_000);
+        uint256 executorAmount = priorityFee +
+            ((fee * rewardPercentage.mateStaker) / 10_000);
+
+        CoreStructs.DisperseCaPayMetadata[]
+            memory toData = new CoreStructs.DisperseCaPayMetadata[](2);
+
+        toData[0] = CoreStructs.DisperseCaPayMetadata(sellerAmount, seller);
+        toData[1] = CoreStructs.DisperseCaPayMetadata(executorAmount, executor);
+
+        balancesOfContract[token] += (fee * rewardPercentage.service) / 10_000;
+
+        makeDisperseCaPay(toData, token, sellerAmount + executorAmount);
+    }
+
     function createMarket(
         address tokenA,
         address tokenB
@@ -583,49 +674,6 @@ contract P2PSwap is StakingServiceUtils {
         marketId[tokenA][tokenB] = marketCount;
         marketMetadata[marketCount] = MarketInformation(tokenA, tokenB, 0, 0);
         return marketCount;
-    }
-
-    //◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢
-    // Tools for Evvm
-    //◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢
-
-    function makePay(
-        address _user_Evvm,
-        address _token_Evvm,
-        uint256 _nonce_Evvm,
-        uint256 _ammount_Evvm,
-        uint256 _priorityFee_Evvm,
-        bool _priority_Evvm,
-        bytes memory _signature_Evvm
-    ) internal {
-        Evvm(evvmAddress).pay(
-            _user_Evvm,
-            address(this),
-            "",
-            _token_Evvm,
-            _ammount_Evvm,
-            _priorityFee_Evvm,
-            _nonce_Evvm,
-            _priority_Evvm,
-            address(this),
-            _signature_Evvm
-        );
-    }
-
-    function makeCaPay(
-        address _user_Evvm,
-        address _token_Evvm,
-        uint256 _ammount_Evvm
-    ) internal {
-        Evvm(evvmAddress).caPay(_user_Evvm, _token_Evvm, _ammount_Evvm);
-    }
-
-    function makeDisperseCaPay(
-        EvvmStructs.DisperseCaPayMetadata[] memory toData,
-        address token,
-        uint256 amount
-    ) internal {
-        Evvm(evvmAddress).disperseCaPay(toData, token, amount);
     }
 
     //◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢
@@ -825,7 +873,7 @@ contract P2PSwap is StakingServiceUtils {
     function stake(uint256 amount) external {
         if (
             msg.sender != owner ||
-            amount * Staking(stakingAddress).priceOfStaking() >
+            amount * staking.priceOfStaking() >
             balancesOfContract[0x0000000000000000000000000000000000000001]
         ) revert();
 
@@ -920,13 +968,6 @@ contract P2PSwap is StakingServiceUtils {
             markets[i - 1] = marketMetadata[i];
         }
         return markets;
-    }
-
-    function checkIfANonceP2PSwapIsUsed(
-        address user,
-        uint256 nonce
-    ) public view returns (bool) {
-        return nonceP2PSwap[user][nonce];
     }
 
     function getBalanceOfContract(
