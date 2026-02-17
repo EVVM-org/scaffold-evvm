@@ -37,7 +37,7 @@ const executePay = async (
     nonce: InputData.nonce.toString(),
   });
 
-  return writeContract(config, {
+  const hash = await writeContract(config, {
     abi: CoreABI,
     address: evvmAddress,
     functionName: "pay",
@@ -53,13 +53,8 @@ const executePay = async (
       InputData.isAsyncExec,
       InputData.signature,
     ],
-  })
-    .then(() => {
-      return Promise.resolve();
-    })
-    .catch((error) => {
-      return Promise.reject(error);
-    });
+  });
+  return hash as `0x${string}`;
 };
 
 /**
@@ -77,7 +72,7 @@ const executeDispersePay = async (
     return Promise.reject("No data to execute payment");
   }
 
-  return writeContract(config, {
+  const hash = await writeContract(config, {
     abi: CoreABI,
     address: evvmAddress,
     functionName: "dispersePay",
@@ -92,13 +87,8 @@ const executeDispersePay = async (
       InputData.isAsyncExec,
       InputData.signature,
     ],
-  })
-    .then(() => {
-      return Promise.resolve();
-    })
-    .catch((error) => {
-      return Promise.reject(error);
-    });
+  });
+  return hash as `0x${string}`;
 };
 
 export { executePay, executeDispersePay };

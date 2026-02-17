@@ -15,49 +15,6 @@ export interface EvvmDeployment {
   activator?: `0x${string}`;
 }
 
-export interface PayInputData {
-  from: `0x${string}`;
-  to_address: `0x${string}`;
-  to_identity: string;
-  token: `0x${string}`;
-  amount: bigint;
-  priorityFee: bigint;
-  nonce: bigint;
-  priority: boolean;
-  executor: string;
-  signature: `0x${string}`;
-}
-
-export interface DispersePayRecipient {
-  address: `0x${string}`;
-  amount: bigint;
-}
-
-export interface DispersePayInputData {
-  from: `0x${string}`;
-  token: `0x${string}`;
-  recipients: DispersePayRecipient[];
-  priorityFee: bigint;
-  nonce: bigint;
-  priority: boolean;
-  executor: string;
-  signature: `0x${string}`;
-}
-
-export interface StakingInputData {
-  from: `0x${string}`;
-  amount: bigint;
-  nonce: bigint;
-  signature: `0x${string}`;
-}
-
-export interface NameServiceInputData {
-  from: `0x${string}`;
-  username: string;
-  nonce: bigint;
-  signature: `0x${string}`;
-}
-
 export interface DebugEntry {
   type: 'request' | 'response' | 'error' | 'info' | 'tx' | 'block' | 'signature' | 'wallet';
   label: string;

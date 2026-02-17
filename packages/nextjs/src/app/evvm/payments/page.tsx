@@ -22,7 +22,7 @@ import { getAccountWithRetry } from "@/utils/getAccountWithRetry";
 import {
   executePay,
   executeDispersePay,
-} from "@/lib/evvmExecutors";
+} from "@/utils/transactionExecuters/evvmExecuter";
 import {
   createSignerWithViem,
   Core,
@@ -37,25 +37,6 @@ type DispersePayMetadata = {
 };
 import styles from "@/styles/pages/Payments.module.css";
 
-// Helper to transform library types to our types
-const transformPayData = (data: any): import("@/types/evvm").PayInputData => ({
-  ...data,
-  signature: data.signature as `0x${string}`,
-});
-
-const transformDisperseData = (data: any): import("@/types/evvm").DispersePayInputData => ({
-  from: data.from,
-  token: data.token,
-  recipients: data.toData.map((t: any) => ({
-    address: t.to_address,
-    amount: t.amount,
-  })),
-  priorityFee: data.priorityFee,
-  nonce: data.nonce,
-  priority: data.priority,
-  executor: data.executor,
-  signature: data.signature as `0x${string}`,
-});
 
 export default function PaymentsPage() {
   const { deployment, loading: deploymentLoading, error: deploymentError } = useEvvmDeployment();
@@ -198,7 +179,7 @@ export default function PaymentsPage() {
         throw new Error(`Invalid signature format: ${signature}`);
       }
 
-      const payData: any = {
+      const payData: PayInputData = {
         from: walletData.address as `0x${string}`,
         to_address: (formData.to.startsWith("0x")
           ? formData.to
@@ -208,8 +189,8 @@ export default function PaymentsPage() {
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
         nonce: BigInt(formData.nonce),
-        priority: priority === "high",
-        senderExecutor: formData.executor,
+        isAsyncExec: priority === "high",
+        senderExecutor: formData.executor as `0x${string}`,
         signature: signature as `0x${string}`,
       };
 
@@ -246,12 +227,9 @@ export default function PaymentsPage() {
     setTxHash(null);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hash = await executePay(
-        walletClient as any,
-        publicClient as any,
+        payDataToGet,
         deployment.evvm as `0x${string}`,
-        transformPayData(payDataToGet)
       );
       console.log("Payment executed successfully", hash);
       setTxHash(hash);
@@ -391,15 +369,15 @@ export default function PaymentsPage() {
         throw new Error(`Invalid signature format: ${dispersePaySignature}`);
       }
 
-      const disperseData: any = {
+      const disperseData: DispersePayInputData = {
         from: walletData.address as `0x${string}`,
         toData,
         token: formData.tokenAddress as `0x${string}`,
         amount: BigInt(formData.amount),
         priorityFee: BigInt(formData.priorityFee),
-        priority: priorityDisperse === "high",
+        isAsyncExec: priorityDisperse === "high",
         nonce: BigInt(formData.nonce),
-        senderExecutor: formData.executor,
+        senderExecutor: formData.executor as `0x${string}`,
         signature: dispersePaySignature as `0x${string}`,
       };
 
@@ -436,12 +414,9 @@ export default function PaymentsPage() {
     setTxHash(null);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hash = await executeDispersePay(
-        walletClient as any,
-        publicClient as any,
+        disperseDataToGet,
         deployment.evvm as `0x${string}`,
-        transformDisperseData(disperseDataToGet)
       );
       console.log("Disperse payment executed successfully", hash);
       setTxHash(hash);

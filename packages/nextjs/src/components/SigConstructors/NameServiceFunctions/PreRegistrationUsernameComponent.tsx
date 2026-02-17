@@ -23,8 +23,8 @@ import {
 import { keccak256, encodePacked } from "viem";
 
 // Hash function for pre-registered username
-function hashPreRegisteredUsername(username: string, clowNumber: bigint): string {
-  return keccak256(encodePacked(['string', 'uint256'], [username, clowNumber]));
+function hashPreRegisteredUsername(username: string, lockNumber: bigint): string {
+  return keccak256(encodePacked(['string', 'uint256'], [username, lockNumber]));
 }
 
 type InfoData = {
@@ -63,7 +63,7 @@ export const PreRegistrationUsernameComponent = ({
       addressNameService: nameServiceAddress,
       username: getValue("usernameInput_preRegistration"),
       nonce: getValue("nonceNameServiceInput_preRegistration"),
-      clowNumber: getValue("clowNumberInput_preRegistration"),
+      lockNumber: getValue("lockNumberInput_preRegistration"),
       nonce_EVVM: getValue("nonceEVVMInput_preRegistration"),
       priorityFee_EVVM: getValue("priorityFeeInput_preRegistration"),
       priorityFlag_EVVM: priority === "high",
@@ -76,7 +76,7 @@ export const PreRegistrationUsernameComponent = ({
     if (!formData.nonce) {
       throw new Error("NameService nonce is required");
     }
-    if (!formData.clowNumber) {
+    if (!formData.lockNumber) {
       throw new Error("Clow number is required");
     }
     if (!formData.nonce_EVVM) {
@@ -98,7 +98,7 @@ export const PreRegistrationUsernameComponent = ({
       // Hash the username with clow number
       const hashUsername = hashPreRegisteredUsername(
         formData.username,
-        BigInt(formData.clowNumber)
+        BigInt(formData.lockNumber)
       );
 
       // Create EVVM pay action first (0 amount for pre-registration)
@@ -174,8 +174,8 @@ export const PreRegistrationUsernameComponent = ({
       {/* Nonce section with automatic generator */}
 
       <NumberInputWithGenerator
-        label="Clow Number"
-        inputId="clowNumberInput_preRegistration"
+        label="Lock Number"
+        inputId="lockNumberInput_preRegistration"
         placeholder="Enter clow number"
       />
 

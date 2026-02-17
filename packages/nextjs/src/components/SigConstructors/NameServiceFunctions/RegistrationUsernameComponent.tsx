@@ -61,7 +61,7 @@ export const RegistrationUsernameComponent = ({
       addressNameService: nameServiceAddress,
       nonceNameService: getValue("nonceNameServiceInput_registrationUsername"),
       username: getValue("usernameInput_registrationUsername"),
-      clowNumber: getValue("clowNumberInput_registrationUsername"),
+      lockNumber: getValue("lockNumberInput_registrationUsername"),
       priorityFee_EVVM: getValue("priorityFeeInput_registrationUsername"),
       nonceEVVM: getValue("nonceEVVMInput_registrationUsername"),
       isAsyncExec: priority === "high",
@@ -74,7 +74,7 @@ export const RegistrationUsernameComponent = ({
     if (!formData.nonceNameService) {
       throw new Error("NameService nonce is required");
     }
-    if (!formData.clowNumber) {
+    if (!formData.lockNumber) {
       throw new Error("Clow number is required");
     }
     if (!formData.nonceEVVM) {
@@ -111,7 +111,7 @@ export const RegistrationUsernameComponent = ({
       // Create registration action
       const nsAction = await nameService.registrationUsername({
         username: formData.username,
-        lockNumber: BigInt(formData.clowNumber),
+        lockNumber: BigInt(formData.lockNumber),
         nonce: BigInt(formData.nonceNameService),
         evvmSignedAction: evvmAction,
       });
@@ -218,8 +218,8 @@ export const RegistrationUsernameComponent = ({
       />
 
       <NumberInputField
-        label="Clow Number"
-        inputId="clowNumberInput_registrationUsername"
+        label="Lock Number"
+        inputId="lockNumberInput_registrationUsername"
         placeholder="Enter clow number"
       />
 

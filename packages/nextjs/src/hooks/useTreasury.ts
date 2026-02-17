@@ -34,7 +34,7 @@ const TREASURY_ABI = [
     outputs: [],
   },
   {
-    name: 'evvmAddress',
+    name: 'getCoreAddress',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
@@ -126,20 +126,20 @@ export function useTreasuryWithdraw(
 }
 
 /**
- * Hook to get EVVM address from Treasury
+ * Hook to get Core contract address from Treasury
  */
-export function useTreasuryEvvmAddress(treasuryAddress: Address | undefined) {
+export function useTreasuryCoreAddress(treasuryAddress: Address | undefined) {
   const { data, isLoading, error } = useReadContract({
     address: treasuryAddress,
     abi: TREASURY_ABI,
-    functionName: 'evvmAddress',
+    functionName: 'getCoreAddress',
     query: {
       enabled: !!treasuryAddress,
     },
   });
 
   return {
-    evvmAddress: data as Address | undefined,
+    coreAddress: data as Address | undefined,
     isLoading,
     error,
   };

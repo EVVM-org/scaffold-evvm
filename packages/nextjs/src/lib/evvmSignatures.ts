@@ -362,7 +362,7 @@ export interface SignPreRegistrationUsernameParams {
   evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
-  clowNumber: string | number;
+  lockNumber: string | number;
   nonce: string | number;
   priorityFee_EVVM: string | number;
   nonce_EVVM: string | number;
@@ -396,7 +396,7 @@ export async function signPreRegistrationUsername(
   });
 
   // Hash the username with clow number
-  const hashUsername = hashPreRegisteredUsername(params.username, BigInt(params.clowNumber));
+  const hashUsername = hashPreRegisteredUsername(params.username, BigInt(params.lockNumber));
 
   // Create pre-registration action
   const nsAction = await nameService.preRegistrationUsername({
@@ -413,10 +413,10 @@ export async function signPreRegistrationUsername(
 }
 
 // Hash function for pre-registered username (keccak256)
-function hashPreRegisteredUsername(username: string, clowNumber: bigint): string {
+function hashPreRegisteredUsername(username: string, lockNumber: bigint): string {
   // Use viem's keccak256 for hashing
   const { keccak256, encodePacked } = require('viem');
-  const hash = keccak256(encodePacked(['string', 'uint256'], [username, clowNumber]));
+  const hash = keccak256(encodePacked(['string', 'uint256'], [username, lockNumber]));
   return hash;
 }
 
@@ -425,7 +425,7 @@ export interface SignRegistrationUsernameParams {
   evvmAddress: `0x${string}`;
   nameServiceAddress: `0x${string}`;
   username: string;
-  clowNumber: string | number;
+  lockNumber: string | number;
   nonceNameService: string | number;
   rewardAmount: bigint;
   priorityFee_EVVM: string | number;
@@ -462,7 +462,7 @@ export async function signRegistrationUsername(
   // Create registration action
   const nsAction = await nameService.registrationUsername({
     username: params.username,
-    lockNumber: BigInt(params.clowNumber),
+    lockNumber: BigInt(params.lockNumber),
     nonce: BigInt(params.nonceNameService),
     evvmSignedAction: coreAction,
   });

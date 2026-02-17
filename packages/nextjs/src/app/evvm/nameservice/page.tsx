@@ -48,8 +48,8 @@ import {
 import { keccak256, encodePacked } from "viem";
 
 // Local implementation of hash function (not exported from evvm-js)
-function hashPreRegisteredUsername(username: string, clowNumber: bigint): string {
-  return keccak256(encodePacked(['string', 'uint256'], [username, clowNumber]));
+function hashPreRegisteredUsername(username: string, lockNumber: bigint): string {
+  return keccak256(encodePacked(['string', 'uint256'], [username, lockNumber]));
 }
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
 import styles from "@/styles/pages/NameService.module.css";
@@ -97,7 +97,7 @@ export default function NameServicePage() {
     try {
       const formData = {
         username: getValue("usernameInput_preRegistration"),
-        clowNumber: getValue("clowNumberInput_preRegistration"),
+        lockNumber: getValue("lockNumberInput_preRegistration"),
         nonce: getValue("nonceNameServiceInput_preRegistration"),
         priorityFee_EVVM: getValue("priorityFeeInput_preRegistration"),
         nonce_EVVM: getValue("nonceEVVMInput_preRegistration"),
@@ -106,7 +106,7 @@ export default function NameServicePage() {
 
       validateRequiredFields({
         Username: formData.username,
-        "Clow Number": formData.clowNumber,
+        "Lock Number": formData.lockNumber,
         "NameService Nonce": formData.nonce,
         "EVVM Nonce": formData.nonce_EVVM,
       });
@@ -141,10 +141,10 @@ export default function NameServicePage() {
         senderExecutor: deployment.nameService as `0x${string}`,
       });
 
-      // Hash the username with clowNumber for pre-registration
+      // Hash the username with lockNumber for pre-registration
       const hashUsername = hashPreRegisteredUsername(
         formData.username,
-        BigInt(formData.clowNumber)
+        BigInt(formData.lockNumber)
       );
 
       // Create pre-registration action
@@ -195,7 +195,7 @@ export default function NameServicePage() {
       const formData = {
         nonceNameService: getValue("nonceNameServiceInput_registrationUsername"),
         username: getValue("usernameInput_registrationUsername"),
-        clowNumber: getValue("clowNumberInput_registrationUsername"),
+        lockNumber: getValue("lockNumberInput_registrationUsername"),
         priorityFee_EVVM: getValue("priorityFeeInput_registrationUsername"),
         nonceEVVM: getValue("nonceEVVMInput_registrationUsername"),
         isAsyncExec: priority === "high",
@@ -203,7 +203,7 @@ export default function NameServicePage() {
 
       validateRequiredFields({
         Username: formData.username,
-        "Clow Number": formData.clowNumber,
+        "Lock Number": formData.lockNumber,
         "NameService Nonce": formData.nonceNameService,
         "EVVM Nonce": formData.nonceEVVM,
       });
@@ -219,7 +219,7 @@ export default function NameServicePage() {
       console.log("Creating registration signature with:", {
         evvmID: deployment.evvmID,
         username: formData.username,
-        clowNumber: formData.clowNumber,
+        lockNumber: formData.lockNumber,
         rewardAmount
       });
 
@@ -244,7 +244,7 @@ export default function NameServicePage() {
       // Create registration action
       const nsAction = await nameService.registrationUsername({
         username: formData.username,
-        lockNumber: BigInt(formData.clowNumber),
+        lockNumber: BigInt(formData.lockNumber),
         nonce: BigInt(formData.nonceNameService),
         evvmSignedAction: evvmAction,
       });
@@ -1136,8 +1136,8 @@ export default function NameServicePage() {
             </p>
 
             <NumberInputWithGenerator
-              label="Clow Number"
-              inputId="clowNumberInput_preRegistration"
+              label="Lock Number"
+              inputId="lockNumberInput_preRegistration"
               placeholder="Enter clow number"
             />
 
@@ -1207,8 +1207,8 @@ export default function NameServicePage() {
             />
 
             <NumberInputField
-              label="Clow Number"
-              inputId="clowNumberInput_registrationUsername"
+              label="Lock Number"
+              inputId="lockNumberInput_registrationUsername"
               placeholder="Enter clow number"
             />
 
