@@ -33,6 +33,7 @@ import {
   type IDispatchOrderData as DispatchOrderFillPropotionalFeeInputData,
 } from "@evvm/evvm-js";
 import { MATE_TOKEN_ADDRESS } from "@/utils/constants";
+import { parseTokenAmount } from "@/utils/parseTokenAmount";
 import styles from "@/styles/pages/P2PSwap.module.css";
 
 type TabType = "makeOrder" | "dispatchFixed" | "dispatchProportional" | "cancelOrder";
@@ -185,8 +186,8 @@ export default function P2PSwapPage() {
       const evvmAction = await evvm.pay({
         toAddress: deployment.p2pSwap as `0x${string}`,
         tokenAddress: formData.tokenA as `0x${string}`,
-        amount: BigInt(formData.amountA),
-        priorityFee: BigInt(formData.priorityFee),
+        amount: parseTokenAmount(formData.amountA, 18),
+        priorityFee: parseTokenAmount(formData.priorityFee, 18),
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: priorityMake === "high",
         senderExecutor: deployment.p2pSwap as `0x${string}`,
@@ -197,8 +198,8 @@ export default function P2PSwapPage() {
         nonce: BigInt(formData.nonce),
         tokenA: formData.tokenA as `0x${string}`,
         tokenB: formData.tokenB as `0x${string}`,
-        amountA: BigInt(formData.amountA),
-        amountB: BigInt(formData.amountB),
+        amountA: parseTokenAmount(formData.amountA, 18),
+        amountB: parseTokenAmount(formData.amountB, 18),
         evvmSignedAction: evvmAction,
       });
 
@@ -286,7 +287,7 @@ export default function P2PSwapPage() {
         throw new Error("EVVM nonce is required");
       }
 
-      const amountOfTokenBToFill = BigInt(formData.amountB) + feeFixed;
+      const amountOfTokenBToFill = parseTokenAmount(formData.amountB, 18) + feeFixed;
 
       const walletClient = await getWalletClient(config);
       if (!walletClient) {
@@ -304,7 +305,7 @@ export default function P2PSwapPage() {
         toAddress: deployment.p2pSwap as `0x${string}`,
         tokenAddress: formData.tokenB as `0x${string}`,
         amount: amountOfTokenBToFill,
-        priorityFee: BigInt(formData.priorityFee),
+        priorityFee: parseTokenAmount(formData.priorityFee, 18),
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: priorityDispatchFixed === "high",
         senderExecutor: deployment.p2pSwap as `0x${string}`,
@@ -410,7 +411,7 @@ export default function P2PSwapPage() {
         throw new Error("EVVM nonce is required");
       }
 
-      const amountOfTokenBToFill = BigInt(formData.amountB) + feeProp;
+      const amountOfTokenBToFill = parseTokenAmount(formData.amountB, 18) + feeProp;
 
       const walletClient = await getWalletClient(config);
       if (!walletClient) {
@@ -428,7 +429,7 @@ export default function P2PSwapPage() {
         toAddress: deployment.p2pSwap as `0x${string}`,
         tokenAddress: formData.tokenB as `0x${string}`,
         amount: amountOfTokenBToFill,
-        priorityFee: BigInt(formData.priorityFee),
+        priorityFee: parseTokenAmount(formData.priorityFee, 18),
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: priorityDispatchProp === "high",
         senderExecutor: deployment.p2pSwap as `0x${string}`,
@@ -543,7 +544,7 @@ export default function P2PSwapPage() {
         toAddress: deployment.p2pSwap as `0x${string}`,
         tokenAddress: MATE_TOKEN_ADDRESS,
         amount: 0n,
-        priorityFee: BigInt(formData.priorityFee),
+        priorityFee: parseTokenAmount(formData.priorityFee, 18),
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: priorityCancel === "high",
         senderExecutor: deployment.p2pSwap as `0x${string}`,
@@ -770,7 +771,8 @@ export default function P2PSwapPage() {
             <p>Amount of token B to fill</p>
             <div className="flex">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="Enter amount of token B to fill"
                 id="amountB_DispatchOrderFillFixedFee"
                 style={{
@@ -781,7 +783,7 @@ export default function P2PSwapPage() {
                 }}
                 onInput={(e) => {
                   const value = e.currentTarget.value;
-                  if (value) setAmountBFixed(BigInt(value));
+                  if (value) { try { setAmountBFixed(parseTokenAmount(value, 18)); } catch { /* partial input */ } }
                 }}
               />
             </div>
@@ -791,7 +793,8 @@ export default function P2PSwapPage() {
             <p>Fee cap</p>
             <div className="flex">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="Enter fee cap"
                 id="amountOut_DispatchOrderFillFixedFee"
                 defaultValue="1000000000000000000"
@@ -803,7 +806,7 @@ export default function P2PSwapPage() {
                 }}
                 onInput={(e) => {
                   const value = e.currentTarget.value;
-                  if (value) setAmountOutFixed(BigInt(value));
+                  if (value) { try { setAmountOutFixed(parseTokenAmount(value, 18)); } catch { /* partial input */ } }
                 }}
               />
             </div>
@@ -897,7 +900,8 @@ export default function P2PSwapPage() {
             <p>Amount of token B to fill</p>
             <div className="flex">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="Enter amount of token B to fill"
                 id="amountB_DispatchOrderFillPropotionalFee"
                 style={{
@@ -908,7 +912,7 @@ export default function P2PSwapPage() {
                 }}
                 onInput={(e) => {
                   const value = e.currentTarget.value;
-                  if (value) setAmountBProp(BigInt(value));
+                  if (value) { try { setAmountBProp(parseTokenAmount(value, 18)); } catch { /* partial input */ } }
                 }}
               />
             </div>

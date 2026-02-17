@@ -21,6 +21,7 @@
     "build": "npm run -w @scaffold-evvm/nextjs build",
     "start": "npm run -w @scaffold-evvm/nextjs start",
     "check-env": "node scripts/check-env.js",
+    "flush": "tsx cli/index.ts flush",
     "lint": "npm run -w @scaffold-evvm/nextjs lint"
   },
   "keywords": [

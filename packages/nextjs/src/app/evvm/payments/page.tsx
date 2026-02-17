@@ -23,6 +23,7 @@ import {
   executePay,
   executeDispersePay,
 } from "@/utils/transactionExecuters/evvmExecuter";
+import { parseTokenAmount } from "@/utils/parseTokenAmount";
 import {
   createSignerWithViem,
   Core,
@@ -156,8 +157,8 @@ export default function PaymentsPage() {
       const signedAction = await evvm.pay({
         toAddress: formData.to.startsWith("0x") ? (formData.to as `0x${string}`) : formData.to as `0x${string}`,
         tokenAddress: formData.tokenAddress as `0x${string}`,
-        amount: BigInt(formData.amount),
-        priorityFee: BigInt(formData.priorityFee),
+        amount: parseTokenAmount(formData.amount, 18),
+        priorityFee: parseTokenAmount(formData.priorityFee, 18),
         nonce: BigInt(formData.nonce),
         isAsyncExec: priority === "high",
         senderExecutor: formData.executor as `0x${string}`,
@@ -186,8 +187,8 @@ export default function PaymentsPage() {
           : "0x0000000000000000000000000000000000000000") as `0x${string}`,
         to_identity: formData.to.startsWith("0x") ? "" : formData.to,
         token: formData.tokenAddress as `0x${string}`,
-        amount: BigInt(formData.amount),
-        priorityFee: BigInt(formData.priorityFee),
+        amount: parseTokenAmount(formData.amount, 18),
+        priorityFee: parseTokenAmount(formData.priorityFee, 18),
         nonce: BigInt(formData.nonce),
         isAsyncExec: priority === "high",
         senderExecutor: formData.executor as `0x${string}`,
@@ -295,7 +296,7 @@ export default function PaymentsPage() {
         }
 
         toData.push({
-          amount: BigInt(amount),
+          amount: parseTokenAmount(amount, 18),
           to_address: isUsingUsername
             ? "0x0000000000000000000000000000000000000000"
             : (to as `0x${string}`),
@@ -346,8 +347,8 @@ export default function PaymentsPage() {
       const signedAction = await evvm.dispersePay({
         toData: disperseToData,
         tokenAddress: formData.tokenAddress as `0x${string}`,
-        amount: BigInt(formData.amount),
-        priorityFee: BigInt(formData.priorityFee),
+        amount: parseTokenAmount(formData.amount, 18),
+        priorityFee: parseTokenAmount(formData.priorityFee, 18),
         nonce: BigInt(formData.nonce),
         isAsyncExec: priorityDisperse === "high",
         senderExecutor: formData.executor as `0x${string}`,
@@ -373,8 +374,8 @@ export default function PaymentsPage() {
         from: walletData.address as `0x${string}`,
         toData,
         token: formData.tokenAddress as `0x${string}`,
-        amount: BigInt(formData.amount),
-        priorityFee: BigInt(formData.priorityFee),
+        amount: parseTokenAmount(formData.amount, 18),
+        priorityFee: parseTokenAmount(formData.priorityFee, 18),
         isAsyncExec: priorityDisperse === "high",
         nonce: BigInt(formData.nonce),
         senderExecutor: formData.executor as `0x${string}`,
@@ -714,7 +715,8 @@ export default function PaymentsPage() {
               />
               <p style={{ marginTop: "0.5rem" }}>Amount</p>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="Enter amount"
                 id={`amountTokenToGiveUser${index}`}
                 style={{

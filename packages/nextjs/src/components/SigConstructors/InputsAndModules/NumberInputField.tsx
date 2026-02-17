@@ -18,7 +18,8 @@ export const NumberInputField: React.FC<NumberInputFieldProps> = ({
     <div style={{ marginBottom: "1rem" }}>
       <p>{label}</p>
       <input
-        type="number"
+        type="text"
+        inputMode="decimal"
         placeholder={placeholder}
         id={inputId}
         className={styles.numberInput}

@@ -14,6 +14,8 @@ Built using NextJS, Foundry/Hardhat, Wagmi, Viem, and TypeScript.
 - 💰 **Auto-Funding** - Automatically funds wallets from test accounts
 - 🔐 **Meta-Transactions** - EIP-191 gasless signatures submitted by executors
 - 🎨 **Signature Constructor Frontend** - 23+ signature constructors for all EVVM operations
+- 🔍 **Username Lookup** - Look up registered NameService usernames and their owners
+- 💱 **Human-Readable Amounts** - Enter token amounts as decimals (e.g., "10.5") instead of raw wei
 
 > ⚠️ **Note:** This version supports **local deployment only**. Testnet deployment will be available in a future release.
 
@@ -79,7 +81,7 @@ npm run frontend
 npm run monitor
 ```
 
-This shows real-time blocks, transactions, and contract calls on the local chain.
+This shows real-time blocks, transactions, contract calls, gas usage, and deployment addresses on the local chain.
 
 ---
 
@@ -105,7 +107,7 @@ Scaffold-EVVM deploys 6 core EVVM contracts:
 
 | Contract | Description |
 |----------|-------------|
-| **Evvm** | Core contract managing payments and tokens via EIP-191 signatures |
+| **Core** | Core contract managing payments and tokens via EIP-191 signatures |
 | **Staking** | Era-based reward system for MATE token holders |
 | **Estimator** | Staking rewards calculation engine |
 | **NameService** | Username registration and identity management |
@@ -131,9 +133,11 @@ Both Anvil and Hardhat Network use:
 ```
 scaffold-evvm/
 ├── cli/                    # Interactive CLI wizard
+├── evvm-js/                # @evvm/evvm-js SDK (submodule, feat/state)
+├── testnetcontracts/       # Testnet contract sources (submodule, feat/state)
 ├── packages/
 │   ├── foundry/            # Foundry package
-│   │   ├── testnet-contracts/    # Production EVVM contracts (auto-cloned)
+│   │   ├── testnet-contracts/    # Production EVVM contracts (bundled snapshot)
 │   │   └── contracts/            # Your custom services
 │   ├── hardhat/            # Hardhat package
 │   └── nextjs/             # Frontend application

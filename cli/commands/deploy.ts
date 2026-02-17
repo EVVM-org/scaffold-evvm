@@ -1376,7 +1376,7 @@ async function displayDeploymentResult(result: DeploymentResult, framework: 'fou
   }
 
   console.log(chalk.yellow('Core Contracts:'));
-  console.log(chalk.white(`  EVVM:        ${chalk.green(result.evvmAddress)}`));
+  console.log(chalk.white(`  Core:        ${chalk.green(result.evvmAddress)}`));
   console.log(chalk.white(`  Treasury:    ${chalk.green(result.treasuryAddress)}`));
 
   console.log(chalk.yellow('\nSupporting Contracts:'));
@@ -1652,11 +1652,11 @@ async function saveDeploymentSummary(
       chainId: result.chainId,
       network: 'localhost'
     },
-    evvm: {
+    core: {
       address: result.evvmAddress
     },
     contracts: {
-      evvm: result.evvmAddress,
+      core: result.evvmAddress,
       staking: result.stakingAddress,
       estimator: result.estimatorAddress,
       nameService: result.nameServiceAddress,

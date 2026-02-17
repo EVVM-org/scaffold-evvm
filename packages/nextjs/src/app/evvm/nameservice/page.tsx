@@ -46,6 +46,7 @@ import {
   type IFlushUsernameData as FlushUsernameInputData,
 } from "@evvm/evvm-js";
 import { keccak256, encodePacked } from "viem";
+import { parseTokenAmount } from "@/utils/parseTokenAmount";
 
 // Local implementation of hash function (not exported from evvm-js)
 function hashPreRegisteredUsername(username: string, lockNumber: bigint): string {
@@ -67,6 +68,8 @@ export default function NameServicePage() {
   const [rewardAmount, setRewardAmount] = useState<bigint | null>(null);
   const [renewAmount, setRenewAmount] = useState<bigint | null>(null);
   const [addMetadataPrice, setAddMetadataPrice] = useState<bigint | null>(null);
+  const [lookupResult, setLookupResult] = useState<{ owner: string; expiration: bigint } | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   const getValue = (id: string): string => {
     const el = document.getElementById(id) as HTMLInputElement | null;
@@ -135,7 +138,7 @@ export default function NameServicePage() {
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: 0n,
-        priorityFee: BigInt(formData.priorityFee_EVVM || "0"),
+        priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
@@ -167,7 +170,7 @@ export default function NameServicePage() {
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
           amount: BigInt(0),
-          priorityFee: BigInt(formData.priorityFee_EVVM || "0"),
+          priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
@@ -235,7 +238,7 @@ export default function NameServicePage() {
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: payAmount,
-        priorityFee: BigInt(formData.priorityFee_EVVM),
+        priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
         nonce: BigInt(formData.nonceEVVM),
         isAsyncExec: formData.isAsyncExec,
         senderExecutor: deployment.nameService as `0x${string}`,
@@ -262,7 +265,7 @@ export default function NameServicePage() {
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
           amount: payAmount,
-          priorityFee: BigInt(formData.priorityFee_EVVM),
+          priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
           nonce: BigInt(formData.nonceEVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
@@ -286,7 +289,7 @@ export default function NameServicePage() {
       const evvmAddress = await readContract(config, {
         abi: NameServiceABI,
         address: deployment.nameService as `0x${string}`,
-        functionName: "getEvvmAddress",
+        functionName: "getCoreAddress",
         args: [],
       });
 
@@ -324,7 +327,7 @@ export default function NameServicePage() {
         username: getValue("usernameInput_renewUsername"),
         nonceNameService: BigInt(getValue("nonceNameServiceInput_renewUsername")),
         amountToRenew: BigInt(getValue("amountToRenew_renewUsername")),
-        priorityFee_EVVM: BigInt(getValue("priorityFeeInput_renewUsername")),
+        priorityFee_EVVM: parseTokenAmount(getValue("priorityFeeInput_renewUsername") || "0", 18),
         nonceEVVM: BigInt(getValue("nonceEVVMInput_renewUsername")),
         isAsyncExec: priority === "high",
       };
@@ -430,8 +433,8 @@ export default function NameServicePage() {
       const evvmAction = await evvm.pay({
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
-        amount: BigInt(formData.amount),
-        priorityFee: BigInt(formData.priorityFee_EVVM),
+        amount: parseTokenAmount(formData.amount, 18),
+        priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
         nonce: BigInt(formData.nonceEVVM),
         isAsyncExec: formData.isAsyncExec,
         senderExecutor: deployment.nameService as `0x${string}`,
@@ -441,7 +444,7 @@ export default function NameServicePage() {
       const nsAction = await nameService.makeOffer({
         username: formData.username,
         expirationDate: BigInt(formData.expireDate),
-        amount: BigInt(formData.amount),
+        amount: parseTokenAmount(formData.amount, 18),
         nonce: BigInt(formData.nonceNameService),
         evvmSignedAction: evvmAction,
       });
@@ -452,8 +455,8 @@ export default function NameServicePage() {
           to_address: deployment.nameService as `0x${string}`,
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
-          amount: BigInt(formData.amount),
-          priorityFee: BigInt(formData.priorityFee_EVVM),
+          amount: parseTokenAmount(formData.amount, 18),
+          priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
           nonce: BigInt(formData.nonceEVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
@@ -500,7 +503,7 @@ export default function NameServicePage() {
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: 0n,
-        priorityFee: BigInt(formData.priorityFee_EVVM),
+        priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
@@ -521,7 +524,7 @@ export default function NameServicePage() {
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
           amount: BigInt(0),
-          priorityFee: BigInt(formData.priorityFee_EVVM),
+          priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
@@ -568,7 +571,7 @@ export default function NameServicePage() {
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: 0n,
-        priorityFee: BigInt(formData.priorityFee_EVVM),
+        priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
@@ -589,7 +592,7 @@ export default function NameServicePage() {
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
           amount: BigInt(0),
-          priorityFee: BigInt(formData.priorityFee_EVVM),
+          priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
@@ -646,7 +649,7 @@ export default function NameServicePage() {
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: payAmount,
-        priorityFee: BigInt(formData.priorityFee_EVVM),
+        priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
         nonce: BigInt(formData.nonceEVVM),
         isAsyncExec: formData.isAsyncExec,
         senderExecutor: deployment.nameService as `0x${string}`,
@@ -667,7 +670,7 @@ export default function NameServicePage() {
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
           amount: payAmount,
-          priorityFee: BigInt(formData.priorityFee_EVVM),
+          priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
           nonce: BigInt(formData.nonceEVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
@@ -745,7 +748,7 @@ export default function NameServicePage() {
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: price as bigint,
-        priorityFee: BigInt(formData.priorityFee_EVVM),
+        priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
         nonce: BigInt(formData.nonceEVVM),
         isAsyncExec: formData.isAsyncExec,
         senderExecutor: deployment.nameService as `0x${string}`,
@@ -766,7 +769,7 @@ export default function NameServicePage() {
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
           amount: price as bigint,
-          priorityFee: BigInt(formData.priorityFee_EVVM),
+          priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
           nonce: BigInt(formData.nonceEVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
@@ -819,7 +822,7 @@ export default function NameServicePage() {
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: price as bigint,
-        priorityFee: BigInt(formData.priorityFee_EVVM),
+        priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
@@ -839,7 +842,7 @@ export default function NameServicePage() {
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
           amount: price as bigint,
-          priorityFee: BigInt(formData.priorityFee_EVVM),
+          priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
@@ -896,7 +899,7 @@ export default function NameServicePage() {
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
         amount: priceToFlushUsername as bigint,
-        priorityFee: BigInt(formData.priorityFee_EVVM),
+        priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
@@ -916,7 +919,7 @@ export default function NameServicePage() {
           to_identity: "",
           token: "0x0000000000000000000000000000000000000001" as `0x${string}`,
           amount: priceToFlushUsername as bigint,
-          priorityFee: BigInt(formData.priorityFee_EVVM),
+          priorityFee: parseTokenAmount(formData.priorityFee_EVVM || "0", 18),
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: formData.priorityFlag_EVVM,
           senderExecutor: deployment.nameService as `0x${string}`,
@@ -927,6 +930,50 @@ export default function NameServicePage() {
     } catch (error) {
       console.error("Error creating signature:", error);
       alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  };
+
+  // USERNAME LOOKUP
+  const handleUsernameLookup = async () => {
+    if (!deployment) {
+      setLookupError("Deployment information not available");
+      return;
+    }
+
+    setLookupResult(null);
+    setLookupError(null);
+
+    try {
+      const username = getValue("usernameInput_lookup");
+      if (!username || username.trim() === "") {
+        setLookupError("Username is required");
+        return;
+      }
+
+      const result = await readContract(config, {
+        abi: NameServiceABI,
+        address: deployment.nameService as `0x${string}`,
+        functionName: "getIdentityBasicMetadata",
+        args: [username],
+      });
+
+      if (!result) {
+        setLookupError("No data found for this username");
+        return;
+      }
+
+      // Result is a tuple: [address owner, uint256 expiration]
+      const [owner, expiration] = result as [string, bigint];
+
+      if (owner === "0x0000000000000000000000000000000000000000") {
+        setLookupError("Username is not registered");
+        return;
+      }
+
+      setLookupResult({ owner, expiration: BigInt(expiration.toString()) });
+    } catch (error) {
+      console.error("Error looking up username:", error);
+      setLookupError(error instanceof Error ? error.message : "Unknown error");
     }
   };
 
@@ -1120,6 +1167,17 @@ export default function NameServicePage() {
           }}
         >
           Flush Username
+        </button>
+        <button
+          className={activeTab === "lookup" ? styles.activeTab : styles.tab}
+          onClick={() => {
+            setActiveTab("lookup");
+            setDataToGet(null);
+            setLookupResult(null);
+            setLookupError(null);
+          }}
+        >
+          Lookup
         </button>
       </div>
 
@@ -1699,6 +1757,47 @@ export default function NameServicePage() {
               onClear={() => setDataToGet(null)}
               onExecute={executeTransaction}
             />
+          </div>
+        )}
+
+        {/* LOOKUP TAB */}
+        {activeTab === "lookup" && (
+          <div className={styles.form}>
+            <TitleAndLink
+              title="Username Lookup"
+              link="https://www.evvm.info/docs/SignatureStructures/NameService"
+            />
+            <p className={styles.note}>
+              Look up the owner and expiration date of a registered username. This is a read-only operation.
+            </p>
+
+            <TextInputField
+              label="Username"
+              inputId="usernameInput_lookup"
+              placeholder="Enter username to look up"
+            />
+
+            <button onClick={handleUsernameLookup} className={styles.submitButton}>
+              Look up username
+            </button>
+
+            {lookupError && (
+              <div style={{ marginTop: "1rem", padding: "1rem", background: "rgba(239, 68, 68, 0.15)", borderRadius: "8px", color: "#991b1b" }}>
+                {lookupError}
+              </div>
+            )}
+
+            {lookupResult && (
+              <div style={{ marginTop: "1rem", padding: "1rem", background: "rgba(34, 197, 94, 0.15)", borderRadius: "8px" }}>
+                <p><strong>Owner:</strong> <code style={{ wordBreak: "break-all" }}>{lookupResult.owner}</code></p>
+                <p style={{ marginTop: "0.5rem" }}>
+                  <strong>Expires:</strong>{" "}
+                  {lookupResult.expiration > 0n
+                    ? new Date(Number(lookupResult.expiration) * 1000).toLocaleString()
+                    : "No expiration"}
+                </p>
+              </div>
+            )}
           </div>
         )}
 

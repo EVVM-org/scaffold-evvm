@@ -118,7 +118,7 @@ function loadContractNames(): void {
     const lines = envContent.split('\n');
 
     const addressMap: { [key: string]: string } = {
-      'NEXT_PUBLIC_EVVM_ADDRESS': 'EVVM',
+      'NEXT_PUBLIC_EVVM_ADDRESS': 'Core',
       'NEXT_PUBLIC_STAKING_ADDRESS': 'Staking',
       'NEXT_PUBLIC_ESTIMATOR_ADDRESS': 'Estimator',
       'NEXT_PUBLIC_NAMESERVICE_ADDRESS': 'NameService',
@@ -295,7 +295,7 @@ function logBlock(block: Block, hasTransactions: boolean): void {
 /**
  * Log a transaction with detailed information
  */
-function logTransaction(tx: any, index: number, state: MonitorState): void {
+function logTransaction(tx: any, index: number, state: MonitorState, receipt?: any): void {
   const isContractDeploy = !tx.to;
   const type = isContractDeploy
     ? chalk.magenta.bold('DEPLOY')
@@ -314,38 +314,63 @@ function logTransaction(tx: any, index: number, state: MonitorState): void {
 
   // Function call info (for non-deployments)
   if (!isContractDeploy && tx.input && tx.input !== '0x') {
+    const dataBytes = (tx.input.length - 2) / 2;
     console.log(
       chalk.gray(`           `) +
       chalk.gray('Function: ') +
       getFunctionName(tx.input) +
-      chalk.gray(` | Data: ${tx.input.length} bytes`)
+      chalk.gray(` | Data: ${dataBytes} bytes`)
     );
   }
 
-  // Gas info
-  console.log(
-    chalk.gray(`           `) +
-    formatGas(tx.gas, tx.gasPrice) +
-    chalk.gray(` | Nonce: ${tx.nonce}`)
-  );
+  // Status + gas usage (from receipt)
+  if (receipt) {
+    const statusStr = receipt.status === 'success'
+      ? chalk.green('Success')
+      : chalk.red('Reverted');
+    const gasUsed = BigInt(receipt.gasUsed);
+    const gasLimit = BigInt(tx.gas);
+    const pct = gasLimit > 0n ? Number((gasUsed * 1000n) / gasLimit) / 10 : 0;
+    console.log(
+      chalk.gray(`           `) +
+      chalk.gray('Status: ') + statusStr +
+      chalk.gray(` | Gas: ${gasUsed.toLocaleString()} / ${gasLimit.toLocaleString()} (${pct.toFixed(1)}%)`)
+    );
+  } else {
+    // Fallback: just gas info
+    console.log(
+      chalk.gray(`           `) +
+      formatGas(tx.gas, tx.gasPrice) +
+      chalk.gray(` | Nonce: ${tx.nonce}`)
+    );
+  }
 
   // Contract deployment details
   if (isContractDeploy) {
     state.contractDeployments++;
+    const bytecodeBytes = tx.input ? (tx.input.length - 2) / 2 : 0;
     console.log(
       chalk.gray(`           `) +
       chalk.magenta('Contract deployment') +
-      chalk.gray(` | Bytecode: ${tx.input?.length || 0} bytes`)
+      chalk.gray(` | Bytecode: ${bytecodeBytes.toLocaleString()} bytes`)
     );
+    if (receipt?.contractAddress) {
+      const deployedName = getContractName(receipt.contractAddress);
+      console.log(
+        chalk.gray(`           `) +
+        chalk.gray('Deployed at: ') +
+        (deployedName
+          ? chalk.green.bold(deployedName) + chalk.gray(` (${receipt.contractAddress})`)
+          : chalk.cyan(receipt.contractAddress))
+      );
+    }
   }
 
-  // Hash (truncated for regular txs, full for deploys)
+  // Full transaction hash
   console.log(
     chalk.gray(`           `) +
     chalk.gray('Hash: ') +
-    (isContractDeploy
-      ? chalk.magenta(tx.hash)
-      : chalk.gray(tx.hash.slice(0, 22) + '...' + tx.hash.slice(-8)))
+    chalk.gray(tx.hash)
   );
 }
 
@@ -394,7 +419,13 @@ async function monitorLoop(state: MonitorState): Promise<void> {
               const tx = block.transactions[j];
               if (typeof tx === 'object') {
                 state.txCount++;
-                logTransaction(tx, j, state);
+                let receipt;
+                try {
+                  receipt = await client.getTransactionReceipt({ hash: tx.hash });
+                } catch {
+                  // Receipt not available
+                }
+                logTransaction(tx, j, state, receipt);
               }
             }
             console.log(''); // Space after block with transactions

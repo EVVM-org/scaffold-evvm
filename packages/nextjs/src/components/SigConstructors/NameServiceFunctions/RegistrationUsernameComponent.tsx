@@ -144,7 +144,7 @@ export const RegistrationUsernameComponent = ({
       await readContract(config, {
         abi: NameServiceABI,
         address: nameServiceAddress as `0x${string}`,
-        functionName: "getEvvmAddress",
+        functionName: "getCoreAddress",
         args: [],
       })
         .then((evvmAddress) => {
