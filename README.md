@@ -29,6 +29,7 @@ Before you begin, you need to install the following tools:
 - npm (comes with Node.js)
 - [Git](https://git-scm.com/)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) (for Foundry framework)
+- [Bun](https://bun.sh/) (recommended, used to build the SDK — npm works as fallback)
 
 ---
 
@@ -50,6 +51,7 @@ npm run wizard
 
 This command will:
 - ✅ Check all prerequisites
+- 📦 Initialize submodules and build SDK (automatic on first run)
 - 🔧 Guide you through framework selection (Foundry/Hardhat)
 - 📦 Select contract source (Testnet)
 - ⚙️ Configure EVVM (admin addresses, token metadata)

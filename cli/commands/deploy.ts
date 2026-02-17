@@ -12,7 +12,7 @@ import chalk from 'chalk';
 import { execa } from 'execa';
 import type { Address } from 'viem';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
-import { getAvailableWallets, commandExists } from '../utils/prerequisites.js';
+import { getAvailableWallets, commandExists, initializeSubmodules } from '../utils/prerequisites.js';
 
 // Anvil configuration
 const ANVIL_PORT = 8545;
@@ -429,6 +429,18 @@ export async function deployContracts(): Promise<void> {
   if (!prereqResult.passed) {
     error('Cannot proceed with deployment due to missing prerequisites.');
     return;
+  }
+
+  // Initialize submodules if needed (testnetcontracts is required for deploy scripts)
+  const testnetSubmoduleSrc = join(projectRoot, 'testnetcontracts', 'src');
+  if (!existsSync(testnetSubmoduleSrc)) {
+    sectionHeader('Initializing Dependencies');
+    info('Initializing git submodules (required for deployment scripts)...');
+    const submodulesOk = await initializeSubmodules(projectRoot);
+    if (!submodulesOk) {
+      error('Failed to initialize submodules. Run manually: git submodule update --init --recursive');
+      return;
+    }
   }
 
   // Check bundled contract sources
@@ -1588,9 +1600,11 @@ async function generateDeploymentConfig(
   // Write BaseInputs.sol to testnetcontracts submodule input directory
   // The Deploy.s.sol script imports from ../input/BaseInputs.sol and expects contract name "BaseInputs"
   const submoduleInputDir = join(projectRoot, 'testnetcontracts', 'input');
-  if (existsSync(submoduleInputDir)) {
-    const baseInputsSol = inputsSol.replace('abstract contract Inputs', 'abstract contract BaseInputs');
-    writeFileSync(join(submoduleInputDir, 'BaseInputs.sol'), baseInputsSol);
+  if (!existsSync(submoduleInputDir)) {
+    mkdirSync(submoduleInputDir, { recursive: true });
+  }
+  const baseInputsSol = inputsSol.replace('abstract contract Inputs', 'abstract contract BaseInputs');
+  writeFileSync(join(submoduleInputDir, 'BaseInputs.sol'), baseInputsSol);
   }
 
   info(`Generated ${inputFileName} with your configuration`);

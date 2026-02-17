@@ -114,6 +114,44 @@ export async function fullStart(): Promise<void> {
     success('Foundry detected');
   }
 
+  // Initialize submodules and build SDK if needed
+  const testnetSubmodulePath = join(PROJECT_ROOT, 'testnetcontracts', 'src');
+  const evvmJsDistPath = join(PROJECT_ROOT, 'evvm-js', 'dist', 'index.cjs');
+
+  if (!existsSync(testnetSubmodulePath) || !existsSync(evvmJsDistPath)) {
+    sectionHeader('Initializing Dependencies');
+
+    if (!existsSync(testnetSubmodulePath)) {
+      info('Initializing git submodules...');
+      const submodulesOk = await initializeSubmodules(PROJECT_ROOT);
+      if (!submodulesOk) {
+        error('Failed to initialize submodules. Run manually: git submodule update --init --recursive');
+        return;
+      }
+    } else {
+      success('Submodules already initialized');
+    }
+
+    if (!existsSync(evvmJsDistPath)) {
+      info('Building @evvm/evvm-js SDK...');
+      const evvmJsDir = join(PROJECT_ROOT, 'evvm-js');
+      const hasBun = await commandExists('bun');
+      const pkgManager = hasBun ? 'bun' : 'npm';
+
+      try {
+        await execa(pkgManager, ['install'], { cwd: evvmJsDir, stdio: 'inherit' });
+        await execa(pkgManager, ['run', 'build'], { cwd: evvmJsDir, stdio: 'inherit' });
+        success('SDK built successfully');
+      } catch (err) {
+        error('Failed to build @evvm/evvm-js.');
+        info('Run manually: cd evvm-js && bun install && bun run build');
+        return;
+      }
+    } else {
+      success('SDK already built');
+    }
+  }
+
   // Step 2: Contract Source Selection
   sectionHeader('Step 2: Contract Sources');
 
@@ -867,10 +905,11 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
   // Write BaseInputs.sol to testnetcontracts submodule input directory
   // The Deploy.s.sol script imports from ../input/BaseInputs.sol and expects contract name "BaseInputs"
   const submoduleInputDir = join(PROJECT_ROOT, 'testnetcontracts', 'input');
-  if (existsSync(submoduleInputDir)) {
-    const baseInputsSol = inputsSol.replace('abstract contract Inputs', 'abstract contract BaseInputs');
-    writeFileSync(join(submoduleInputDir, 'BaseInputs.sol'), baseInputsSol);
+  if (!existsSync(submoduleInputDir)) {
+    mkdirSync(submoduleInputDir, { recursive: true });
   }
+  const baseInputsSol = inputsSol.replace('abstract contract Inputs', 'abstract contract BaseInputs');
+  writeFileSync(join(submoduleInputDir, 'BaseInputs.sol'), baseInputsSol);
 
   // Save scaffold config
   writeFileSync(
