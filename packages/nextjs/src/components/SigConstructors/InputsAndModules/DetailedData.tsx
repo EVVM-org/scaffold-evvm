@@ -58,7 +58,13 @@ export const DetailedData = ({
             borderRadius: "5px",
           }}
           onClick={() =>
-            navigator.clipboard.writeText(JSON.stringify(dataToGet, null, 2))
+            navigator.clipboard.writeText(
+              JSON.stringify(
+                dataToGet,
+                (_, v) => (typeof v === "bigint" ? v.toString() : v),
+                2
+              )
+            )
           }
         >
           Copy for JSON

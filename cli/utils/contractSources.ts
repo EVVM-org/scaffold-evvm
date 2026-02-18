@@ -9,7 +9,7 @@
  * - Pull latest changes
  */
 
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { execa } from 'execa';
 import chalk from 'chalk';
@@ -322,6 +322,24 @@ export async function showRecentCommits(repoPath: string, count: number = 5): Pr
 }
 
 /**
+ * Apply scaffold-evvm local development patches to cloned contract sources.
+ * These patches optimize for local development (e.g., shorter cooldowns).
+ */
+export function applyScaffoldPatches(repoPath: string): void {
+  // Patch NameService: reduce preregistration cooldown from 30 minutes to 30 seconds
+  // This makes local development much faster without waiting 30 min between pre-reg and registration
+  const nameServicePath = join(repoPath, 'src', 'contracts', 'nameService', 'NameService.sol');
+  if (existsSync(nameServicePath)) {
+    let content = readFileSync(nameServicePath, 'utf-8');
+    if (content.includes('block.timestamp + 30 minutes')) {
+      content = content.replace(/block\.timestamp \+ 30 minutes/g, 'block.timestamp + 30 seconds');
+      writeFileSync(nameServicePath, content);
+      info('Patched NameService: preregistration cooldown → 30 seconds (local dev)');
+    }
+  }
+}
+
+/**
  * Interactive contract sources check and update
  * Returns true if sources are ready, false if user cancelled
  */
@@ -354,9 +372,10 @@ export async function ensureContractSources(
       if (response.clone) {
         const cloned = await cloneRepo(projectRoot, sourceKey);
         if (cloned) {
-          // Initialize submodules
+          // Initialize submodules and apply local dev patches
           const newPath = getDefaultClonePath(projectRoot, repoInfo.name);
           await initSubmodules(newPath);
+          applyScaffoldPatches(newPath);
         } else {
           allReady = false;
         }
@@ -382,14 +401,17 @@ export async function ensureContractSources(
           allReady = false;
         } else {
           await pullLatest(repoStatus.path!);
+          applyScaffoldPatches(repoStatus.path!);
         }
       }
       // Not pulling is OK, just using current version
     } else if (repoStatus.hasUncommittedChanges) {
       warning(`${repoInfo.name} has uncommitted changes`);
       info('Your local changes will be used for deployment.');
+      applyScaffoldPatches(repoStatus.path!);
     } else {
       success(`${repoInfo.name} is up to date (${repoStatus.localCommit})`);
+      applyScaffoldPatches(repoStatus.path!);
     }
   }
 

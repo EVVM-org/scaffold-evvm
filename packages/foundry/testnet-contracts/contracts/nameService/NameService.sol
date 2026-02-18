@@ -150,7 +150,7 @@ contract NameService {
             )
         ] = Structs.IdentityBaseMetadata({
             owner: user,
-            expirationDate: block.timestamp + 30 minutes,
+            expirationDate: block.timestamp + 30 seconds,
             customMetadataMaxSlots: 0,
             offerMaxSlots: 0,
             flagNotAUsername: 0x01

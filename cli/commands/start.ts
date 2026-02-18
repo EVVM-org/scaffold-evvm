@@ -519,22 +519,7 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
 
     success('Contracts compiled');
 
-    // Step 3: Clone and setup contract source repositories
-    sectionHeader('Cloning Contract Repositories');
-
-    // Check and clone Testnet repository
-    const testnetPath = join(PROJECT_ROOT, 'packages', 'Testnet-Contracts');
-
-    if (!existsSync(testnetPath)) {
-      info('Testnet-Contracts not found. Cloning repository...');
-      await execa('git', ['clone', '--recursive', 'https://github.com/EVVM-org/Testnet-Contracts', testnetPath], { stdio: 'inherit' });
-      info('Installing dependencies for Testnet-Contracts...');
-      await execa('npm', ['install'], { cwd: testnetPath, stdio: 'inherit' });
-    } else {
-      info('Testnet-Contracts already exists. Skipping clone.');
-    }
-
-    // Step 4: Start local chain
+    // Step 3: Start local chain
     sectionHeader('Starting Local Chain');
 
     if (config.framework === 'foundry') {

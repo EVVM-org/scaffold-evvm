@@ -3,14 +3,21 @@
  *
  * Real-time monitoring of local blockchain (Anvil/Hardhat)
  * Shows blocks, transactions, and contract deployments in the terminal.
+ * Uses full ABI decoding for human-readable transaction display.
  *
  * Usage: npm run monitor
  */
 
 import chalk from 'chalk';
-import { createPublicClient, http, formatEther, formatGwei, type Block, type Transaction, decodeFunctionData, type Hex } from 'viem';
+import { createPublicClient, http, formatEther, formatGwei, decodeFunctionData, type Block, type Transaction, type Abi, type Hex } from 'viem';
 import { hardhat } from 'viem/chains';
 import { evvmGreen, sectionHeader, info, success, error, divider } from '../utils/display.js';
+import { existsSync, readFileSync } from 'fs';
+import { join, dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const LOCAL_RPC_URL = 'http://127.0.0.1:8545';
 const LOCAL_CHAIN_ID = 31337;
@@ -23,98 +30,67 @@ interface MonitorState {
   isRunning: boolean;
 }
 
-// Common function signatures for decoding (generated from @evvm/evvm-js ABIs)
-const KNOWN_SIGNATURES: { [key: string]: string } = {
-  // ERC20 standard
-  '0x': 'Native Transfer',
-  '0xa9059cbb': 'transfer(to,amount)',
-  '0x23b872dd': 'transferFrom(from,to,amount)',
-  '0x095ea7b3': 'approve(spender,amount)',
-  '0x70a08231': 'balanceOf(account)',
-  '0x18160ddd': 'totalSupply()',
-  '0xdd62ed3e': 'allowance(owner,spender)',
-
-  // EVVM Core functions
-  '0xd3bca884': 'addBalance(user,token,amount)',
-  '0x2e9621cb': 'pay(to,token,amount,...)',
-  '0xe9703878': 'dispersePay(...)',
-  '0xc898a6e9': 'caPay(...)',
-  '0x54c728be': 'disperseCaPay(...)',
-  '0x1c2048cc': 'payMultiple(...)',
-  '0x6c9fa638': 'addAmountToUser(...)',
-  '0x76e6eb7e': 'removeAmountFromUser(...)',
-  '0xd4fac45d': 'getBalance(user,token)',
-  '0x17c85152': 'getEvvmID()',
-  '0x6cd30148': 'getNextCurrentSyncNonce(user)',
-  '0x3a8cd872': 'getNameServiceAddress()',
-  '0x6afe5795': 'getStakingContractAddress()',
-  '0x147bf6c4': 'proposeAdmin(addr)',
-  '0x0e18b681': 'acceptAdmin()',
-  '0xb38c950a': 'rejectProposalAdmin()',
-  '0x9dd18c15': 'proposeImplementation(addr)',
-  '0x15ba56e5': 'acceptImplementation()',
-
-  // Staking functions
-  '0x475c31ff': 'goldenStaking(isStaking,amount,sig)',
-  '0xc769095c': 'publicStaking(user,isStaking,amount,...)',
-  '0xc0f6e7d1': 'presaleStaking(user,isStaking,...)',
-  '0x27be0557': 'prepareChangeAllowPublicStaking()',
-  '0x681f02ac': 'confirmChangeAllowPublicStaking()',
-  '0xb996b6c4': 'cancelChangeAllowPublicStaking()',
-  '0xdfb2b3a4': 'prepareChangeAllowPresaleStaking()',
-  '0x1e9c210f': 'confirmChangeAllowPresaleStaking()',
-  '0x7068dc65': 'cancelChangeAllowPresaleStaking()',
-  '0x6c58f77b': 'addPresaleStaker(addr)',
-  '0xbe100345': 'addPresaleStakers(addrs)',
-  '0x602c4fb4': 'gimmeYield()',
-  '0x9cde1d3e': 'getUserAmountStaked(user)',
-  '0xcb0900b8': 'priceOfStaking()',
-  '0x489c5ad4': 'proposeGoldenFisher(addr)',
-  '0x34dd90d6': 'acceptNewGoldenFisher()',
-  '0x3900738a': 'proposeEstimator(addr)',
-  '0x6fa7ff17': 'acceptNewEstimator()',
-
-  // NameService functions
-  '0x5d232a55': 'preRegistrationUsername(username,...)',
-  '0xafabc8db': 'registrationUsername(username,...)',
-  '0x35723e23': 'renewUsername(username,...)',
-  '0x044695cb': 'flushUsername(username,...)',
-  '0x4cfe021f': 'addCustomMetadata(identity,...)',
-  '0x8adf3927': 'removeCustomMetadata(identity,...)',
-  '0x3ca44e54': 'flushCustomMetadata(identity,...)',
-  '0xd82e5d8b': 'makeOffer(username,amount,...)',
-  '0x8e3bde43': 'acceptOffer(username,offerIndex,...)',
-  '0x5761d8ed': 'withdrawOffer(username,offerIndex,...)',
-  '0x0d3dcb9f': 'getOwnerOfIdentity(identity)',
-  '0xf69c6dec': 'isUsernameAvailable(username)',
-
-  // P2PSwap functions
-  '0x4c2442bd': 'makeOrder(tokenA,tokenB,amountA,amountB,...)',
-  '0x6b3de5ea': 'cancelOrder(orderId,...)',
-  '0x8e371a72': 'dispatchOrder_fillFixedFee(...)',
-  '0x3ceca3a5': 'dispatchOrder_fillPropotionalFee(...)',
-  '0x21e5383a': 'addBalance(token,amount)',
-  '0xa694fc3a': 'stake(amount)',
-  '0x2e17de78': 'unstake(amount)',
-  '0x5e1a3573': 'getOrder(orderId)',
-  '0xdb7ccd63': 'findMarket(tokenA,tokenB)',
+// Well-known token addresses
+const TOKEN_NAMES: { [key: string]: string } = {
+  '0x0000000000000000000000000000000000000000': 'ETH',
+  '0x0000000000000000000000000000000000000001': 'MATE',
 };
+
+/**
+ * Resolve a token address to its human-readable name
+ */
+function getTokenName(address: string): string {
+  const name = TOKEN_NAMES[address.toLowerCase()];
+  if (name) return chalk.yellow.bold(name);
+  return chalk.cyan(address);
+}
 
 // Contract name mapping (loaded from .env at startup)
 let CONTRACT_NAMES: { [key: string]: string } = {};
+
+// ABI mapping: contract name → ABI (loaded at startup)
+let CONTRACT_ABIS: { [key: string]: Abi } = {};
+
+// Address → ABI mapping for fast lookup
+let ADDRESS_ABIS: { [key: string]: Abi } = {};
+
+/**
+ * Load ABIs from cli/abi/ directory
+ */
+function loadABIs(): void {
+  const abiDir = join(__dirname, '..', 'abi');
+
+  const abiFiles: { [key: string]: string } = {
+    'Core': 'Core.json',
+    'Staking': 'Staking.json',
+    'NameService': 'NameService.json',
+    'P2PSwap': 'P2PSwap.json',
+    'Estimator': 'Estimator.json',
+  };
+
+  for (const [name, file] of Object.entries(abiFiles)) {
+    const filePath = join(abiDir, file);
+    if (existsSync(filePath)) {
+      try {
+        const data = JSON.parse(readFileSync(filePath, 'utf-8'));
+        CONTRACT_ABIS[name] = data.abi as Abi;
+      } catch {
+        // Silently skip invalid ABI files
+      }
+    }
+  }
+}
 
 /**
  * Load contract addresses from .env file and map to names
  */
 function loadContractNames(): void {
   try {
-    const fs = require('fs');
-    const path = require('path');
-    const envPath = path.resolve(process.cwd(), '.env');
+    const envPath = resolve(process.cwd(), '.env');
 
-    if (!fs.existsSync(envPath)) return;
+    if (!existsSync(envPath)) return;
 
-    const envContent = fs.readFileSync(envPath, 'utf-8');
+    const envContent = readFileSync(envPath, 'utf-8');
     const lines = envContent.split('\n');
 
     const addressMap: { [key: string]: string } = {
@@ -136,7 +112,13 @@ function loadContractNames(): void {
       const [key, value] = trimmed.split('=');
       if (key && value && addressMap[key]) {
         const addr = value.trim().toLowerCase();
-        CONTRACT_NAMES[addr] = addressMap[key];
+        const contractName = addressMap[key];
+        CONTRACT_NAMES[addr] = contractName;
+
+        // Map address → ABI for decoding
+        if (CONTRACT_ABIS[contractName]) {
+          ADDRESS_ABIS[addr] = CONTRACT_ABIS[contractName];
+        }
       }
     }
   } catch (err) {
@@ -165,34 +147,109 @@ function timestamp(): string {
 }
 
 /**
- * Format address (truncated) with optional contract name
+ * Format address with full display and optional contract name
  */
-function formatAddress(address: string | null, full: boolean = false): string {
+function formatAddress(address: string | null): string {
   if (!address) return chalk.magenta('Contract Creation');
 
   const contractName = getContractName(address);
-  const shortAddr = address.slice(0, 10) + '...' + address.slice(-4);
 
   if (contractName) {
-    return chalk.green.bold(contractName) + chalk.gray(` (${shortAddr})`);
+    return chalk.green.bold(contractName) + chalk.gray(` (${address})`);
   }
 
-  if (full) return chalk.cyan(address);
-  return chalk.cyan(shortAddr);
+  return chalk.cyan(address);
 }
 
 /**
- * Get function name from calldata
+ * Format a decoded parameter value for display
  */
-function getFunctionName(data: string | undefined): string {
+function formatParamValue(value: any, name?: string): string {
+  if (value === undefined || value === null) return chalk.gray('null');
+
+  // Address type
+  if (typeof value === 'string' && value.startsWith('0x') && value.length === 42) {
+    const contractName = getContractName(value);
+    const tokenName = TOKEN_NAMES[value.toLowerCase()];
+    if (contractName) return chalk.green.bold(contractName) + chalk.gray(` (${value})`);
+    if (tokenName) return chalk.yellow.bold(tokenName) + chalk.gray(` (${value})`);
+    return chalk.cyan(value);
+  }
+
+  // Bytes/hash type
+  if (typeof value === 'string' && value.startsWith('0x') && value.length > 42) {
+    return chalk.gray(value);
+  }
+
+  // BigInt amounts - try to format nicely
+  if (typeof value === 'bigint') {
+    if (value === 0n) return chalk.gray('0');
+    // Check if it looks like a wei amount (>= 1e15)
+    if (value >= 1000000000000000n && (name?.toLowerCase().includes('amount') || name?.toLowerCase().includes('fee') || name?.toLowerCase().includes('value') || name?.toLowerCase().includes('supply') || name?.toLowerCase().includes('reward'))) {
+      const ethValue = formatEther(value);
+      return chalk.yellow(ethValue) + chalk.gray(` (${value.toString()} wei)`);
+    }
+    return chalk.white(value.toString());
+  }
+
+  // Boolean
+  if (typeof value === 'boolean') {
+    return value ? chalk.green('true') : chalk.red('false');
+  }
+
+  // Arrays
+  if (Array.isArray(value)) {
+    if (value.length === 0) return chalk.gray('[]');
+    return chalk.gray('[') + value.map(v => formatParamValue(v)).join(chalk.gray(', ')) + chalk.gray(']');
+  }
+
+  return chalk.white(String(value));
+}
+
+/**
+ * Decode transaction calldata using ABIs
+ */
+function decodeCalldata(toAddress: string | null, data: string | undefined): { functionName: string; args: { name: string; value: any }[] } | null {
+  if (!data || data === '0x' || data.length < 10 || !toAddress) return null;
+
+  const abi = ADDRESS_ABIS[toAddress.toLowerCase()];
+  if (!abi) return null;
+
+  try {
+    const decoded = decodeFunctionData({
+      abi,
+      data: data as Hex,
+    });
+
+    // Get parameter names from the ABI
+    const funcAbi = (abi as any[]).find(
+      (entry: any) => entry.type === 'function' && entry.name === decoded.functionName
+    );
+
+    const args: { name: string; value: any }[] = [];
+    if (funcAbi?.inputs && decoded.args) {
+      for (let i = 0; i < funcAbi.inputs.length; i++) {
+        args.push({
+          name: funcAbi.inputs[i].name || `arg${i}`,
+          value: decoded.args[i],
+        });
+      }
+    }
+
+    return { functionName: decoded.functionName, args };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get function name from calldata (fallback when ABI decoding fails)
+ */
+function getFunctionSelector(data: string | undefined): string {
   if (!data || data === '0x' || data.length < 10) {
     return chalk.gray('Native Transfer');
   }
   const selector = data.slice(0, 10).toLowerCase();
-  const known = KNOWN_SIGNATURES[selector];
-  if (known) {
-    return chalk.yellow(known);
-  }
   return chalk.gray(`fn:${selector}`);
 }
 
@@ -288,7 +345,7 @@ function logBlock(block: Block, hasTransactions: boolean): void {
     chalk.gray(`           `) +
     chalk.gray(`${txCount} transaction${txCount > 1 ? 's' : ''} | `) +
     chalk.gray(`${gasUsed} gas used | `) +
-    chalk.gray(block.hash?.slice(0, 22) + '...')
+    chalk.gray(block.hash)
   );
 }
 
@@ -314,13 +371,35 @@ function logTransaction(tx: any, index: number, state: MonitorState, receipt?: a
 
   // Function call info (for non-deployments)
   if (!isContractDeploy && tx.input && tx.input !== '0x') {
+    const decoded = decodeCalldata(tx.to, tx.input);
     const dataBytes = (tx.input.length - 2) / 2;
-    console.log(
-      chalk.gray(`           `) +
-      chalk.gray('Function: ') +
-      getFunctionName(tx.input) +
-      chalk.gray(` | Data: ${dataBytes} bytes`)
-    );
+
+    if (decoded) {
+      // Full ABI-decoded display
+      console.log(
+        chalk.gray(`           `) +
+        chalk.gray('Function: ') +
+        chalk.yellow.bold(decoded.functionName) +
+        chalk.gray(` | Data: ${dataBytes} bytes`)
+      );
+
+      // Display decoded parameters
+      for (const arg of decoded.args) {
+        console.log(
+          chalk.gray(`             `) +
+          chalk.gray(`${arg.name}: `) +
+          formatParamValue(arg.value, arg.name)
+        );
+      }
+    } else {
+      // Fallback: just show selector
+      console.log(
+        chalk.gray(`           `) +
+        chalk.gray('Function: ') +
+        getFunctionSelector(tx.input) +
+        chalk.gray(` | Data: ${dataBytes} bytes`)
+      );
+    }
   }
 
   // Status + gas usage (from receipt)
@@ -396,6 +475,17 @@ async function monitorLoop(state: MonitorState): Promise<void> {
           chalk.green.bold('CONNECTED') +
           chalk.gray(` to local blockchain at block #${currentBlockNumber}`)
         );
+
+        // Show loaded ABIs info
+        const abiCount = Object.keys(CONTRACT_ABIS).length;
+        const contractCount = Object.keys(CONTRACT_NAMES).length;
+        if (abiCount > 0) {
+          console.log(
+            chalk.gray(`           `) +
+            chalk.gray(`Loaded ${abiCount} contract ABIs, ${contractCount} known addresses`)
+          );
+        }
+
         console.log(chalk.gray(`           Ready to monitor transactions...`));
         console.log('');
         continue;
@@ -456,6 +546,9 @@ async function monitorLoop(state: MonitorState): Promise<void> {
  * Main entry point
  */
 export async function monitor(): Promise<void> {
+  // Load ABIs first (before contract names, since loadContractNames maps addresses to ABIs)
+  loadABIs();
+
   // Load contract names from .env for human-readable output
   loadContractNames();
 
