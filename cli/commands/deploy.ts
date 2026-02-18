@@ -12,7 +12,8 @@ import chalk from 'chalk';
 import { execa } from 'execa';
 import type { Address } from 'viem';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
-import { getAvailableWallets, commandExists, initializeSubmodules } from '../utils/prerequisites.js';
+import { getAvailableWallets, commandExists } from '../utils/prerequisites.js';
+import { ensureContractSources, findContractPath } from '../utils/contractSources.js';
 
 // Anvil configuration
 const ANVIL_PORT = 8545;
@@ -431,16 +432,12 @@ export async function deployContracts(): Promise<void> {
     return;
   }
 
-  // Initialize submodules if needed (testnetcontracts is required for deploy scripts)
-  const testnetSubmoduleSrc = join(projectRoot, 'testnetcontracts', 'src');
-  if (!existsSync(testnetSubmoduleSrc)) {
-    sectionHeader('Initializing Dependencies');
-    info('Initializing git submodules (required for deployment scripts)...');
-    const submodulesOk = await initializeSubmodules(projectRoot);
-    if (!submodulesOk) {
-      error('Failed to initialize submodules. Run manually: git submodule update --init --recursive');
-      return;
-    }
+  // Ensure contract source repository is available (clone if needed)
+  sectionHeader('Checking Contract Sources');
+  const contractsReady = await ensureContractSources(projectRoot);
+  if (!contractsReady) {
+    error('Contract sources are required for deployment. Please ensure Testnet-Contracts is available.');
+    return;
   }
 
   // Check bundled contract sources
@@ -1184,8 +1181,8 @@ async function deployWithFoundry(
     // Use default
   }
 
-  // Use testnetcontracts submodule for deployment scripts (feat/state with Core naming)
-  const scriptDir = join(projectRoot, 'testnetcontracts');
+  // Use Testnet-Contracts repository for deployment scripts
+  const scriptDir = findContractPath(projectRoot, 'Testnet-Contracts') || join(projectRoot, 'Testnet-Contracts');
   const scriptFile = 'script/Deploy.s.sol:DeployScript';
 
   const args = [
@@ -1597,15 +1594,15 @@ async function generateDeploymentConfig(
   }
   cpSync(inputDir, frameworkInputDir, { recursive: true });
 
-  // Write BaseInputs.sol to testnetcontracts submodule input directory
+  // Write BaseInputs.sol to Testnet-Contracts input directory
   // The Deploy.s.sol script imports from ../input/BaseInputs.sol and expects contract name "BaseInputs"
-  const submoduleInputDir = join(projectRoot, 'testnetcontracts', 'input');
+  const contractSourcePath = findContractPath(projectRoot, 'Testnet-Contracts') || join(projectRoot, 'Testnet-Contracts');
+  const submoduleInputDir = join(contractSourcePath, 'input');
   if (!existsSync(submoduleInputDir)) {
     mkdirSync(submoduleInputDir, { recursive: true });
   }
   const baseInputsSol = inputsSol.replace('abstract contract Inputs', 'abstract contract BaseInputs');
   writeFileSync(join(submoduleInputDir, 'BaseInputs.sol'), baseInputsSol);
-  }
 
   info(`Generated ${inputFileName} with your configuration`);
 }

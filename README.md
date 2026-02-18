@@ -29,7 +29,6 @@ Before you begin, you need to install the following tools:
 - npm (comes with Node.js)
 - [Git](https://git-scm.com/)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) (for Foundry framework)
-- [Bun](https://bun.sh/) (recommended, used to build the SDK — npm works as fallback)
 
 ---
 
@@ -51,7 +50,7 @@ npm run wizard
 
 This command will:
 - ✅ Check all prerequisites
-- 📦 Initialize submodules and build SDK (automatic on first run)
+- 📦 Auto-clone Testnet-Contracts from GitHub (if not already present)
 - 🔧 Guide you through framework selection (Foundry/Hardhat)
 - 📦 Select contract source (Testnet)
 - ⚙️ Configure EVVM (admin addresses, token metadata)
@@ -145,14 +144,13 @@ Both Anvil and Hardhat Network use:
 ```
 scaffold-evvm/
 ├── cli/                    # Interactive CLI wizard
-├── evvm-js/                # @evvm/evvm-js SDK (submodule, feat/state)
-├── testnetcontracts/       # Testnet contract sources (submodule, feat/state)
 ├── packages/
 │   ├── foundry/            # Foundry package
 │   │   ├── testnet-contracts/    # Production EVVM contracts (bundled snapshot)
 │   │   └── contracts/            # Your custom services
 │   ├── hardhat/            # Hardhat package
-│   └── nextjs/             # Frontend application
+│   └── nextjs/             # Frontend application (@evvm/evvm-js from npm)
+├── Testnet-Contracts/      # Auto-cloned at deploy time (git ignored)
 ├── input/                  # EVVM configuration (generated)
 └── deployments/            # Deployment summaries (generated)
 ```

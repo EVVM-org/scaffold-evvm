@@ -22,7 +22,8 @@ import prompts from 'prompts';
 import chalk from 'chalk';
 import { execa, ExecaChildProcess } from 'execa';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
-import { commandExists, checkSubmodules, initializeSubmodules, getAvailableWallets } from '../utils/prerequisites.js';
+import { commandExists, getAvailableWallets } from '../utils/prerequisites.js';
+import { ensureContractSources, findContractPath } from '../utils/contractSources.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -114,42 +115,12 @@ export async function fullStart(): Promise<void> {
     success('Foundry detected');
   }
 
-  // Initialize submodules and build SDK if needed
-  const testnetSubmodulePath = join(PROJECT_ROOT, 'testnetcontracts', 'src');
-  const evvmJsDistPath = join(PROJECT_ROOT, 'evvm-js', 'dist', 'index.cjs');
-
-  if (!existsSync(testnetSubmodulePath) || !existsSync(evvmJsDistPath)) {
-    sectionHeader('Initializing Dependencies');
-
-    if (!existsSync(testnetSubmodulePath)) {
-      info('Initializing git submodules...');
-      const submodulesOk = await initializeSubmodules(PROJECT_ROOT);
-      if (!submodulesOk) {
-        error('Failed to initialize submodules. Run manually: git submodule update --init --recursive');
-        return;
-      }
-    } else {
-      success('Submodules already initialized');
-    }
-
-    if (!existsSync(evvmJsDistPath)) {
-      info('Building @evvm/evvm-js SDK...');
-      const evvmJsDir = join(PROJECT_ROOT, 'evvm-js');
-      const hasBun = await commandExists('bun');
-      const pkgManager = hasBun ? 'bun' : 'npm';
-
-      try {
-        await execa(pkgManager, ['install'], { cwd: evvmJsDir, stdio: 'inherit' });
-        await execa(pkgManager, ['run', 'build'], { cwd: evvmJsDir, stdio: 'inherit' });
-        success('SDK built successfully');
-      } catch (err) {
-        error('Failed to build @evvm/evvm-js.');
-        info('Run manually: cd evvm-js && bun install && bun run build');
-        return;
-      }
-    } else {
-      success('SDK already built');
-    }
+  // Ensure contract source repository is available (clone if needed)
+  sectionHeader('Checking Contract Sources');
+  const contractsReady = await ensureContractSources(PROJECT_ROOT);
+  if (!contractsReady) {
+    error('Contract sources are required for deployment. Please ensure Testnet-Contracts is available.');
+    return;
   }
 
   // Step 2: Contract Source Selection
@@ -902,9 +873,10 @@ async function writeConfigFiles(config: FullStartConfig): Promise<void> {
   }
   cpSync(inputDir, frameworkInputDir, { recursive: true });
 
-  // Write BaseInputs.sol to testnetcontracts submodule input directory
+  // Write BaseInputs.sol to Testnet-Contracts input directory
   // The Deploy.s.sol script imports from ../input/BaseInputs.sol and expects contract name "BaseInputs"
-  const submoduleInputDir = join(PROJECT_ROOT, 'testnetcontracts', 'input');
+  const contractSourcePath = findContractPath(PROJECT_ROOT, 'Testnet-Contracts') || join(PROJECT_ROOT, 'Testnet-Contracts');
+  const submoduleInputDir = join(contractSourcePath, 'input');
   if (!existsSync(submoduleInputDir)) {
     mkdirSync(submoduleInputDir, { recursive: true });
   }
@@ -1113,8 +1085,8 @@ async function deployContracts(config: FullStartConfig): Promise<DeployedAddress
     
     await execa('forge', ['clean'], { cwd: FOUNDRY_DIR, stdio: 'pipe' }).catch(() => {});
 
-    // Use testnetcontracts submodule (feat/state) for deployment scripts
-    const scriptDir = join(PROJECT_ROOT, 'testnetcontracts');
+    // Use Testnet-Contracts repository for deployment scripts
+    const scriptDir = findContractPath(PROJECT_ROOT, 'Testnet-Contracts') || join(PROJECT_ROOT, 'Testnet-Contracts');
     
     const scriptFile = 'script/Deploy.s.sol:DeployScript';
 

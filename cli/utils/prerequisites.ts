@@ -10,7 +10,7 @@
  */
 
 import { execa } from 'execa';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import chalk from 'chalk';
 import { success, error, warning, dim, info, sectionHeader } from './display.js';
@@ -247,60 +247,6 @@ export async function checkFrameworkAvailable(framework: 'foundry' | 'hardhat', 
   } else {
     const hardhatPath = join(projectRoot, 'node_modules', 'hardhat');
     return existsSync(hardhatPath);
-  }
-}
-
-/**
- * Check if git submodules are initialized (for contract repos)
- */
-export async function checkSubmodules(repoPath: string): Promise<boolean> {
-  const libPath = join(repoPath, 'lib');
-
-  if (!existsSync(libPath)) {
-    return false;
-  }
-
-  // Check for critical Foundry submodule directories
-  const criticalSubmodules = ['forge-std', 'openzeppelin-contracts'];
-
-  for (const submodule of criticalSubmodules) {
-    const submodulePath = join(libPath, submodule);
-    if (!existsSync(submodulePath)) {
-      return false;
-    }
-
-    // Check if directory has contents
-    try {
-      const files = readdirSync(submodulePath);
-      if (files.length <= 1) {
-        return false;
-      }
-    } catch {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-/**
- * Initialize git submodules
- */
-export async function initializeSubmodules(repoPath: string): Promise<boolean> {
-  console.log(chalk.blue('\n📦 Initializing dependencies (git submodules)...'));
-  console.log(chalk.gray('   This may take a few minutes on first run.\n'));
-
-  try {
-    await execa('git', ['submodule', 'update', '--init', '--recursive'], {
-      cwd: repoPath,
-      stdio: 'inherit'
-    });
-    console.log(chalk.green('\n✓ Dependencies initialized successfully!\n'));
-    return true;
-  } catch (err) {
-    console.log(chalk.red('\n✖ Failed to initialize dependencies'));
-    console.log(chalk.yellow('Please run manually: git submodule update --init --recursive'));
-    return false;
   }
 }
 

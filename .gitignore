@@ -87,6 +87,8 @@ packages/foundry/lib/
 packages/hardhat/contracts/
 packages/hardhat/lib/
 
-# Ignore cloned repositories
+# Ignore cloned contract repositories and old submodule directories
 Testnet-Contracts/
+testnetcontracts/
+evvm-js/
 frontend.log

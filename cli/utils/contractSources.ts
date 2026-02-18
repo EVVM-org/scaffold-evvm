@@ -45,9 +45,10 @@ export interface ContractSourcesStatus {
 /**
  * Find existing path for a contract source
  */
-function findContractPath(projectRoot: string, repoName: string): string | null {
+export function findContractPath(projectRoot: string, repoName: string): string | null {
   const searchPaths = [
-    resolve(projectRoot, repoName), // Nueva ubicación dentro de scaffold-evvm
+    resolve(projectRoot, repoName), // Primary location inside scaffold-evvm
+    resolve(projectRoot, 'testnetcontracts'), // Legacy submodule directory name
     resolve(projectRoot, '..', repoName),
     resolve(projectRoot, '..', '..', repoName),
     resolve(projectRoot, '..', repoName.replace('-', ''), repoName),
