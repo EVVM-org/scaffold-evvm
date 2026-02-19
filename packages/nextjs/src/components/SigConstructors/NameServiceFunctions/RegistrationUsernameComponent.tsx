@@ -93,9 +93,13 @@ export const RegistrationUsernameComponent = ({
       const evvm = new Core({ signer, address: evvmAddress, chainId });
       const nameService = new NameService({ signer, address: formData.addressNameService as `0x${string}`, chainId });
 
-      await readRewardAmount();
+      const currentReward = await readRewardAmount();
 
-      const amount = rewardAmount ? rewardAmount * BigInt(100) : BigInt(0);
+      if (!currentReward) {
+        throw new Error("Could not read reward amount from Core contract. Please try again.");
+      }
+
+      const amount = currentReward * BigInt(100);
 
       // Create EVVM pay action first
       const evvmAction = await evvm.pay({
@@ -136,41 +140,40 @@ export const RegistrationUsernameComponent = ({
     }
   };
 
-  const readRewardAmount = async () => {
-    // Use the prop directly instead of a missing input
+  const readRewardAmount = async (): Promise<bigint | null> => {
     if (!nameServiceAddress) {
       setRewardAmount(null);
-    } else {
-      await readContract(config, {
+      return null;
+    }
+
+    try {
+      const evvmAddress = await readContract(config, {
         abi: NameServiceABI,
         address: nameServiceAddress as `0x${string}`,
         functionName: "getCoreAddress",
         args: [],
-      })
-        .then((evvmAddress) => {
-          if (!evvmAddress) {
-            setRewardAmount(null);
-          }
+      });
 
-          readContract(config, {
-            abi: CoreABI,
-            address: evvmAddress as `0x${string}`,
-            functionName: "getRewardAmount",
-            args: [],
-          })
-            .then((reward) => {
-              console.log("Mate reward amount:", reward);
-              setRewardAmount(reward ? BigInt(reward.toString()) : null);
-            })
-            .catch((error) => {
-              console.error("Error reading mate reward amount:", error);
-              setRewardAmount(null);
-            });
-        })
-        .catch((error) => {
-          console.error("Error reading NameService address:", error);
-          setRewardAmount(null);
-        });
+      if (!evvmAddress) {
+        setRewardAmount(null);
+        return null;
+      }
+
+      const reward = await readContract(config, {
+        abi: CoreABI,
+        address: evvmAddress as `0x${string}`,
+        functionName: "getRewardAmount",
+        args: [],
+      });
+
+      console.log("Mate reward amount:", reward);
+      const value = reward ? BigInt(reward.toString()) : null;
+      setRewardAmount(value);
+      return value;
+    } catch (error) {
+      console.error("Error reading reward amount:", error);
+      setRewardAmount(null);
+      return null;
     }
   };
 

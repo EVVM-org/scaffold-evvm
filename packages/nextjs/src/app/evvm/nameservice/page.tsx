@@ -217,13 +217,38 @@ export default function NameServicePage() {
         throw new Error("Wallet client not available. Please connect your wallet.");
       }
 
-      await readRewardAmount();
+      const currentReward = await readRewardAmount();
+
+      if (!currentReward) {
+        throw new Error("Could not read reward amount from Core contract. Please try again.");
+      }
+
+      const payAmount = currentReward * BigInt(100);
+
+      // Check user's MATE balance covers the registration fee
+      const mateToken = "0x0000000000000000000000000000000000000001" as `0x${string}`;
+      const userBalance = await readContract(config, {
+        abi: CoreABI,
+        address: deployment.evvm as `0x${string}`,
+        functionName: "getBalance",
+        args: [walletData.address as `0x${string}`, mateToken],
+      }) as bigint;
+
+      const totalCost = payAmount + parseTokenAmount(formData.priorityFee_EVVM || "0", 18);
+      if (userBalance < totalCost) {
+        const balanceFormatted = (userBalance / BigInt(10 ** 18)).toString();
+        const costFormatted = (totalCost / BigInt(10 ** 18)).toString();
+        throw new Error(
+          `Insufficient MATE balance. You have ${balanceFormatted} MATE but registration costs ${costFormatted} MATE. Go to the Faucet to claim funds.`
+        );
+      }
 
       console.log("Creating registration signature with:", {
         evvmID: deployment.evvmID,
         username: formData.username,
         lockNumber: formData.lockNumber,
-        rewardAmount
+        rewardAmount: currentReward,
+        payAmount: payAmount.toString(),
       });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -231,9 +256,6 @@ export default function NameServicePage() {
       const chainId = await signer.getChainId();
       const evvm = new Core({ signer, address: deployment.evvm as `0x${string}`, chainId });
       const nameService = new NameService({ signer, address: deployment.nameService as `0x${string}`, chainId });
-
-      // Create EVVM pay action first
-      const payAmount = rewardAmount ? rewardAmount * BigInt(100) : BigInt(0);
       const evvmAction = await evvm.pay({
         toAddress: deployment.nameService as `0x${string}`,
         tokenAddress: "0x0000000000000000000000000000000000000001" as `0x${string}`,
@@ -279,10 +301,10 @@ export default function NameServicePage() {
     }
   };
 
-  const readRewardAmount = async () => {
+  const readRewardAmount = async (): Promise<bigint | null> => {
     if (!deployment) {
       setRewardAmount(null);
-      return;
+      return null;
     }
 
     try {
@@ -295,7 +317,7 @@ export default function NameServicePage() {
 
       if (!evvmAddress) {
         setRewardAmount(null);
-        return;
+        return null;
       }
 
       const reward = await readContract(config, {
@@ -305,10 +327,13 @@ export default function NameServicePage() {
         args: [],
       });
 
-      setRewardAmount(reward ? BigInt(reward.toString()) : null);
+      const value = reward ? BigInt(reward.toString()) : null;
+      setRewardAmount(value);
+      return value;
     } catch (error) {
       console.error("Error reading reward amount:", error);
       setRewardAmount(null);
+      return null;
     }
   };
 

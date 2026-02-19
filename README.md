@@ -2,7 +2,7 @@
 
 **The complete development environment for EVVM ecosystem.**
 
-#### 📚 [Documentation](https://evvm.org/docs) | 🌐 [Website](https://evvm.info)
+#### 📚 [Documentation](https://www.evvm.info/docs/intro) | 🌐 [Website](https://evvm.org)
 
 Built using NextJS, Foundry/Hardhat, Wagmi, Viem, and TypeScript.
 
@@ -159,9 +159,9 @@ scaffold-evvm/
 
 ## 📚 Documentation
 
-- [EVVM Documentation](https://evvm.org/docs) - Complete EVVM protocol documentation
-- [EVVM Website](https://evvm.info) - Learn more about EVVM ecosystem
-- [Signature Structures](https://evvm.org/docs/SignatureStructures/) - EIP-191 signature formats
+- [EVVM Documentation](https://www.evvm.info/docs/intro) - Complete EVVM protocol documentation
+- [EVVM Website](https://evvm.org) - Learn more about EVVM ecosystem
+- [Signature Structures](https://www.evvm.info/docs/SignatureStructures/Overview) - EIP-191 signature formats
 - [Foundry Book](https://book.getfoundry.sh/) - Foundry documentation
 - [Hardhat Docs](https://hardhat.org/docs) - Hardhat documentation
 
