@@ -90,6 +90,7 @@ export const PresaleStakingComponent = ({
       const stakingAction = await staking.presaleStaking({
         isStaking: isStaking,
         nonce: BigInt(formData.nonce),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
       console.log('✅ [evvm-js] Presale staking SignedAction created with dual signatures');

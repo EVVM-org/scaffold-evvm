@@ -509,6 +509,7 @@ function PresaleStakingComponent({
       const stakingAction = await staking.presaleStaking({
         isStaking: isStaking,
         nonce: BigInt(formData.nonce),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -806,6 +807,7 @@ function PublicStakingComponent({
         isStaking: isStaking,
         amountOfStaking: BigInt(formData.amountOfStaking),
         nonce: BigInt(formData.nonceStaking),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 

@@ -81,6 +81,7 @@ export const WithdrawOfferComponent = ({
         username: formData.username,
         offerID: BigInt(formData.offerId),
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 

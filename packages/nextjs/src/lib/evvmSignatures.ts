@@ -298,6 +298,7 @@ export async function signPresaleStaking(params: SignPresaleStakingParams): Prom
   const stakingAction = await staking.presaleStaking({
     isStaking: params.isStaking,
     nonce: BigInt(params.nonce),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -354,6 +355,7 @@ export async function signPublicStaking(params: SignPublicStakingParams): Promis
     isStaking: params.isStaking,
     amountOfStaking: BigInt(params.amountOfStaking),
     nonce: BigInt(params.nonceStaking),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -415,6 +417,7 @@ export async function signPreRegistrationUsername(
   const nsAction = await nameService.preRegistrationUsername({
     hashPreRegisteredUsername: hashUsername,
     nonce: BigInt(params.nonce),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -479,6 +482,7 @@ export async function signRegistrationUsername(
     username: params.username,
     lockNumber: BigInt(params.lockNumber),
     nonce: BigInt(params.nonceNameService),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -534,6 +538,7 @@ export async function signMakeOffer(params: SignMakeOfferParams): Promise<{
     expirationDate: BigInt(params.expireDate),
     amount: BigInt(params.amount),
     nonce: BigInt(params.nonceNameService),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -589,6 +594,7 @@ export async function signWithdrawOffer(
     username: params.username,
     offerID: BigInt(params.offerID),
     nonce: BigInt(params.nonceNameService),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -642,6 +648,7 @@ export async function signAcceptOffer(params: SignAcceptOfferParams): Promise<{
     username: params.username,
     offerID: BigInt(params.offerID),
     nonce: BigInt(params.nonceNameService),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -695,6 +702,7 @@ export async function signRenewUsername(
   const nsAction = await nameService.renewUsername({
     username: params.username,
     nonce: BigInt(params.nonceNameService),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -751,6 +759,7 @@ export async function signAddCustomMetadata(
     identity: params.username,
     value: params.value,
     nonce: BigInt(params.nonceNameService),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -806,6 +815,7 @@ export async function signRemoveCustomMetadata(
     identity: params.username,
     key: BigInt(params.key),
     nonce: BigInt(params.nonceNameService),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -859,6 +869,7 @@ export async function signFlushCustomMetadata(
   const nsAction = await nameService.flushCustomMetadata({
     identity: params.username,
     nonce: BigInt(params.nonceNameService),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -912,6 +923,7 @@ export async function signFlushUsername(
   const nsAction = await nameService.flushUsername({
     username: params.username,
     nonce: BigInt(params.nonceNameService),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -972,6 +984,7 @@ export async function signMakeOrder(params: SignMakeOrderParams): Promise<{
     tokenB: params.tokenB,
     amountA: BigInt(params.amountA),
     amountB: BigInt(params.amountB),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 
@@ -1024,6 +1037,7 @@ export async function signCancelOrder(
     tokenA: params.tokenA,
     tokenB: params.tokenB,
     orderId: BigInt(params.orderId),
+    originExecutor: signer.address as `0x${string}`,
     evvmSignedAction: coreAction,
   });
 

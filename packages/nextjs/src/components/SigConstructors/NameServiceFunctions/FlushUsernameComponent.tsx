@@ -91,6 +91,7 @@ export const FlushUsernameComponent = ({
       const nsAction = await nameService.flushUsername({
         username: formData.username,
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 

@@ -87,6 +87,7 @@ export const FlushCustomMetadataComponent = ({
       const nsAction = await nameService.flushCustomMetadata({
         identity: formData.identity,
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 

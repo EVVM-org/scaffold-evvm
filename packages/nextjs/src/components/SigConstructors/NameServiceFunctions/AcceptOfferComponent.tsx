@@ -81,6 +81,7 @@ export const AcceptOfferComponent = ({
         username: formData.username,
         offerID: BigInt(formData.offerId),
         nonce: BigInt(formData.nonce),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 

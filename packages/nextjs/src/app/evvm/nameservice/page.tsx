@@ -155,6 +155,7 @@ export default function NameServicePage() {
       const nsAction = await nameService.preRegistrationUsername({
         hashPreRegisteredUsername: hashUsername,
         nonce: BigInt(formData.nonce),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -274,6 +275,7 @@ export default function NameServicePage() {
         username: formData.username,
         lockNumber: BigInt(formData.lockNumber),
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -385,6 +387,7 @@ export default function NameServicePage() {
       const nsAction = await nameService.renewUsername({
         username: formData.username,
         nonce: formData.nonceNameService,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -478,6 +481,7 @@ export default function NameServicePage() {
         expirationDate: BigInt(formData.expireDate),
         amount: parseTokenAmount(formData.amount, 18),
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -548,6 +552,7 @@ export default function NameServicePage() {
         username: formData.username,
         offerID: BigInt(formData.offerId),
         nonce: BigInt(formData.nonce),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -618,6 +623,7 @@ export default function NameServicePage() {
         username: formData.username,
         offerID: BigInt(formData.offerId),
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -698,6 +704,7 @@ export default function NameServicePage() {
         identity: formData.identity,
         value: valueCustomMetadata,
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -799,6 +806,7 @@ export default function NameServicePage() {
         identity: formData.identity,
         key: BigInt(formData.key),
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -874,6 +882,7 @@ export default function NameServicePage() {
       const nsAction = await nameService.flushCustomMetadata({
         identity: formData.identity,
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
@@ -953,6 +962,7 @@ export default function NameServicePage() {
       const nsAction = await nameService.flushUsername({
         username: formData.username,
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 

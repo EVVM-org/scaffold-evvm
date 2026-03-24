@@ -85,6 +85,7 @@ export const MakeOfferComponent = ({
         expirationDate: BigInt(formData.expireDate),
         amount: BigInt(formData.amount),
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 

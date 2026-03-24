@@ -96,6 +96,7 @@ export const PublicStakingComponent = ({
         isStaking: isStaking,
         amountOfStaking: BigInt(formData.amountOfStaking),
         nonce: BigInt(formData.nonceStaking),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
       console.log('✅ [evvm-js] Public staking SignedAction created with dual signatures');

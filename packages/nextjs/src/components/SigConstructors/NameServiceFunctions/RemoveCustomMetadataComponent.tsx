@@ -93,6 +93,7 @@ export const RemoveCustomMetadataComponent = ({
         identity: formData.identity,
         key: BigInt(formData.key),
         nonce: BigInt(formData.nonceNameService),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 

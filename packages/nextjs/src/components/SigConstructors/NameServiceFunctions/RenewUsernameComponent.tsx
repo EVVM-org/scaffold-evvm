@@ -89,6 +89,7 @@ export const RenewUsernameComponent = ({
       const nsAction = await nameService.renewUsername({
         username: formData.username,
         nonce: formData.nonceNameService,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 

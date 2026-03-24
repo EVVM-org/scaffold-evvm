@@ -116,6 +116,7 @@ export const PreRegistrationUsernameComponent = ({
       const nsAction = await nameService.preRegistrationUsername({
         hashPreRegisteredUsername: hashUsername,
         nonce: BigInt(formData.nonce),
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
         evvmSignedAction: evvmAction,
       });
 
