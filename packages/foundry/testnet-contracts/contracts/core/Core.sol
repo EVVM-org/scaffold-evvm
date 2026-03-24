@@ -133,7 +133,7 @@ contract Core is Storage {
 
         evvmMetadata.EvvmID = newEvvmID;
 
-        windowTimeToChangeEvvmID = block.timestamp + 24 hours;
+        windowTimeToChangeEvvmID = block.timestamp + 30 seconds;
     }
 
     /**

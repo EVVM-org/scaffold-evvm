@@ -129,7 +129,7 @@ contract Staking {
 
         secondsToUnlockStaking.current = 0;
 
-        secondsToUnllockFullUnstaking.current = 5 days;
+        secondsToUnllockFullUnstaking.current = 30 seconds;
 
         breakerSetupEstimatorAndEvvm = 0x01;
     }

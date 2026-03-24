@@ -550,7 +550,7 @@ contract TreasuryHostChainStation is OApp, OAppOptionsType3, AxelarExecutable {
         if (_newOwner == address(0) || _newOwner == admin.current) revert();
 
         admin.proposal = _newOwner;
-        admin.timeToAccept = block.timestamp + 1 minutes;
+        admin.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels a pending admin change proposal
@@ -584,7 +584,7 @@ contract TreasuryHostChainStation is OApp, OAppOptionsType3, AxelarExecutable {
         ) revert();
 
         fisherExecutor.proposal = _newFisherExecutor;
-        fisherExecutor.timeToAccept = block.timestamp + 1 minutes;
+        fisherExecutor.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels a pending Fisher executor change proposal
@@ -618,7 +618,7 @@ contract TreasuryHostChainStation is OApp, OAppOptionsType3, AxelarExecutable {
             .ChangeExternalChainAddressParams({
                 porposeAddress_AddressType: externalChainStationAddress,
                 porposeAddress_StringType: externalChainStationAddressString,
-                timeToAccept: block.timestamp + 1 minutes
+                timeToAccept: block.timestamp + 30 seconds
             });
     }
 

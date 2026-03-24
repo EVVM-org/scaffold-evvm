@@ -249,7 +249,7 @@ contract TreasuryExternalChainStation is
 
         evvmID = newEvvmID;
 
-        windowTimeToChangeEvvmID = block.timestamp + 24 hours;
+        windowTimeToChangeEvvmID = block.timestamp + 30 seconds;
     }
 
     /**
@@ -689,7 +689,7 @@ contract TreasuryExternalChainStation is
         if (_newOwner == address(0) || _newOwner == admin.current) revert();
 
         admin.proposal = _newOwner;
-        admin.timeToAccept = block.timestamp + 1 minutes;
+        admin.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels a pending admin change proposal
@@ -723,7 +723,7 @@ contract TreasuryExternalChainStation is
         ) revert();
 
         fisherExecutor.proposal = _newFisherExecutor;
-        fisherExecutor.timeToAccept = block.timestamp + 1 minutes;
+        fisherExecutor.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels a pending Fisher executor change proposal
@@ -757,7 +757,7 @@ contract TreasuryExternalChainStation is
             porposeAddress_AddressType: hostChainStationAddress,
             porposeAddress_StringType: hostChainStationAddressString,
             currentAddress: hostChainAddress.currentAddress,
-            timeToAccept: block.timestamp + 1 minutes
+            timeToAccept: block.timestamp + 30 seconds
         });
     }
 

@@ -233,7 +233,7 @@ contract Estimator {
     /// @param _proposal Address of the proposed new activator
     function setActivatorProposal(address _proposal) external onlyActivator {
         activator.proposal = _proposal;
-        activator.timeToAccept = block.timestamp + 1 days;
+        activator.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending activator proposal
@@ -255,7 +255,7 @@ contract Estimator {
     /// @param _proposal Address of the proposed new EVVM contract
     function setEvvmAddressProposal(address _proposal) external onlyAdmin {
         coreAddress.proposal = _proposal;
-        coreAddress.timeToAccept = block.timestamp + 1 days;
+        coreAddress.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending EVVM address proposal
@@ -277,7 +277,7 @@ contract Estimator {
     /// @param _proposal Address of the proposed new Staking contract
     function setAddressStakingProposal(address _proposal) external onlyAdmin {
         addressStaking.proposal = _proposal;
-        addressStaking.timeToAccept = block.timestamp + 1 days;
+        addressStaking.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending Staking address proposal
@@ -299,7 +299,7 @@ contract Estimator {
     /// @param _proposal Address of the proposed new admin
     function setAdminProposal(address _proposal) external onlyAdmin {
         admin.proposal = _proposal;
-        admin.timeToAccept = block.timestamp + 1 days;
+        admin.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending admin proposal

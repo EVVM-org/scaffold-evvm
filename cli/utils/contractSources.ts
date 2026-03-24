@@ -324,19 +324,63 @@ export async function showRecentCommits(repoPath: string, count: number = 5): Pr
 
 /**
  * Apply scaffold-evvm local development patches to cloned contract sources.
- * These patches optimize for local development (e.g., shorter cooldowns).
+ * Reduces all security timelocks/cooldowns to 30 seconds for sandbox testing.
+ * These are security measures for production but block local development.
  */
 export function applyScaffoldPatches(repoPath: string): void {
-  // Patch NameService: reduce preregistration cooldown from 30 minutes to 30 seconds
-  // This makes local development much faster without waiting 30 min between pre-reg and registration
-  const nameServicePath = join(repoPath, 'src', 'contracts', 'nameService', 'NameService.sol');
-  if (existsSync(nameServicePath)) {
-    let content = readFileSync(nameServicePath, 'utf-8');
-    if (content.includes('block.timestamp + 30 minutes')) {
-      content = content.replace(/block\.timestamp \+ 30 minutes/g, 'block.timestamp + 30 seconds');
-      writeFileSync(nameServicePath, content);
-      info('Patched NameService: preregistration cooldown → 30 seconds (local dev)');
+  const srcDir = join(repoPath, 'src');
+  const contractsDir = existsSync(srcDir) ? srcDir : repoPath;
+
+  // Time replacements: production timelock → 30 seconds for local dev
+  const timePatches: { pattern: RegExp; replacement: string; label: string }[] = [
+    { pattern: /block\.timestamp \+ 30 minutes/g, replacement: 'block.timestamp + 30 seconds', label: 'preregistration cooldown (30 min)' },
+    { pattern: /block\.timestamp \+ 24 hours/g, replacement: 'block.timestamp + 30 seconds', label: 'EVVM ID change window (24 hours)' },
+    { pattern: /block\.timestamp \+ 1 days/g, replacement: 'block.timestamp + 30 seconds', label: 'governance accept delay (1 day)' },
+    { pattern: /block\.timestamp \+ 1 minutes/g, replacement: 'block.timestamp + 30 seconds', label: 'treasury accept delay (1 min)' },
+  ];
+
+  // Initial value replacements for constructor-set timelocks
+  const initPatches: { pattern: RegExp; replacement: string; label: string }[] = [
+    { pattern: /secondsToUnllockFullUnstaking\.current = 5 days/g, replacement: 'secondsToUnllockFullUnstaking.current = 30 seconds', label: 'full unstaking lock (5 days)' },
+  ];
+
+  const allPatches = [...timePatches, ...initPatches];
+  let totalPatched = 0;
+
+  // Find all .sol files recursively
+  const findSolFiles = (dir: string): string[] => {
+    if (!existsSync(dir)) return [];
+    const results: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory() && entry.name !== 'node_modules' && entry.name !== 'lib') {
+        results.push(...findSolFiles(fullPath));
+      } else if (entry.name.endsWith('.sol')) {
+        results.push(fullPath);
+      }
     }
+    return results;
+  };
+
+  for (const solFile of findSolFiles(contractsDir)) {
+    let content = readFileSync(solFile, 'utf-8');
+    let filePatched = false;
+
+    for (const patch of allPatches) {
+      if (patch.pattern.test(content)) {
+        content = content.replace(patch.pattern, patch.replacement);
+        filePatched = true;
+        totalPatched++;
+      }
+    }
+
+    if (filePatched) {
+      writeFileSync(solFile, content);
+    }
+  }
+
+  if (totalPatched > 0) {
+    info(`Patched ${totalPatched} timelock(s) → 30 seconds (local dev sandbox)`);
   }
 }
 

@@ -664,7 +664,7 @@ contract P2PSwap is EvvmService {
             revert();
         }
         owner_proposal = _owner;
-        owner_timeToAccept = block.timestamp + 1 days;
+        owner_timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending owner proposal.
@@ -710,7 +710,7 @@ contract P2PSwap is EvvmService {
             _service,
             _mateStaker
         );
-        rewardPercentage_timeToAcceptNewChange = block.timestamp + 1 days;
+        rewardPercentage_timeToAcceptNewChange = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending fixed-fee reward percentage proposal.
@@ -754,7 +754,7 @@ contract P2PSwap is EvvmService {
             _service,
             _mateStaker
         );
-        rewardPercentage_timeToAcceptNewChange = block.timestamp + 1 days;
+        rewardPercentage_timeToAcceptNewChange = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending proportional-fee reward percentage proposal.
@@ -788,7 +788,7 @@ contract P2PSwap is EvvmService {
             revert();
         }
         percentageFee.proposal = _percentageFee;
-        percentageFee.timeToAccept = block.timestamp + 1 days;
+        percentageFee.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending percentage fee proposal.
@@ -822,7 +822,7 @@ contract P2PSwap is EvvmService {
             revert();
         }
         maxLimitFillFixedFee.proposal = _maxLimitFillFixedFee;
-        maxLimitFillFixedFee.timeToAccept = block.timestamp + 1 days;
+        maxLimitFillFixedFee.timeToAccept = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending max fixed fee proposal.
@@ -867,7 +867,7 @@ contract P2PSwap is EvvmService {
         tokenToWithdraw = _tokenToWithdraw;
         amountToWithdraw = _amountToWithdraw;
         recipientToWithdraw = _to;
-        timeToWithdrawal = block.timestamp + 1 days;
+        timeToWithdrawal = block.timestamp + 30 seconds;
     }
 
     /// @notice Cancels the pending withdrawal proposal.

@@ -71,7 +71,7 @@ library StakingError {
     /// @dev Thrown when re-staking before cooldown expires (secondsToUnlockStaking.current)
     error AddressMustWaitToStakeAgain();
 
-    /// @dev Thrown when full unstake attempted before lock period (secondsToUnllockFullUnstaking.current = 5 days)
+    /// @dev Thrown when full unstake attempted before lock period (secondsToUnllockFullUnstaking.current = 30 seconds)
     error AddressMustWaitToFullUnstake();
 
     /// @dev Thrown when accepting governance proposal before 1-day delay (TIME_TO_ACCEPT_PROPOSAL)
