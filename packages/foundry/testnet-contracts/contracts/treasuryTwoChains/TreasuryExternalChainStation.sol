@@ -99,7 +99,6 @@ contract TreasuryExternalChainStation is
     ProposalStructs.AddressTypeProposal admin;
 
     /// @notice Fisher executor address management with time-delayed proposals
-    /// @dev Fisher executor can process cross-chain bridge transactions
     ProposalStructs.AddressTypeProposal fisherExecutor;
 
     /// @notice Hyperlane protocol configuration for cross-chain messaging
@@ -136,7 +135,6 @@ contract TreasuryExternalChainStation is
         );
 
     /// @notice One-time fuse for setting initial host chain addresses
-    /// @dev Prevents multiple calls to _setHostChainAddress after initial setup
     bytes1 fuseSetHostChainAddress = 0x01;
 
     /// @notice Emitted when Fisher bridge sends tokens from external to host chain
@@ -156,7 +154,6 @@ contract TreasuryExternalChainStation is
     );
 
     /// @notice Restricts function access to the current admin only
-    /// @dev Validates caller against admin.current address
     modifier onlyAdmin() {
         if (msg.sender != admin.current) {
             revert();
@@ -165,7 +162,6 @@ contract TreasuryExternalChainStation is
     }
 
     /// @notice Restricts function access to the current Fisher executor only
-    /// @dev Validates caller against fisherExecutor.current address for bridge operations
     modifier onlyFisherExecutor() {
         if (msg.sender != fisherExecutor.current) {
             revert();
@@ -220,7 +216,7 @@ contract TreasuryExternalChainStation is
     /// @param hostChainStationAddressString String representation for Axelar protocol
     function _setHostChainAddress(
         address hostChainStationAddress,
-        string memory hostChainStationAddressString
+        string calldata hostChainStationAddressString
     ) external onlyAdmin {
         if (fuseSetHostChainAddress != 0x01) revert();
 
@@ -257,40 +253,11 @@ contract TreasuryExternalChainStation is
     }
 
     /**
-     * @notice Deposits ERC20 tokens via selected protocol
-     * @dev Transfers tokens then bridges to host chain
-     *
-     * Process:
-     * - Transfer: User → this contract (via approval)
-     * - Encode: PayloadUtils.encodePayload(token, to, amt)
-     * - Route: Protocol-specific message dispatch
-     * - Receive: Host chain credits Core.sol balance
-     *
-     * Protocol Routing:
-     * - 0x01: Hyperlane (mailbox.dispatch + quote fee)
-     * - 0x02: LayerZero (_lzSend + quote fee)
-     * - 0x03: Axelar (payNativeGas + callContract)
-     *
-     * Fee Payment:
-     * - Hyperlane: msg.value = quote
-     * - LayerZero: msg.value = quote (refund excess)
-     * - Axelar: msg.value for gas service
-     *
-     * Host Chain Integration:
-     * - Receives: handle/_lzReceive/_execute
-     * - Credits: Core.sol balance for recipient
-     * - Fisher Bridge: Independent from Core.sol nonces
-     *
-     * Security:
-     * - Approval: Must approve this contract first
-     * - Validation: verifyAndDepositERC20 checks balance
-     * - Sender checks: Host validates origin on receive
-     *
+     * @notice Transfers ERC20 tokens from the caller and bridges them to the host chain via the selected protocol.
      * @param toAddress Recipient on host chain
      * @param token ERC20 token address
-     * @param amount Token amount to bridge
-     * @param protocolToExecute 0x01=Hyperlane, 0x02=LZ,
-     * 0x03=Axelar
+     * @param amount Amount to bridge
+     * @param protocolToExecute 0x01=Hyperlane, 0x02=LayerZero, 0x03=Axelar
      */
     function depositERC20(
         address toAddress,
@@ -345,40 +312,11 @@ contract TreasuryExternalChainStation is
     }
 
     /**
-     * @notice Deposits native ETH via selected protocol
-     * @dev msg.value covers amount + protocol fees
-     *
-     * Process:
-     * - Validate: msg.value >= amount + fees
-     * - Encode: PayloadUtils.encodePayload(0x0, to, amt)
-     * - Route: Protocol-specific message dispatch
-     * - Receive: Host chain credits Core.sol balance
-     *
-     * Protocol Routing:
-     * - 0x01: Hyperlane (dispatch w/ quote + amount)
-     * - 0x02: LayerZero (_lzSend w/ fee + amount)
-     * - 0x03: Axelar (payNativeGas then callContract)
-     *
-     * Fee Calculation:
-     * - Hyperlane: msg.value = quote + amount
-     * - LayerZero: msg.value = fee + amount (refund)
-     * - Axelar: msg.value = gasService + amount
-     *
-     * Host Chain Integration:
-     * - Token Representation: address(0) for native ETH
-     * - Payload: Encoded with zero address
-     * - Credits: Core.sol balance as native token
-     * - Fisher Bridge: Independent nonce system
-     *
-     * Security:
-     * - Balance Check: Reverts if insufficient value
-     * - Excess Handling: LZ refunds, others use full
-     * - Validation: Host validates origin and sender
-     *
+     * @notice Bridges native ETH to the host chain via the selected protocol.
+     * @dev msg.value must cover both the amount and the cross-chain protocol fee.
      * @param toAddress Recipient on host chain
      * @param amount ETH amount to bridge
-     * @param protocolToExecute 0x01=Hyperlane, 0x02=LZ,
-     * 0x03=Axelar
+     * @param protocolToExecute 0x01=Hyperlane, 0x02=LayerZero, 0x03=Axelar
      */
     function depositCoin(
         address toAddress,
@@ -436,46 +374,15 @@ contract TreasuryExternalChainStation is
     }
 
     /**
-     * @notice Validates Fisher bridge receive confirmation
-     * @dev Confirms tokens sent FROM host TO external chain
-     *
-     * Purpose:
-     * - Acknowledge: Confirm host sent tokens
-     * - Validate: Signature from original sender
-     * - Track: Mark nonce as used
-     * - Security: Prevent replay attacks
-     *
-     * Signature Validation:
-     * - Payload: AdvancedStrings.buildSignaturePayload
-     * - Components: evvmID, host address, hash, nonce
-     * - Hash: TreasuryCrossChainHashUtils.hashData...
-     * - Recovers: Must match 'from' address
-     *
-     * Nonce System:
-     * - Independent: asyncNonce[from][nonce] mapping
-     * - Sequential: User manages nonce ordering
-     * - NOT Core.sol: Fisher bridge separate system
-     * - Prevention: Revert if nonce already used
-     *
-     * Integration Context:
-     * - Core.sol: NOT used (independent nonces)
-     * - Core.sol: NOT on external chain
-     * - SignatureRecover: ECDSA signature validation
-     * - Host Chain: Sends tokens via protocol messages
-     *
-     * Security Flow:
-     * - Check: Nonce not already used
-     * - Recover: Signer from signature payload
-     * - Validate: Recovered signer == from address
-     * - Mark: asyncNonce[from][nonce] = true
-     *
+     * @notice Confirms a Fisher bridge withdrawal from the host chain by validating the sender's signature.
+     * @dev Uses the independent asyncNonce mapping (not Core.sol); marks nonce used after validation.
      * @param from Original sender on host chain
      * @param addressToReceive Recipient on external chain
-     * @param tokenAddress Token (address(0) for ETH)
+     * @param tokenAddress Token address (address(0) for ETH)
      * @param priorityFee Fee for priority processing
      * @param amount Token amount received
-     * @param nonce Sequential nonce from user
-     * @param signature ECDSA signature from 'from' address
+     * @param nonce Async nonce from user
+     * @param signature ECDSA signature from `from`
      */
     function fisherBridgeReceive(
         address from,
@@ -484,7 +391,7 @@ contract TreasuryExternalChainStation is
         uint256 priorityFee,
         uint256 amount,
         uint256 nonce,
-        bytes memory signature
+        bytes calldata signature
     ) external onlyFisherExecutor {
         if (asyncNonce[from][nonce]) revert CoreError.AsyncNonceAlreadyUsed();
 
@@ -511,54 +418,15 @@ contract TreasuryExternalChainStation is
     }
 
     /**
-     * @notice Executes Fisher bridge ERC20 deposit to host
-     * @dev Validates signature, deposits, emits event
-     *
-     * Purpose:
-     * - Deposit: Transfer ERC20 from user to contract
-     * - Validate: ECDSA signature from sender
-     * - Track: Mark nonce as used
-     * - Emit: Log for Fisher executor on host chain
-     *
-     * Fisher Bridge Flow:
-     * - External: User signs intent + executor calls this
-     * - Deposit: Tokens held in this contract
-     * - Event: FisherBridgeSend logged
-     * - Host: Fisher monitors events + credits balance
-     * - Core.sol: Host chain credits recipient balance
-     *
-     * Signature Validation:
-     * - Payload: evvmID + host address + hash + nonce
-     * - Hash: hashDataForFisherBridge(to, token, fee,
-     *   amt)
-     * - Recover: SignatureRecover.recoverSigner
-     * - Match: Recovered signer must equal 'from'
-     *
-     * Nonce System:
-     * - Independent: asyncNonce[from][nonce]
-     * - NOT Core.sol: Separate from EVVM nonces
-     * - Sequential: User manages own nonces
-     * - Replay Prevention: Mark used after validation
-     *
-     * Integration Context:
-     * - Core.sol: NOT used (Fisher independent)
-     * - Core.sol: Credits balance on host chain
-     * - Fisher Executor: Monitors events + processes
-     * - Host Station: Receives event + credits user
-     *
-     * Security:
-     * - Approval: Requires token approval first
-     * - Signature: ECDSA validation prevents forgery
-     * - Nonce: Sequential tracking prevents replays
-     * - Executor Only: onlyFisherExecutor modifier
-     *
+     * @notice Accepts ERC20 tokens from the caller and emits a Fisher bridge deposit event for the host chain.
+     * @dev Validates ECDSA signature, marks asyncNonce used, and holds tokens in this contract.
      * @param from Original sender (signer)
      * @param addressToReceive Recipient on host chain
      * @param tokenAddress ERC20 token address
      * @param priorityFee Fee for priority processing
-     * @param amount Token amount to bridge
-     * @param nonce Sequential nonce from user
-     * @param signature ECDSA signature from 'from'
+     * @param amount Amount to bridge
+     * @param nonce Async nonce from user
+     * @param signature ECDSA signature from `from`
      */
     function fisherBridgeSendERC20(
         address from,
@@ -567,7 +435,7 @@ contract TreasuryExternalChainStation is
         uint256 priorityFee,
         uint256 amount,
         uint256 nonce,
-        bytes memory signature
+        bytes calldata signature
     ) external onlyFisherExecutor {
         if (asyncNonce[from][nonce]) revert CoreError.AsyncNonceAlreadyUsed();
 
@@ -575,7 +443,7 @@ contract TreasuryExternalChainStation is
             SignatureRecover.recoverSigner(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    hostChainAddress.currentAddress,
+                    fisherExecutor.current,
                     Hash.hashDataForFisherBridge(
                         addressToReceive,
                         tokenAddress,
@@ -605,59 +473,14 @@ contract TreasuryExternalChainStation is
     }
 
     /**
-     * @notice Executes Fisher bridge ETH deposit to host
-     * @dev Validates signature and exact payment
-     *
-     * Purpose:
-     * - Deposit: Receive ETH from executor caller
-     * - Validate: ECDSA signature from original sender
-     * - Track: Mark nonce as used
-     * - Emit: Log for Fisher executor on host chain
-     *
-     * Fisher Bridge Flow:
-     * - External: User signs intent + pays executor
-     * - Deposit: msg.value = amount + priorityFee
-     * - Event: FisherBridgeSend with address(0)
-     * - Host: Fisher monitors + credits Evvm balance
-     * - Core.sol: Host chain credits recipient
-     *
-     * Payment Validation:
-     * - Exact Match: msg.value == amount + priorityFee
-     * - No Excess: Prevents overpayment mistakes
-     * - Native Token: Represented as address(0)
-     * - Host Credits: Full amount to recipient
-     *
-     * Signature Validation:
-     * - Payload: evvmID + host + hash + nonce
-     * - Hash: hashDataForFisherBridge(to, 0x0, fee,
-     *   amt)
-     * - Token: address(0) represents native ETH
-     * - Recover: Must match 'from' address
-     *
-     * Nonce System:
-     * - Independent: asyncNonce[from][nonce]
-     * - NOT Core.sol: Fisher bridge separate
-     * - Sequential: User-managed ordering
-     * - Anti-Replay: Mark used after validation
-     *
-     * Integration Context:
-     * - Core.sol: NOT used (independent system)
-     * - Core.sol: Credits native balance on host
-     * - Fisher Executor: Pays ETH + processes
-     * - Host Station: Credits recipient balance
-     *
-     * Security:
-     * - Exact Payment: Prevents partial payments
-     * - Signature: ECDSA prevents unauthorized sends
-     * - Nonce: Sequential tracking prevents replays
-     * - Executor Only: onlyFisherExecutor modifier
-     *
+     * @notice Accepts ETH from the executor and emits a Fisher bridge deposit event for the host chain.
+     * @dev msg.value must equal amount + priorityFee. Validates ECDSA signature and marks nonce used.
      * @param from Original sender (signer)
      * @param addressToReceive Recipient on host chain
      * @param priorityFee Fee for priority processing
      * @param amount ETH amount to bridge
-     * @param nonce Sequential nonce from user
-     * @param signature ECDSA signature from 'from'
+     * @param nonce Async nonce from user
+     * @param signature ECDSA signature from `from`
      */
     function fisherBridgeSendCoin(
         address from,
@@ -665,7 +488,7 @@ contract TreasuryExternalChainStation is
         uint256 priorityFee,
         uint256 amount,
         uint256 nonce,
-        bytes memory signature
+        bytes calldata signature
     ) external payable onlyFisherExecutor {
         if (asyncNonce[from][nonce]) revert CoreError.AsyncNonceAlreadyUsed();
 
@@ -673,7 +496,7 @@ contract TreasuryExternalChainStation is
             SignatureRecover.recoverSigner(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    hostChainAddress.currentAddress,
+                    fisherExecutor.current,
                     Hash.hashDataForFisherBridge(
                         addressToReceive,
                         address(0),
@@ -706,36 +529,11 @@ contract TreasuryExternalChainStation is
     // Hyperlane Specific Functions //
 
     /**
-     * @notice Quotes Hyperlane cross-chain message fee
-     * @dev Queries mailbox for accurate fee estimation
-     *
-     * Purpose:
-     * - Estimate: Calculate native token fee for message
-     * - Quote: Query Hyperlane mailbox contract
-     * - Planning: Users know cost before depositERC20
-     * - Payment: Fee paid in msg.value on deposit
-     *
-     * Hyperlane Fee Model:
-     * - Calculation: mailbox.quoteDispatch
-     * - Components: Destination domain + payload size
-     * - Payment: Native token to mailbox
-     * - Delivery: Relayers submit to destination
-     *
-     * Quote Components:
-     * - Domain ID: hyperlane.hostChainStationDomainId
-     * - Recipient: hyperlane.hostChainStationAddress
-     * - Payload: PayloadUtils.encodePayload(token, to,
-     *   amt)
-     *
-     * Usage:
-     * - Pre-Deposit: Call to estimate required msg.value
-     * - Display: Show users total cost
-     * - Payment: depositERC20 uses quote for dispatch
-     *
+     * @notice Returns the fee required to send a Hyperlane message to the host chain.
      * @param toAddress Recipient on host chain
-     * @param token Token address (or 0x0 for ETH)
-     * @param amount Token amount to bridge
-     * @return Native token fee for Hyperlane message
+     * @param token Token address (address(0) for ETH)
+     * @param amount Amount to bridge
+     * @return Native token fee for the Hyperlane message
      */
     function getQuoteHyperlane(
         address toAddress,
@@ -751,40 +549,8 @@ contract TreasuryExternalChainStation is
     }
 
     /**
-     * @notice Handles incoming Hyperlane messages
-     * @dev Validates origin, sender, processes payload
-     *
-     * Purpose:
-     * - Receive: Messages from host chain via Hyperlane
-     * - Validate: Origin domain + sender address
-     * - Process: Decode payload + transfer tokens
-     * - Security: Multi-layer validation checks
-     *
-     * Hyperlane Message Flow:
-     * - Host: TreasuryHostChainStation dispatches
-     * - Relayer: Submits message to this chain
-     * - Mailbox: Calls this handle() function
-     * - Process: decodeAndGive transfers tokens
-     *
-     * Validation Layers:
-     * - Caller: Must be hyperlane.mailboxAddress
-     * - Sender: Must be hyperlane.hostChainStation...
-     * - Origin: Must be hyperlane.hostChainStation
-     *   DomainId
-     * - All checks prevent unauthorized messages
-     *
-     * Payload Processing:
-     * - Decode: PayloadUtils.decodePayload(_data)
-     * - Extract: token address, recipient, amount
-     * - Transfer: ETH (address 0) or ERC20 tokens
-     * - Recipient: Receives tokens on external chain
-     *
-     * Security:
-     * - Mailbox Only: Reverts if caller not mailbox
-     * - Sender Check: Reverts if not host station
-     * - Domain Check: Reverts if wrong origin
-     * - Three-layer validation prevents attacks
-     *
+     * @notice Handles incoming Hyperlane messages from the host chain and transfers tokens to the recipient.
+     * @dev Validates mailbox caller, origin domain, and sender address before calling decodeAndGive.
      * @param _origin Source chain domain ID
      * @param _sender Sender address (host station)
      * @param _data Encoded payload (token, to, amount)
@@ -809,37 +575,11 @@ contract TreasuryExternalChainStation is
     // LayerZero Specific Functions //
 
     /**
-     * @notice Quotes LayerZero cross-chain message fee
-     * @dev Queries endpoint for native fee estimation
-     *
-     * Purpose:
-     * - Estimate: Calculate native token fee for LZ send
-     * - Quote: Query LayerZero V2 endpoint
-     * - Planning: Users know cost before deposit
-     * - Payment: Fee paid in msg.value on deposit
-     *
-     * LayerZero Fee Model:
-     * - Calculation: _quote (internal OApp function)
-     * - Components: Destination eid + payload + options
-     * - Options: 200k gas limit for execution
-     * - Refund: Excess fees returned to sender
-     *
-     * Quote Components:
-     * - Endpoint ID: layerZero.hostChainStationEid
-     * - Payload: PayloadUtils.encodePayload
-     * - Options: Pre-built with 200k gas limit
-     * - Pay ZRO: false (only native token)
-     *
-     * Usage:
-     * - Pre-Deposit: Call to estimate required msg.value
-     * - Display: Show users total cost
-     * - Payment: depositERC20/Coin uses quote
-     * - Refund: LZ returns excess to sender
-     *
+     * @notice Returns the fee required to send a LayerZero message to the host chain.
      * @param toAddress Recipient on host chain
-     * @param token Token address (or 0x0 for ETH)
-     * @param amount Token amount to bridge
-     * @return Native token fee for LayerZero message
+     * @param token Token address (address(0) for ETH)
+     * @param amount Amount to bridge
+     * @return Native token fee for the LayerZero message
      */
     function quoteLayerZero(
         address toAddress,
@@ -856,43 +596,9 @@ contract TreasuryExternalChainStation is
     }
 
     /**
-     * @notice Handles incoming LayerZero messages
-     * @dev Validates origin + sender, processes payload
-     *
-     * Purpose:
-     * - Receive: Messages from host via LayerZero V2
-     * - Validate: Origin eid + sender address
-     * - Process: Decode payload + transfer tokens
-     * - Security: Multi-layer validation checks
-     *
-     * LayerZero Message Flow:
-     * - Host: TreasuryHostChainStation.lzSend
-     * - DVNs: Verify message across networks
-     * - Executor: Submits message to this chain
-     * - Endpoint: Calls this _lzReceive function
-     *
-     * Validation Layers:
-     * - Origin EID: Must be layerZero.hostChainStation
-     *   Eid
-     * - Sender: Must be layerZero.hostChainStation
-     *   Address
-     * - Peer: OApp validates via _getPeerOrRevert
-     * - All checks prevent unauthorized messages
-     *
-     * Payload Processing:
-     * - Decode: PayloadUtils.decodePayload(message)
-     * - Extract: token address, recipient, amount
-     * - Transfer: ETH (address 0) or ERC20 tokens
-     * - Recipient: Receives tokens on external chain
-     *
-     * Security:
-     * - EID Check: Reverts if wrong source endpoint
-     * - Sender Check: Reverts if not host station
-     * - OApp Pattern: Peer validation built-in
-     * - Two-layer validation prevents attacks
-     *
-     * @param _origin Origin info (srcEid, sender,
-     * nonce)
+     * @notice Handles incoming LayerZero messages from the host chain and transfers tokens to the recipient.
+     * @dev Validates source EID and sender address before calling decodeAndGive.
+     * @param _origin Origin info (srcEid, sender, nonce)
      * @param message Encoded payload (token, to, amount)
      */
     function _lzReceive(
@@ -948,47 +654,8 @@ contract TreasuryExternalChainStation is
     // Axelar Specific Functions //
 
     /**
-     * @notice Handles incoming Axelar messages
-     * @dev Validates source chain/address, processes payload
-     *
-     * Purpose:
-     * - Receive: Messages from host via Axelar Network
-     * - Validate: Source chain name + sender address
-     * - Process: Decode payload + transfer tokens
-     * - Security: Multi-layer validation checks
-     *
-     * Axelar Message Flow:
-     * - Host: TreasuryHostChainStation.callContract
-     * - Axelar: Validates via validator network
-     * - Gateway: Calls this _execute function
-     * - Process: decodeAndGive transfers tokens
-     *
-     * Validation Layers:
-     * - Source Chain: Must be axelar.hostChainStation
-     *   ChainName
-     * - Source Address: Must be axelar.hostChainStation
-     *   Address
-     * - Gateway: AxelarExecutable validates caller
-     * - All checks prevent unauthorized messages
-     *
-     * String Comparison:
-     * - AdvancedStrings.equal: Chain name validation
-     * - Case-Sensitive: Exact match required
-     * - Address Format: String type for Axelar
-     * - Security: Double validation of source
-     *
-     * Payload Processing:
-     * - Decode: PayloadUtils.decodePayload(_payload)
-     * - Extract: token address, recipient, amount
-     * - Transfer: ETH (address 0) or ERC20 tokens
-     * - Recipient: Receives tokens on external chain
-     *
-     * Security:
-     * - Chain Check: Reverts if wrong source chain
-     * - Address Check: Reverts if not host station
-     * - Gateway Pattern: AxelarExecutable validation
-     * - Two-layer validation prevents attacks
-     *
+     * @notice Handles incoming Axelar messages from the host chain and transfers tokens to the recipient.
+     * @dev Validates source chain name and address before calling decodeAndGive.
      * @param _sourceChain Source blockchain name
      * @param _sourceAddress Source contract address
      * @param _payload Encoded payload (token, to, amount)
@@ -1017,7 +684,6 @@ contract TreasuryExternalChainStation is
     }
 
     /// @notice Proposes a new admin address with 1-day time delay
-    /// @dev Part of the time-delayed governance system for admin changes
     /// @param _newOwner Address of the proposed new admin (cannot be zero or current admin)
     function proposeAdmin(address _newOwner) external onlyAdmin {
         if (_newOwner == address(0) || _newOwner == admin.current) revert();
@@ -1027,14 +693,12 @@ contract TreasuryExternalChainStation is
     }
 
     /// @notice Cancels a pending admin change proposal
-    /// @dev Allows current admin to reject proposed admin changes and reset proposal state
     function rejectProposalAdmin() external onlyAdmin {
         admin.proposal = address(0);
         admin.timeToAccept = 0;
     }
 
     /// @notice Accepts a pending admin proposal and becomes the new admin
-    /// @dev Can only be called by the proposed admin after the 1-day time delay
     function acceptAdmin() external {
         if (block.timestamp < admin.timeToAccept) revert();
 
@@ -1049,7 +713,6 @@ contract TreasuryExternalChainStation is
     }
 
     /// @notice Proposes a new Fisher executor address with 1-day time delay
-    /// @dev Fisher executor handles cross-chain bridge transaction processing
     /// @param _newFisherExecutor Address of the proposed new Fisher executor
     function proposeFisherExecutor(
         address _newFisherExecutor
@@ -1064,14 +727,12 @@ contract TreasuryExternalChainStation is
     }
 
     /// @notice Cancels a pending Fisher executor change proposal
-    /// @dev Allows current admin to reject Fisher executor changes and reset proposal state
     function rejectProposalFisherExecutor() external onlyAdmin {
         fisherExecutor.proposal = address(0);
         fisherExecutor.timeToAccept = 0;
     }
 
     /// @notice Accepts a pending Fisher executor proposal
-    /// @dev Can only be called by the proposed Fisher executor after the 1-day time delay
     function acceptFisherExecutor() external {
         if (block.timestamp < fisherExecutor.timeToAccept) revert();
 
@@ -1084,12 +745,11 @@ contract TreasuryExternalChainStation is
     }
 
     /// @notice Proposes new host chain addresses for all protocols with 1-day time delay
-    /// @dev Updates addresses across Hyperlane, LayerZero, and Axelar simultaneously
     /// @param hostChainStationAddress Address-type representation for Hyperlane and LayerZero
     /// @param hostChainStationAddressString String representation for Axelar protocol
     function proposeHostChainAddress(
         address hostChainStationAddress,
-        string memory hostChainStationAddressString
+        string calldata hostChainStationAddressString
     ) external onlyAdmin {
         if (fuseSetHostChainAddress == 0x01) revert();
 
@@ -1102,7 +762,6 @@ contract TreasuryExternalChainStation is
     }
 
     /// @notice Cancels a pending host chain address change proposal
-    /// @dev Resets the host chain address proposal to default state
     function rejectProposalHostChainAddress() external onlyAdmin {
         hostChainAddress = Structs.ChangeHostChainAddressParams({
             porposeAddress_AddressType: address(0),
@@ -1113,7 +772,6 @@ contract TreasuryExternalChainStation is
     }
 
     /// @notice Accepts pending host chain address changes across all protocols
-    /// @dev Updates Hyperlane, LayerZero, and Axelar configurations simultaneously
     function acceptHostChainAddress() external {
         if (block.timestamp < hostChainAddress.timeToAccept) revert();
 
@@ -1209,7 +867,7 @@ contract TreasuryExternalChainStation is
     /// @notice Decodes cross-chain payload and executes the token transfer
     /// @dev Handles both ETH (address(0)) and ERC20 token transfers to recipients
     /// @param payload Encoded transfer data containing token, recipient, and amount
-    function decodeAndGive(bytes memory payload) internal {
+    function decodeAndGive(bytes calldata payload) internal {
         (address token, address toAddress, uint256 amount) = PayloadUtils
             .decodePayload(payload);
         if (token == address(0))

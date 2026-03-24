@@ -44,7 +44,7 @@ abstract contract Admin {
 
     /**
      * @notice Proposes new admin with custom time delay
-     * @dev Sets admin.proposal and admin.timeToAccept (block.timestamp + delay). Only current admin.
+     * @dev Sets admin.proposal and timeToAccept to block.timestamp + delay.
      * @param newAdmin Proposed new admin address
      * @param delay Seconds before acceptance allowed
      */
@@ -55,7 +55,7 @@ abstract contract Admin {
 
     /**
      * @notice Accepts admin proposal after time delay
-     * @dev Transfers admin role to proposed address. Reverts if block.timestamp < timeToAccept. Only current admin.
+     * @dev Reverts if block.timestamp < timeToAccept.
      */
     function acceptAdminProposal() external onlyAdmin {
         if (block.timestamp < admin.timeToAccept) revert ProposalNotReady();

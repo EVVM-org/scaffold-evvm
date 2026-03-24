@@ -11,6 +11,7 @@ library CoreStructs {
         uint256 amount;
         uint256 priorityFee;
         address senderExecutor;
+        address originExecutor;
         uint256 nonce;
         bool isAsyncExec;
         bytes signature;
@@ -45,6 +46,23 @@ library ProposalStructs {
         address proposal;
         uint256 timeToAccept;
     }
+
+    struct BoolTypeProposal {
+        bool flag;
+        uint256 timeToAccept;
+    }
+
+    struct Bytes1TypeProposal {
+        bytes1 current;
+        bytes1 proposal;
+        uint256 timeToAccept;
+    }
+
+    struct UintTypeProposal {
+        uint256 current;
+        uint256 proposal;
+        uint256 timeToAccept;
+    }
 }
 
 interface ICore {
@@ -53,30 +71,37 @@ interface ICore {
     error AsyncNonceAlreadyUsed();
     error AsyncNonceIsReservedByAnotherService();
     error AsyncNonceNotReserved();
+    error BaseRewardIncreaseNotAllowed();
     error BreakerExploded();
     error ImplementationIsNotActive();
     error IncorrectAddressInput();
     error InsufficientBalance();
     error InvalidAmount();
+    error InvalidListStatus();
     error InvalidServiceAddress();
     error InvalidSignature();
-    error MsgSenderIsNotAContract();
+    error MaxSupplyDeletionNotAllowed();
     error NotAnCA();
-    error OriginIsNotTheOriginExecutor();
-    error ProposalForUserValidatorNotReady();
+    error OriginMismatch();
+    error ProposalNotReadyToAccept();
+    error RewardFlowDistributionChangeNotAllowed();
     error SenderIsNotAdmin();
     error SenderIsNotTheProposedAdmin();
-    error SenderIsNotTheSenderExecutor();
     error SenderIsNotTreasury();
+    error SenderMismatch();
     error SyncNonceMismatch();
-    error TimeLockNotExpired();
+    error TokenIsDeniedForExecution();
     error UserCannotExecuteTransaction();
     error WindowExpired();
 
     fallback() external;
 
     function acceptAdmin() external;
+    function acceptChangeBaseRewardAmount() external;
+    function acceptChangeRewardFlowDistribution() external;
+    function acceptDeleteTotalSupply() external;
     function acceptImplementation() external;
+    function acceptListStatusProposal() external;
     function acceptUserValidatorProposal() external;
     function addAmountToUser(address user, address token, uint256 amount) external;
     function addBalance(address user, address token, uint256 quantity) external;
@@ -85,6 +110,7 @@ interface ICore {
         external
         returns (uint256 successfulTransactions, bool[] memory results);
     function caPay(address to, address token, uint256 amount) external;
+    function canExecuteUserTransaction(address user) external view returns (bool);
     function cancelUserValidatorProposal() external;
     function disperseCaPay(CoreStructs.DisperseCaPayMetadata[] memory toData, address token, uint256 amount) external;
     function dispersePay(
@@ -94,34 +120,38 @@ interface ICore {
         uint256 amount,
         uint256 priorityFee,
         address senderExecutor,
+        address originExecutor,
         uint256 nonce,
         bool isAsyncExec,
         bytes memory signature
     ) external;
+    function getAllowListStatus(address token) external view returns (bool);
     function getAsyncNonceReservation(address user, uint256 nonce) external view returns (address);
     function getBalance(address user, address token) external view returns (uint256);
     function getChainHostCoinAddress() external pure returns (address);
     function getCurrentAdmin() external view returns (address);
     function getCurrentImplementation() external view returns (address);
-    function getEraPrincipalToken() external view returns (uint256);
+    function getCurrentListStatus() external view returns (bytes1);
+    function getCurrentSupply() external view returns (uint256);
+    function getDenyListStatus(address token) external view returns (bool);
     function getEvvmID() external view returns (uint256);
     function getEvvmMetadata() external view returns (CoreStructs.EvvmMetadata memory);
+    function getFullDetailAdmin() external view returns (ProposalStructs.AddressTypeProposal memory);
+    function getFullDetailImplementation() external view returns (ProposalStructs.AddressTypeProposal memory);
+    function getFullDetailListStatus() external view returns (ProposalStructs.Bytes1TypeProposal memory);
+    function getFullDetailReward() external view returns (ProposalStructs.UintTypeProposal memory);
+    function getFullDetailRewardFlowDistribution() external view returns (ProposalStructs.BoolTypeProposal memory);
+    function getFullDetailUserValidator() external view returns (ProposalStructs.AddressTypeProposal memory);
     function getIfUsedAsyncNonce(address user, uint256 nonce) external view returns (bool);
     function getNameServiceAddress() external view returns (address);
     function getNextCurrentSyncNonce(address user) external view returns (uint256);
-    function getNextFisherDepositNonce(address user) external view returns (uint256);
     function getPrincipalTokenAddress() external view returns (address);
     function getPrincipalTokenTotalSupply() external view returns (uint256);
-    function getProposalAdmin() external view returns (address);
-    function getProposalImplementation() external view returns (address);
     function getRewardAmount() external view returns (uint256);
+    function getRewardFlowDistributionFlag() external view returns (bool);
     function getStakingContractAddress() external view returns (address);
-    function getTimeToAcceptAdmin() external view returns (uint256);
-    function getTimeToAcceptImplementation() external view returns (uint256);
+    function getTimeToDeleteMaxSupply() external view returns (uint256);
     function getUserValidatorAddress() external view returns (address);
-    function getUserValidatorAddressDetails() external view returns (ProposalStructs.AddressTypeProposal memory);
-    function getWhitelistTokenToBeAdded() external view returns (address);
-    function getWhitelistTokenToBeAddedDateToSet() external view returns (uint256);
     function initializeSystemContracts(address _nameServiceAddress, address _treasuryAddress) external;
     function isAddressStaker(address user) external view returns (bool);
     function pay(
@@ -132,24 +162,36 @@ interface ICore {
         uint256 amount,
         uint256 priorityFee,
         address senderExecutor,
+        address originExecutor,
         uint256 nonce,
         bool isAsyncExec,
         bytes memory signature
     ) external;
     function pointStaker(address user, bytes1 answer) external;
     function proposeAdmin(address _newOwner) external;
+    function proposeChangeBaseRewardAmount(uint256 newBaseReward) external;
+    function proposeChangeRewardFlowDistribution() external;
+    function proposeDeleteTotalSupply() external;
     function proposeImplementation(address _newImpl) external;
+    function proposeListStatus(bytes1 newStatus) external;
     function proposeUserValidator(address newValidator) external;
     function recalculateReward() external;
+    function rejectChangeBaseRewardAmount() external;
+    function rejectChangeRewardFlowDistribution() external;
+    function rejectDeleteTotalSupply() external;
+    function rejectListStatusProposal() external;
     function rejectProposalAdmin() external;
     function rejectUpgrade() external;
     function removeAmountFromUser(address user, address token, uint256 amount) external;
-    function reserveAsyncNonce(uint256 nonce, address serviceAddress) external;
-    function revokeAsyncNonce(address user, uint256 nonce) external;
+    function reserveAsyncNonce(uint256 nonce, address senderExecutor) external;
+    function revokeAsyncNonce(uint256 nonce) external;
     function setEvvmID(uint256 newEvvmID) external;
     function setPointStaker(address user, bytes1 answer) external;
+    function setTokenStatusOnAllowList(address token, bool status) external;
+    function setTokenStatusOnDenyList(address token, bool status) external;
     function validateAndConsumeNonce(
         address user,
+        address senderExecutor,
         bytes32 hashPayload,
         address originExecutor,
         uint256 nonce,

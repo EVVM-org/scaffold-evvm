@@ -380,14 +380,8 @@ contract Estimator {
     }
 
     /**
-     * @notice Simulates reward estimation without modifying state
-     * @dev View function for previewing rewards before claiming
-     * @param _user Address of the user to simulate rewards for
-     * @return epochAnswer Epoch identifier that would be recorded
-     * @return tokenAddress Address of the reward token
-     * @return amountTotalToBeRewarded Calculated reward amount
-     * @return idToOverwrite Index in user history that would be updated
-     * @return timestampToOverwrite Timestamp that would be recorded
+     * @notice Simulates reward estimation without modifying state.
+     * @param _user Address to simulate rewards for.
      */
     function simulteEstimation(
         address _user

@@ -11,18 +11,9 @@ pragma solidity ^0.8.0;
  */
 library IdentityValidation{
     /**
-     * @notice Validates username format per system rules
-     * @dev Username must be 4+ chars, start with letter,
-     *      contain only letters/digits
-     *
-     * Validation Rules:
-     * - Minimum length: 4 characters
-     * - Must start with a letter (A-Z or a-z)
-     * - Can only contain letters and digits
-     * - No special characters or spaces allowed
-     *
-     * @param username The username string to validate
-     * @return True if valid username format, false otherwise
+     * @notice Returns true if username is valid: 4+ chars, starts with a letter, alphanumeric only.
+     * @param username Username to validate.
+     * @return True if valid.
      */
     function isValidUsername(string memory username) internal pure returns (bool) {
         bytes memory usernameBytes = bytes(username);

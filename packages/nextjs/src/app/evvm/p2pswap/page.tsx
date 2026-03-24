@@ -191,6 +191,7 @@ export default function P2PSwapPage() {
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: priorityMake === "high",
         senderExecutor: deployment.p2pSwap as `0x${string}`,
+        originExecutor: (address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create P2PSwap makeOrder() action
@@ -309,6 +310,7 @@ export default function P2PSwapPage() {
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: priorityDispatchFixed === "high",
         senderExecutor: deployment.p2pSwap as `0x${string}`,
+        originExecutor: (address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       if (!feeFixed) throw new Error("Error calculating fee");
@@ -433,6 +435,7 @@ export default function P2PSwapPage() {
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: priorityDispatchProp === "high",
         senderExecutor: deployment.p2pSwap as `0x${string}`,
+        originExecutor: (address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       if (!feeProp) throw new Error("Error calculating fee");
@@ -548,6 +551,7 @@ export default function P2PSwapPage() {
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: priorityCancel === "high",
         senderExecutor: deployment.p2pSwap as `0x${string}`,
+        originExecutor: (address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create P2PSwap cancelOrder() action

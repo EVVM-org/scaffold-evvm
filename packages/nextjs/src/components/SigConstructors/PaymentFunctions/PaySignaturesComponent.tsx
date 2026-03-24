@@ -97,6 +97,7 @@ export const PaySignaturesComponent = ({
         nonce: BigInt(formData.nonce),
         isAsyncExec: priority === "high",
         senderExecutor: formData.executor as `0x${string}`,
+        originExecutor: walletData.address as `0x${string}`,
         signature,
       });
     } catch (error) {

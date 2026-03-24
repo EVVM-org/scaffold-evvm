@@ -10,34 +10,6 @@ library P2PSwapStructs {
         uint256 ordersAvailable;
     }
 
-    struct MetadataCancelOrder {
-        uint256 nonce;
-        address originExecutor;
-        address tokenA;
-        address tokenB;
-        uint256 orderId;
-        bytes signature;
-    }
-
-    struct MetadataDispatchOrder {
-        uint256 nonce;
-        address originExecutor;
-        address tokenA;
-        address tokenB;
-        uint256 orderId;
-        uint256 amountOfTokenBToFill;
-        bytes signature;
-    }
-
-    struct MetadataMakeOrder {
-        uint256 nonce;
-        address originExecutor;
-        address tokenA;
-        address tokenB;
-        uint256 amountA;
-        uint256 amountB;
-    }
-
     struct Order {
         address seller;
         uint256 amountA;
@@ -71,14 +43,27 @@ interface IP2PSwap {
     function addBalance(address _token, uint256 _amount) external;
     function cancelOrder(
         address user,
-        P2PSwapStructs.MetadataCancelOrder memory metadata,
+        address tokenA,
+        address tokenB,
+        uint256 orderId,
+        address senderExecutor,
+        address originExecutor,
+        uint256 nonce,
+        bytes memory signature,
         uint256 priorityFeePay,
         uint256 noncePay,
         bytes memory signaturePay
     ) external;
     function dispatchOrder_fillFixedFee(
         address user,
-        P2PSwapStructs.MetadataDispatchOrder memory metadata,
+        address tokenA,
+        address tokenB,
+        uint256 orderId,
+        uint256 amountOfTokenBToFill,
+        address senderExecutor,
+        address originExecutor,
+        uint256 nonce,
+        bytes memory signature,
         uint256 priorityFeePay,
         uint256 noncePay,
         bytes memory signaturePay,
@@ -86,7 +71,14 @@ interface IP2PSwap {
     ) external;
     function dispatchOrder_fillPropotionalFee(
         address user,
-        P2PSwapStructs.MetadataDispatchOrder memory metadata,
+        address tokenA,
+        address tokenB,
+        uint256 orderId,
+        uint256 amountOfTokenBToFill,
+        address senderExecutor,
+        address originExecutor,
+        uint256 nonce,
+        bytes memory signature,
         uint256 priorityFeePay,
         uint256 noncePay,
         bytes memory signaturePay
@@ -95,6 +87,7 @@ interface IP2PSwap {
     function getAllMarketOrders(uint256 market) external view returns (P2PSwapStructs.OrderForGetter[] memory orders);
     function getAllMarketsMetadata() external view returns (P2PSwapStructs.MarketInformation[] memory);
     function getBalanceOfContract(address token) external view returns (uint256);
+    function getEvvmID() external view returns (uint256);
     function getIfUsedAsyncNonce(address user, uint256 nonce) external view returns (bool);
     function getMarketMetadata(uint256 market) external view returns (P2PSwapStructs.MarketInformation memory);
     function getMaxLimitFillFixedFee() external view returns (uint256);
@@ -109,13 +102,20 @@ interface IP2PSwap {
     function getOwnerProposal() external view returns (address);
     function getOwnerTimeToAccept() external view returns (uint256);
     function getPercentageFee() external view returns (uint256);
+    function getPrincipalTokenAddress() external view returns (address);
     function getProposalPercentageFee() external view returns (uint256);
     function getProposedWithdrawal() external view returns (address, uint256, address, uint256);
     function getRewardPercentage() external view returns (P2PSwapStructs.Percentage memory);
     function getRewardPercentageProposal() external view returns (P2PSwapStructs.Percentage memory);
     function makeOrder(
         address user,
-        P2PSwapStructs.MetadataMakeOrder memory metadata,
+        address tokenA,
+        address tokenB,
+        uint256 amountA,
+        uint256 amountB,
+        address senderExecutor,
+        address originExecutor,
+        uint256 nonce,
         bytes memory signature,
         uint256 priorityFeePay,
         uint256 noncePay,
@@ -133,8 +133,6 @@ interface IP2PSwap {
     function rejectProposeOwner() external;
     function rejectProposePercentageFee() external;
     function rejectProposeWithdrawal() external;
-    function reserveAsyncNonceToService(uint256 nonce) external;
-    function revokeAsyncNonceToService(address user, uint256 nonce) external;
     function stake(uint256 amount) external;
     function unstake(uint256 amount) external;
 }

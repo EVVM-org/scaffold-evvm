@@ -105,6 +105,7 @@ export const FlushUsernameComponent = ({
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: formData.priorityFlag_EVVM,
           senderExecutor: formData.addressNameService as `0x${string}`,
+          originExecutor: walletData.address as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         FlushUsernameInputData: nsAction.data,

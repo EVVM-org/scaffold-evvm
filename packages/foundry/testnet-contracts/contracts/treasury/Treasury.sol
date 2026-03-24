@@ -104,8 +104,7 @@ contract Treasury {
 
     /**
      * @notice Returns the address of the connected EVVM core contract
-     * @dev Used for verification and integration purposes
-     * @return Address of the EVVM contract managing balances
+     * @return Address of the EVVM core contract
      */
     function getCoreAddress() external view returns (address) {
         return address(core);

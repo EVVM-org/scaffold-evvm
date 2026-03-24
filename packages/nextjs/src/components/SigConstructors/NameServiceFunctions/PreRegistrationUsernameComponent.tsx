@@ -130,6 +130,7 @@ export const PreRegistrationUsernameComponent = ({
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: priority === "high",
           senderExecutor: formData.addressNameService as `0x${string}`,
+          originExecutor: walletData.address as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         PreRegistrationUsernameInputData: nsAction.data,

@@ -61,23 +61,6 @@ abstract contract CoreStorage {
      */
     address treasuryAddress;
 
-    //░▒▓█ Token Whitelist Proposal State ██████████████████████████████████████████████▓▒░
-
-    /**
-     * @notice Pending token address to be whitelisted.
-     */
-    address whitelistTokenToBeAdded_address;
-
-    /**
-     * @notice Uniswap V3 (or similar) pool address used to verify liquidity for the pending token.
-     */
-    address whitelistTokenToBeAdded_pool;
-
-    /**
-     * @notice Timestamp when the pending token whitelist proposal can be accepted.
-     */
-    uint256 whitelistTokenToBeAdded_dateToSet;
-
     //░▒▓█ Proxy Implementation State ██████████████████████████████████████████████████▓▒░
 
     /**
@@ -96,12 +79,24 @@ abstract contract CoreStorage {
      */
     uint256 timeToAcceptImplementation;
 
+    //░▒▓█ Total supply ██████████████████████████████████████████████████▓▒░
+
+    /**
+     * @notice Timestamp after which the maximum supply can be deleted.
+     */
+    uint256 timeToDeleteMaxSupply;
+
     //░▒▓█ EVVM Configuration State ████████████████████████████████████████████████████▓▒░
 
     /**
      * @notice Timestamp limiting when the EVVM ID can be modified (initial window).
      */
     uint256 windowTimeToChangeEvvmID;
+
+    /**
+     * @notice Current total supply of the principal token within the EVVM.
+     */
+    uint256 currentSupply;
 
     /**
      * @notice Metadata configuration for this EVVM instance (ID, token info, rewards).
@@ -116,12 +111,33 @@ abstract contract CoreStorage {
      */
     ProposalStructs.AddressTypeProposal admin;
 
+    //░▒▓█ Reward Distribution State ██████████████████████████████████████████████████████▓▒░
+
+    /**
+     * @notice Governance-controlled flag to enable or disable staking reward distribution.
+     * @dev Defaults to true. Can only be toggled via governance once 99.99% of supply is minted.
+     */
+    ProposalStructs.BoolTypeProposal rewardFlowDistribution;
+
+    uint256 proposalChangeReward;
+    uint256 timeToAcceptChangeReward;
+
+    //░▒▓█ List state ████████████████████████████████████████████████████████▓▒░
+
+    /**
+     * @notice Indicates if the EVVM nees to check the allowlist or the denylist for token operations.
+     * @dev 0x00 = no lists active
+     *      0x01 = allowlist active
+     *      0x02 = denylist active
+     */
+    ProposalStructs.Bytes1TypeProposal listStatus;
+
     //░▒▓█ Initialization State ████████████████████████████████████████████████████████▓▒░
 
     /**
      * @notice Internal guard to ensure system contracts are initialized only once.
      */
-    bytes1 breakerSetupNameServiceAddress;
+    bool breakerSetupNameServiceAddress;
 
     //░▒▓█ Staker Registry █████████████████████████████████████████████████████████████▓▒░
 
@@ -138,17 +154,10 @@ abstract contract CoreStorage {
      */
     mapping(address user => mapping(address token => uint256 quantity)) balances;
 
-    //░▒▓█ Fisher Bridge State ██████████████████████████████████████████████████████████▓▒░
-
-    /**
-     * @notice Nonce tracking for ordered Fisher Bridge cross-chain deposits.
-     */
-    mapping(address user => uint256 nonce) nextFisherDepositNonce;
-
     //░▒▓█ Nonce State ██████████████████████████████████████████████████████████▓▒░
 
     /**
-     * @notice (Unused but kept for storage alignment) Proposed address for user validation.
+     * @notice Proposal state for the active UserValidator contract address.
      */
     ProposalStructs.AddressTypeProposal userValidatorAddress;
 
@@ -168,4 +177,18 @@ abstract contract CoreStorage {
      * @notice tracks the next expected nonce for sequential (synchronous) transactions.
      */
     mapping(address user => uint256 nonce) nextSyncNonce;
+
+    //░▒▓█ Token allowlist/denylist ██████████████████████████████████████████████████████████▓▒░
+
+    /**
+     * @notice Token denylist. Restricted tokens cannot be deposited or transferred, but can still be withdrawn.
+     * @dev Active when listStatus = 0x02.
+     */
+    mapping(address tokenAdress => bool isDenied) denyList;
+
+    /**
+     * @notice Token allowlist. Only listed tokens can be deposited and transferred.
+     * @dev Active when listStatus = 0x01.
+     */
+    mapping(address tokenAdress => bool isAllowed) allowList;
 }

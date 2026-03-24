@@ -35,6 +35,7 @@ library CoreStructs {
         uint256 amount;
         uint256 priorityFee;
         address senderExecutor;
+        address originExecutor;
         uint256 nonce;
         bool isAsyncExec;
         bytes signature;

@@ -124,15 +124,17 @@ contract NameService {
     function preRegistrationUsername(
         address user,
         bytes32 hashPreRegisteredUsername,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForPreRegistrationUsername(hashPreRegisteredUsername),
             originExecutor,
             nonce,
@@ -141,7 +143,14 @@ contract NameService {
         );
 
         if (priorityFeePay > 0)
-            requestPay(user, 0, priorityFeePay, noncePay, signaturePay);
+            requestPay(
+                user,
+                0,
+                priorityFeePay,
+                originExecutor,
+                noncePay,
+                signaturePay
+            );
 
         identityDetails[
             string.concat(
@@ -150,7 +159,7 @@ contract NameService {
             )
         ] = Structs.IdentityBaseMetadata({
             owner: user,
-            expirationDate: block.timestamp + 30 seconds,
+            expirationDate: block.timestamp + 30 minutes,
             customMetadataMaxSlots: 0,
             offerMaxSlots: 0,
             flagNotAUsername: 0x01
@@ -175,17 +184,19 @@ contract NameService {
      */
     function registrationUsername(
         address user,
-        string memory username,
+        string calldata username,
         uint256 lockNumber,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForRegistrationUsername(username, lockNumber),
             originExecutor,
             nonce,
@@ -205,6 +216,7 @@ contract NameService {
             user,
             getPriceOfRegistration(username),
             priorityFeePay,
+            originExecutor,
             noncePay,
             signaturePay
         );
@@ -255,18 +267,20 @@ contract NameService {
      */
     function makeOffer(
         address user,
-        string memory username,
+        string calldata username,
         uint256 amount,
         uint256 expirationDate,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external returns (uint256 offerID) {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForMakeOffer(username, amount, expirationDate),
             originExecutor,
             nonce,
@@ -284,7 +298,14 @@ contract NameService {
 
         if (amount == 0) revert Error.AmountMustBeGreaterThanZero();
 
-        requestPay(user, amount, priorityFeePay, noncePay, signaturePay);
+        requestPay(
+            user,
+            amount,
+            priorityFeePay,
+            originExecutor,
+            noncePay,
+            signaturePay
+        );
 
         while (usernameOffers[username][offerID].offerer != address(0))
             offerID++;
@@ -299,9 +320,7 @@ contract NameService {
 
         makeCaPay(
             msg.sender,
-            core.getRewardAmount() +
-                ((amount * 125) / 100_000) +
-                priorityFeePay
+            core.getRewardAmount() + ((amount * 125) / 100_000) + priorityFeePay
         );
 
         principalTokenTokenLockedForWithdrawOffers +=
@@ -316,55 +335,31 @@ contract NameService {
     }
 
     /**
-     * @notice Withdraws marketplace offer and refunds tokens
-     * @dev Can only be called by offer creator or after expire
-     *
-     * Withdrawal Flow:
-     * 1. Validates offer exists and belongs to user
-     * 2. Optionally validates expiration date passed
-     * 3. Refunds locked tokens to offerer
-     * 4. Processes optional priority fee
-     * 5. Deletes offer and updates slot count
-     *
-     * Core.sol Integration:
-     * - Validates signature with State.validateAndConsumeNonce
-     * - Uses async nonce (isAsyncExec = true)
-     * - Hash includes username + offer ID
-     * - Prevents replay attacks and double withdrawals
-     *
-     * Core.sol Integration:
-     * - Refund: offer amount via makeTransfer to offerer
-     * - Priority fee: via requestPay (if > 0)
-     * - Staker reward: 1x reward + priority fee
-     * - makeCaPay distributes to caller if staker
-     *
-     * Token Unlocking:
-     * - Decreases principalTokenTokenLockedForWithdrawOffers
-     * - Releases both offer amount and marketplace fee
-     * - Returns funds to original offerer
-     *
-     * @param user Address that made original offer
-     * @param username Username offer was made for
-     * @param offerID Unique identifier of offer to withdraw
-     * @param nonce Async nonce for replay protection
-     * @param signature Signature for Core.sol validation
-     * @param priorityFeePay Priority fee for faster processing
-     * @param noncePay Nonce for EVVM payment transaction
-     * @param signaturePay Signature for EVVM payment
+     * @notice Withdraws a pending marketplace offer and refunds locked tokens to the offerer.
+     * @param user Address that made the original offer.
+     * @param username Username the offer was made for.
+     * @param offerID ID of the offer to withdraw.
+     * @param nonce Async nonce for signature verification.
+     * @param signature Authorization signature.
+     * @param priorityFeePay Optional executor fee.
+     * @param noncePay Nonce for the Core payment.
+     * @param signaturePay Signature for the Core payment.
      */
     function withdrawOffer(
         address user,
-        string memory username,
+        string calldata username,
         uint256 offerID,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForWithdrawOffer(username, offerID),
             originExecutor,
             nonce,
@@ -376,7 +371,14 @@ contract NameService {
             revert Error.UserIsNotOwnerOfOffer();
 
         if (priorityFeePay > 0)
-            requestPay(user, 0, priorityFeePay, noncePay, signaturePay);
+            requestPay(
+                user,
+                0,
+                priorityFeePay,
+                originExecutor,
+                noncePay,
+                signaturePay
+            );
 
         makeCaPay(user, usernameOffers[username][offerID].amount);
 
@@ -395,63 +397,31 @@ contract NameService {
     }
 
     /**
-     * @notice Accepts marketplace offer and transfers ownership
-     * @dev Can only be called by current owner before expiration
-     *
-     * Acceptance Flow:
-     * 1. Validates user is current username owner
-     * 2. Validates offer exists and not expired
-     * 3. Transfers offer amount to seller
-     * 4. Transfers ownership to offerer
-     * 5. Processes optional priority fee
-     * 6. Deletes offer and unlocks tokens
-     *
-     * Core.sol Integration:
-     * - Validates signature with State.validateAndConsumeNonce
-     * - Uses async nonce (isAsyncExec = true)
-     * - Hash includes username + offer ID
-     * - Prevents replay attacks and double acceptance
-     *
-     * Core.sol Integration:
-     * - Payment: offer amount via makeCaPay to seller
-     * - Priority fee: via requestPay (if > 0)
-     * - Fee Distribution:
-     *   * 99.5% to seller (locked amount)
-     *   * 0.5% + reward to staker (if applicable)
-     * - makeCaPay transfers from locked funds
-     *
-     * Ownership Transfer:
-     * - Changes identityDetails[username].owner
-     * - Preserves all metadata and expiration
-     * - Transfers all custom metadata slots
-     *
-     * Token Unlocking:
-     * - Decreases principalTokenTokenLockedForWithdrawOffers
-     * - Releases offer amount + marketplace fee
-     * - Distributes to seller and staker
-     *
-     * @param user Address of current username owner
-     * @param username Username being sold
-     * @param offerID Unique identifier of offer to accept
-     * @param nonce Async nonce for replay protection
-     * @param signature Signature for Core.sol validation
-     * @param priorityFeePay Priority fee for faster processing
-     * @param noncePay Nonce for EVVM payment transaction
-     * @param signaturePay Signature for EVVM payment
+     * @notice Accepts a marketplace offer, paying the seller and transferring username ownership to the buyer.
+     * @param user Address of the current username owner.
+     * @param username Username being sold.
+     * @param offerID ID of the offer to accept.
+     * @param nonce Async nonce for signature verification.
+     * @param signature Authorization signature.
+     * @param priorityFeePay Optional executor fee.
+     * @param noncePay Nonce for the Core payment.
+     * @param signaturePay Signature for the Core payment.
      */
     function acceptOffer(
         address user,
-        string memory username,
+        string calldata username,
         uint256 offerID,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForAcceptOffer(username, offerID),
             originExecutor,
             nonce,
@@ -468,7 +438,14 @@ contract NameService {
         ) revert Error.OfferInactive();
 
         if (priorityFeePay > 0) {
-            requestPay(user, 0, priorityFeePay, noncePay, signaturePay);
+            requestPay(
+                user,
+                0,
+                priorityFeePay,
+                originExecutor,
+                noncePay,
+                signaturePay
+            );
         }
 
         makeCaPay(user, usernameOffers[username][offerID].amount);
@@ -494,52 +471,29 @@ contract NameService {
     }
 
     /**
-     * @notice Renews username registration for another year
-     * @dev Dynamic pricing based on timing and market demand
-     *
-     * Pricing Rules:
-     * - Free: Renewed within grace period after expiration
-     * - Variable: Based on highest active offer (min 500 PT)
-     * - Fixed: 500,000 PT if renewed >1 year early
-     * - Can renew up to 100 years in advance
-     *
-     * Core.sol Integration:
-     * - Validates signature with State.validateAndConsumeNonce
-     * - Uses async nonce (isAsyncExec = true)
-     * - Hash includes username only
-     * - Prevents replay attacks
-     *
-     * Core.sol Integration:
-     * - Payment: seePriceToRenew calculates cost
-     * - Paid through requestPay (locks tokens)
-     * - Staker reward: 1x reward + 50% of price + fee
-     * - makeCaPay distributes rewards
-     *
-     * Renewal Logic:
-     * - Extends expirationDate by 366 days
-     * - Preserves ownership and all metadata
-     * - Cannot exceed 100 years (36500 days)
-     *
-     * @param user Address of username owner
-     * @param username Username to renew
-     * @param nonce Async nonce for replay protection
-     * @param signature Signature for Core.sol validation
-     * @param priorityFeePay Priority fee for faster processing
-     * @param noncePay Nonce for EVVM payment transaction
-     * @param signaturePay Signature for EVVM payment
+     * @notice Renews username registration by 366 days. Pricing is dynamic based on active offers.
+     * @param user Address of the username owner.
+     * @param username Username to renew.
+     * @param nonce Async nonce for signature verification.
+     * @param signature Authorization signature.
+     * @param priorityFeePay Optional executor fee.
+     * @param noncePay Nonce for the Core payment.
+     * @param signaturePay Signature for the Core payment.
      */
     function renewUsername(
         address user,
-        string memory username,
+        string calldata username,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForRenewUsername(username),
             originExecutor,
             nonce,
@@ -564,6 +518,7 @@ contract NameService {
             user,
             priceOfRenew,
             priorityFeePay,
+            originExecutor,
             noncePay,
             signaturePay
         );
@@ -583,61 +538,31 @@ contract NameService {
     //█ Metadata Functions ████████████████████████████████████████████████████████████████████████
 
     /**
-     * @notice Adds custom metadata to username using schema format
-     * @dev Metadata format: [schema]:[subschema]>[value]
-     *
-     * Standard Format Examples:
-     * - memberOf:>EVVM
-     * - socialMedia:x>jistro (Twitter/X handle)
-     * - email:dev>jistro[at]evvm.org (dev email)
-     * - email:callme>contact[at]jistro.xyz (contact)
-     *
-     * Schema Guidelines:
-     * - Based on https://schema.org/docs/schemas.html
-     * - ':' separates schema from subschema
-     * - '>' separates metadata from value
-     * - Pad spaces if schema/subschema < 5 chars
-     * - Use "socialMedia" for social networks
-     *
-     * Core.sol Integration:
-     * - Validates signature with State.validateAndConsumeNonce
-     * - Uses async nonce (isAsyncExec = true)
-     * - Hash includes identity + value
-     * - Prevents replay attacks
-     *
-     * Core.sol Integration:
-     * - Payment: 10x EVVM reward amount
-     * - Paid through requestPay (locks tokens)
-     * - Staker reward: 5x reward + priority fee
-     * - makeCaPay distributes rewards
-     *
-     * Slot Management:
-     * - Increments customMetadataMaxSlots
-     * - Each slot holds one metadata entry
-     * - No limit on number of slots
-     *
-     * @param user Address of username owner
-     * @param identity Username to add metadata to
-     * @param value Metadata string following format
-     * @param nonce Async nonce for replay protection
-     * @param signature Signature for Core.sol validation
-     * @param priorityFeePay Priority fee for faster processing
-     * @param noncePay Nonce for EVVM payment transaction
-     * @param signaturePay Signature for EVVM payment
+     * @notice Adds a custom metadata entry to a username using schema format ([schema]:[subschema]>[value]).
+     * @param user Address of the username owner.
+     * @param identity Username to add metadata to.
+     * @param value Metadata string.
+     * @param nonce Async nonce for signature verification.
+     * @param signature Authorization signature.
+     * @param priorityFeePay Optional executor fee.
+     * @param noncePay Nonce for the Core payment.
+     * @param signaturePay Signature for the Core payment.
      */
     function addCustomMetadata(
         address user,
-        string memory identity,
-        string memory value,
+        string calldata identity,
+        string calldata value,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForAddCustomMetadata(identity, value),
             originExecutor,
             nonce,
@@ -654,6 +579,7 @@ contract NameService {
             user,
             getPriceToAddCustomMetadata(),
             priorityFeePay,
+            originExecutor,
             noncePay,
             signaturePay
         );
@@ -675,55 +601,31 @@ contract NameService {
     }
 
     /**
-     * @notice Removes specific custom metadata entry by key
-     * @dev Shifts all subsequent entries to fill gap
-     *
-     * Removal Process:
-     * 1. Validates user owns username
-     * 2. Validates key exists in metadata slots
-     * 3. Deletes entry at key position
-     * 4. Shifts all entries after key down by 1
-     * 5. Decrements customMetadataMaxSlots
-     *
-     * Core.sol Integration:
-     * - Validates signature with State.validateAndConsumeNonce
-     * - Uses async nonce (isAsyncExec = true)
-     * - Hash includes identity + key
-     * - Prevents replay attacks
-     *
-     * Core.sol Integration:
-     * - Payment: 10x EVVM reward amount
-     * - Paid through requestPay (locks tokens)
-     * - Staker reward: 5x reward + priority fee
-     * - makeCaPay distributes rewards
-     *
-     * Array Reordering:
-     * - Shifts entries from key+1 to maxSlots
-     * - Maintains continuous slot indexing
-     * - No gaps in metadata array
-     *
-     * @param user Address of username owner
-     * @param identity Username to remove metadata from
-     * @param key Index of metadata entry to remove
-     * @param nonce Async nonce for replay protection
-     * @param signature Signature for Core.sol validation
-     * @param priorityFeePay Priority fee for faster processing
-     * @param noncePay Nonce for EVVM payment transaction
-     * @param signaturePay Signature for EVVM payment
+     * @notice Removes a custom metadata entry by index and shifts subsequent entries to fill the gap.
+     * @param user Address of the username owner.
+     * @param identity Username to remove metadata from.
+     * @param key Index of the metadata entry to remove.
+     * @param nonce Async nonce for signature verification.
+     * @param signature Authorization signature.
+     * @param priorityFeePay Optional executor fee.
+     * @param noncePay Nonce for the Core payment.
+     * @param signaturePay Signature for the Core payment.
      */
     function removeCustomMetadata(
         address user,
-        string memory identity,
+        string calldata identity,
         uint256 key,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForRemoveCustomMetadata(identity, key),
             originExecutor,
             nonce,
@@ -741,6 +643,7 @@ contract NameService {
             user,
             getPriceToRemoveCustomMetadata(),
             priorityFeePay,
+            originExecutor,
             noncePay,
             signaturePay
         );
@@ -772,54 +675,29 @@ contract NameService {
     }
 
     /**
-     * @notice Removes all custom metadata entries for username
-     * @dev More gas-efficient than removing individually
-     *
-     * Flush Process:
-     * 1. Validates user owns username
-     * 2. Validates metadata slots exist (not empty)
-     * 3. Calculates cost based on slot count
-     * 4. Deletes all metadata entries in loop
-     * 5. Resets customMetadataMaxSlots to 0
-     *
-     * Core.sol Integration:
-     * - Validates signature with State.validateAndConsumeNonce
-     * - Uses async nonce (isAsyncExec = true)
-     * - Hash includes identity only
-     * - Prevents replay attacks
-     *
-     * Core.sol Integration:
-     * - Payment: getPriceToFlushCustomMetadata (per slot)
-     * - Cost: 10x EVVM reward per metadata entry
-     * - Paid through requestPay (locks tokens)
-     * - Staker reward: 5x reward per slot + priority
-     * - makeCaPay distributes batch rewards
-     *
-     * Efficiency:
-     * - Single transaction for all metadata
-     * - Batch pricing for multiple entries
-     * - Cheaper than calling removeCustomMetadata N times
-     *
-     * @param user Address of username owner
-     * @param identity Username to flush all metadata from
-     * @param nonce Async nonce for replay protection
-     * @param signature Signature for Core.sol validation
-     * @param priorityFeePay Priority fee for faster processing
-     * @param noncePay Nonce for EVVM payment transaction
-     * @param signaturePay Signature for EVVM payment
+     * @notice Removes all custom metadata entries for a username in a single transaction.
+     * @param user Address of the username owner.
+     * @param identity Username to clear all metadata from.
+     * @param nonce Async nonce for signature verification.
+     * @param signature Authorization signature.
+     * @param priorityFeePay Optional executor fee.
+     * @param noncePay Nonce for the Core payment.
+     * @param signaturePay Signature for the Core payment.
      */
     function flushCustomMetadata(
         address user,
-        string memory identity,
+        string calldata identity,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForFlushCustomMetadata(identity),
             originExecutor,
             nonce,
@@ -837,6 +715,7 @@ contract NameService {
             user,
             getPriceToFlushCustomMetadata(identity),
             priorityFeePay,
+            originExecutor,
             noncePay,
             signaturePay
         );
@@ -862,61 +741,29 @@ contract NameService {
     }
 
     /**
-     * @notice Completely removes username and all data
-     * @dev Deletes username, metadata, makes available for
-     * re-registration
-     *
-     * Flush Process:
-     * 1. Validates user owns username
-     * 2. Validates not expired (must be active)
-     * 3. Validates is actual username (not temp hash)
-     * 4. Calculates cost based on metadata + username
-     * 5. Deletes all metadata entries
-     * 6. Resets username to default state
-     * 7. Preserves offerMaxSlots history
-     *
-     * Core.sol Integration:
-     * - Validates signature with State.validateAndConsumeNonce
-     * - Uses async nonce (isAsyncExec = true)
-     * - Hash includes username only
-     * - Prevents replay attacks
-     *
-     * Core.sol Integration:
-     * - Payment: getPriceToFlushUsername
-     * - Cost: Base + (10x reward per metadata slot)
-     * - Paid through requestPay (locks tokens)
-     * - Staker reward: 5x reward per slot + priority
-     * - makeCaPay distributes to caller
-     *
-     * Cleanup:
-     * - Deletes all custom metadata slots
-     * - Sets owner to address(0)
-     * - Sets expirationDate to 0
-     * - Resets customMetadataMaxSlots to 0
-     * - Keeps offerMaxSlots for history
-     * - Sets flagNotAUsername to 0x00
-     * - Username becomes available for re-registration
-     *
-     * @param user Address of username owner
-     * @param username Username to completely remove
-     * @param nonce Async nonce for replay protection
-     * @param signature Signature for Core.sol validation
-     * @param priorityFeePay Priority fee for faster processing
-     * @param noncePay Nonce for EVVM payment transaction
-     * @param signaturePay Signature for EVVM payment
+     * @notice Deletes a username and all its metadata, making it available for re-registration.
+     * @param user Address of the username owner.
+     * @param username Username to delete.
+     * @param nonce Async nonce for signature verification.
+     * @param signature Authorization signature.
+     * @param priorityFeePay Optional executor fee.
+     * @param noncePay Nonce for the Core payment.
+     * @param signaturePay Signature for the Core payment.
      */
     function flushUsername(
         address user,
-        string memory username,
+        string calldata username,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
-        bytes memory signature,
+        bytes calldata signature,
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes memory signaturePay
+        bytes calldata signaturePay
     ) external {
         core.validateAndConsumeNonce(
             user,
+            senderExecutor,
             Hash.hashDataForFlushUsername(username),
             originExecutor,
             nonce,
@@ -937,6 +784,7 @@ contract NameService {
             user,
             getPriceToFlushUsername(username),
             priorityFeePay,
+            originExecutor,
             noncePay,
             signaturePay
         );
@@ -1098,21 +946,20 @@ contract NameService {
     //█ EVVM Payment Integration ██████████████████████████████████████████████
 
     /**
-     * @notice Internal function to handle payments through the EVVM contract
-     * @dev Supports both synchronous and asynchronous payment modes
-     * @param user Address making the payment
-     * @param amount Amount to pay in Principal Tokens
-     * @param priorityFee Additional priority fee for faster processing
-     * @param nonce Nonce for the EVVM transaction
-     * @param signature Signature authorizing the payment
-     * @dev all evvm nonce execution are async (true)
+     * @notice Routes a Principal Token payment through Core. Always uses async nonce (isAsyncExec = true).
+     * @param user Payer address.
+     * @param amount Amount in Principal Tokens.
+     * @param priorityFee Optional executor fee.
+     * @param nonce Async nonce for the Core payment.
+     * @param signature Authorization signature.
      */
     function requestPay(
         address user,
         uint256 amount,
         uint256 priorityFee,
+        address originExecutor,
         uint256 nonce,
-        bytes memory signature
+        bytes calldata signature
     ) internal {
         core.pay(
             user,
@@ -1122,6 +969,7 @@ contract NameService {
             amount,
             priorityFee,
             address(this),
+            originExecutor,
             nonce,
             true,
             signature
@@ -1129,10 +977,9 @@ contract NameService {
     }
 
     /**
-     * @notice Internal function to distribute Principal Tokens to users
-     * @dev Calls the EVVM contract's caPay function for token distribution
-     * @param user Address to receive the tokens
-     * @param amount Amount of Principal Tokens to distribute
+     * @notice Transfers Principal Tokens to a user via Core.caPay.
+     * @param user Recipient address.
+     * @param amount Amount to send.
      */
     function makeCaPay(address user, uint256 amount) internal {
         core.caPay(user, core.getPrincipalTokenAddress(), amount);
@@ -1141,14 +988,10 @@ contract NameService {
     //█ Username Hashing Functions ███████████████████████████████████████████████████████████████████
 
     /**
-     * @notice Creates a hash of username and random number for pre-registration
-     * @dev Used in the commit-reveal scheme to prevent front-running attacks
-     * @param _username The username to hash
-     * @param _randomNumber Random number to add entropy
-     * @return Hash of the username and random number
+     * @notice Returns keccak256(username, randomNumber) for use in the commit-reveal pre-registration scheme.
      */
     function hashUsername(
-        string memory _username,
+        string calldata _username,
         uint256 _randomNumber
     ) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_username, _randomNumber));
@@ -1165,7 +1008,7 @@ contract NameService {
      * @return True if the identity exists and is valid
      */
     function verifyIfIdentityExists(
-        string memory _identity
+        string calldata _identity
     ) public view returns (bool) {
         if (identityDetails[_identity].flagNotAUsername == 0x01) {
             if (
@@ -1192,7 +1035,7 @@ contract NameService {
      * @return True if the username exists (will revert if not)
      */
     function strictVerifyIfIdentityExist(
-        string memory _username
+        string calldata _username
     ) public view returns (bool) {
         if (identityDetails[_username].flagNotAUsername == 0x01) {
             if (
@@ -1213,25 +1056,19 @@ contract NameService {
     }
 
     /**
-     * @notice Gets the owner address of a registered identity
-     * @dev Returns the current owner address for any valid identity
-     * @param _username The username to query
-     * @return Address of the username owner
+     * @notice Returns the owner address of a registered identity.
      */
     function getOwnerOfIdentity(
-        string memory _username
+        string calldata _username
     ) public view returns (address) {
         return identityDetails[_username].owner;
     }
 
     /**
-     * @notice Verifies identity exists and returns owner address
-     * @dev Combines strict verification with owner lookup in one call
-     * @param _username The username to verify and get owner for
-     * @return answer Address of the username owner (reverts if username doesn't exist)
+     * @notice Reverts if the identity does not exist; returns the owner address if it does.
      */
     function verifyStrictAndGetOwnerOfIdentity(
-        string memory _username
+        string calldata _username
     ) public view returns (address answer) {
         if (strictVerifyIfIdentityExist(_username))
             answer = identityDetails[_username].owner;
@@ -1247,7 +1084,7 @@ contract NameService {
      * @return price The cost in Principal Tokens to renew the username
      */
     function seePriceToRenew(
-        string memory _identity
+        string calldata _identity
     ) public view returns (uint256 price) {
         if (identityDetails[_identity].expirationDate >= block.timestamp) {
             if (usernameOffers[_identity][0].expirationDate != 0) {
@@ -1310,7 +1147,7 @@ contract NameService {
      * @return price Total cost in Principal Tokens (10x reward amount per metadata entry)
      */
     function getPriceToFlushCustomMetadata(
-        string memory _identity
+        string calldata _identity
     ) public view returns (uint256 price) {
         price =
             (10 * core.getRewardAmount()) *
@@ -1324,7 +1161,7 @@ contract NameService {
      * @return price Total cost in Principal Tokens (metadata flush cost + 1x reward amount)
      */
     function getPriceToFlushUsername(
-        string memory _identity
+        string calldata _identity
     ) public view returns (uint256 price) {
         price =
             ((10 * core.getRewardAmount()) *
@@ -1341,7 +1178,7 @@ contract NameService {
      * @return True if the username is available for registration
      */
     function isUsernameAvailable(
-        string memory _username
+        string calldata _username
     ) public view returns (bool) {
         if (identityDetails[_username].expirationDate == 0) {
             return true;
@@ -1353,13 +1190,10 @@ contract NameService {
     }
 
     /**
-     * @notice Gets basic identity information (owner and expiration date)
-     * @dev Returns essential metadata for quick identity verification
-     * @param _username The username to get basic info for
-     * @return Owner address and expiration timestamp
+     * @notice Returns the owner address and expiration timestamp of a username.
      */
     function getIdentityBasicMetadata(
-        string memory _username
+        string calldata _username
     ) public view returns (address, uint256) {
         return (
             identityDetails[_username].owner,
@@ -1368,25 +1202,19 @@ contract NameService {
     }
 
     /**
-     * @notice Gets the number of custom metadata entries for a username
-     * @dev Returns the count of metadata slots currently used
-     * @param _username The username to count metadata for
-     * @return Number of custom metadata entries
+     * @notice Returns the number of custom metadata entries for a username.
      */
     function getAmountOfCustomMetadata(
-        string memory _username
+        string calldata _username
     ) public view returns (uint256) {
         return identityDetails[_username].customMetadataMaxSlots;
     }
 
     /**
-     * @notice Retrieves all custom metadata entries for a username
-     * @dev Returns an array containing all metadata strings in order
-     * @param _username The username to get metadata for
-     * @return Array of all custom metadata strings
+     * @notice Returns all custom metadata entries for a username as an ordered array.
      */
     function getFullCustomMetadataOfIdentity(
-        string memory _username
+        string calldata _username
     ) public view returns (string[] memory) {
         string[] memory _customMetadata = new string[](
             identityDetails[_username].customMetadataMaxSlots
@@ -1402,27 +1230,20 @@ contract NameService {
     }
 
     /**
-     * @notice Gets a specific custom metadata entry by index
-     * @dev Retrieves metadata at a specific slot position
-     * @param _username The username to get metadata from
-     * @param _key The index of the metadata entry to retrieve
-     * @return The metadata string at the specified index
+     * @notice Returns the custom metadata entry at a specific index for a username.
      */
     function getSingleCustomMetadataOfIdentity(
-        string memory _username,
+        string calldata _username,
         uint256 _key
     ) public view returns (string memory) {
         return identityCustomMetadata[_username][_key];
     }
 
     /**
-     * @notice Gets the maximum number of metadata slots available for a username
-     * @dev Returns the total capacity for custom metadata entries
-     * @param _username The username to check metadata capacity for
-     * @return Maximum number of metadata slots
+     * @notice Returns the total number of metadata slots for a username.
      */
     function getCustomMetadataMaxSlotsOfIdentity(
-        string memory _username
+        string calldata _username
     ) public view returns (uint256) {
         return identityDetails[_username].customMetadataMaxSlots;
     }
@@ -1436,7 +1257,7 @@ contract NameService {
      * @return offers Array of all offer metadata structures
      */
     function getOffersOfUsername(
-        string memory _username
+        string calldata _username
     ) public view returns (Structs.OfferMetadata[] memory offers) {
         offers = new Structs.OfferMetadata[](
             identityDetails[_username].offerMaxSlots
@@ -1448,14 +1269,10 @@ contract NameService {
     }
 
     /**
-     * @notice Gets a specific offer for a username by offer ID
-     * @dev Retrieves detailed information about a particular offer
-     * @param _username The username to get the offer from
-     * @param _offerID The ID/index of the specific offer
-     * @return offer The complete offer metadata structure
+     * @notice Returns the offer metadata for a specific username and offer ID.
      */
     function getSingleOfferOfUsername(
-        string memory _username,
+        string calldata _username,
         uint256 _offerID
     ) public view returns (Structs.OfferMetadata memory offer) {
         return usernameOffers[_username][_offerID];
@@ -1468,7 +1285,7 @@ contract NameService {
      * @return length Total number of offers that have been made
      */
     function getLengthOfOffersUsername(
-        string memory _username
+        string calldata _username
     ) public view returns (uint256 length) {
         do {
             length++;
@@ -1476,13 +1293,10 @@ contract NameService {
     }
 
     /**
-     * @notice Gets the expiration date of a username registration
-     * @dev Returns the timestamp when the username registration expires
-     * @param _identity The username to check expiration for
-     * @return The expiration timestamp in seconds since Unix epoch
+     * @notice Returns the expiration timestamp of a username registration.
      */
     function getExpireDateOfIdentity(
-        string memory _identity
+        string calldata _identity
     ) public view returns (uint256) {
         return identityDetails[_identity].expirationDate;
     }
@@ -1496,7 +1310,7 @@ contract NameService {
      * @return The current registration price in Principal Tokens
      */
     function getPriceOfRegistration(
-        string memory username
+        string calldata username
     ) public view returns (uint256) {
         return
             identityDetails[username].offerMaxSlots > 0
@@ -1507,20 +1321,14 @@ contract NameService {
     //█ Administrative Getters ███████████████████████████████████████████████████████████████████████
 
     /**
-     * @notice Gets the current admin address
-     * @dev Returns the address with administrative privileges
-     * @return The current admin address
+     * @notice Returns the current admin address.
      */
     function getAdmin() public view returns (address) {
         return admin.current;
     }
 
     /**
-     * @notice Gets complete admin information including pending proposals
-     * @dev Returns current admin, proposed admin, and proposal acceptance deadline
-     * @return currentAdmin Current administrative address
-     * @return proposalAdmin Proposed new admin address (if any)
-     * @return timeToAcceptAdmin Timestamp when proposal can be accepted
+     * @notice Returns admin proposal details: current address, proposed address, and acceptance timestamp.
      */
     function getAdminFullDetails()
         public
@@ -1535,10 +1343,7 @@ contract NameService {
     }
 
     /**
-     * @notice Gets information about pending token withdrawal proposals
-     * @dev Returns proposed withdrawal amount and acceptance deadline
-     * @return proposalAmountToWithdrawTokens Proposed withdrawal amount in Principal Tokens
-     * @return timeToAcceptAmountToWithdrawTokens Timestamp when proposal can be executed
+     * @notice Returns the pending token withdrawal proposal amount and acceptance timestamp.
      */
     function getProposedWithdrawAmountFullDetails()
         public
@@ -1555,29 +1360,21 @@ contract NameService {
     }
 
     /**
-     * @notice Gets the unique identifier string for this EVVM instance
-     * @dev Returns the EvvmID used for distinguishing different EVVM deployments
-     * @return Unique EvvmID string
+     * @notice Returns the EvvmID of the integrated Core instance.
      */
     function getEvvmID() external view returns (uint256) {
         return core.getEvvmID();
     }
 
     /**
-     * @notice Gets the current EVVM contract address
-     * @dev Returns the address of the EVVM contract used for payment processing
-     * @return The current EVVM contract address
+     * @notice Returns the current Core contract address.
      */
     function getCoreAddress() public view returns (address) {
         return coreAddress.current;
     }
 
     /**
-     * @notice Gets complete EVVM address information including pending proposals
-     * @dev Returns current EVVM address, proposed address, and proposal acceptance deadline
-     * @return currentEvvmAddress Current EVVM contract address
-     * @return proposalEvvmAddress Proposed new EVVM address (if any)
-     * @return timeToAcceptEvvmAddress Timestamp when proposal can be accepted
+     * @notice Returns Core address proposal details: current address, proposed address, and acceptance timestamp.
      */
     function getCoreAddressFullDetails()
         public

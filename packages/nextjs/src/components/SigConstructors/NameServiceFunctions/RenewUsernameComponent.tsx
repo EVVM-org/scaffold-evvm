@@ -103,6 +103,7 @@ export const RenewUsernameComponent = ({
           nonce: formData.nonceEVVM,
           isAsyncExec: priority === "high",
           senderExecutor: formData.addressNameService as `0x${string}`,
+          originExecutor: walletData.address as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         RenewUsernameInputData: nsAction.data,

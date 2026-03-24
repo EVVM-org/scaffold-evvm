@@ -134,35 +134,35 @@ library AdvancedStrings {
 
     /**
      * @notice Builds EIP-191 signature payload for Core.sol validation
-     * @dev Format: "{evvmId},{serviceAddress},{hashPayload},{nonce},{isAsyncExec}"
+     * @dev Format: "{evvmId},{senderExecutor},{hashPayload},{originExecutor},{nonce},{isAsyncExec}"
      * @param evvmId Chain-specific EVVM instance identifier
-     * @param serviceAddress Service contract requesting validation
+     * @param senderExecutor Service contract requesting validation
      * @param hashPayload Function-specific parameter hash
+     * @param originExecutor Original executor address
      * @param nonce Sequential or async nonce
      * @param isAsyncExec Nonce type (true=async, false=sync)
-     * @return Comma-separated payload string for signature
+     * @return payload Comma-separated payload string for signature
      */
     function buildSignaturePayload(
         uint256 evvmId,
-        address serviceAddress,
+        address senderExecutor,
         bytes32 hashPayload,
-        address executor,
+        address originExecutor,
         uint256 nonce,
         bool isAsyncExec
-    ) internal pure returns (string memory) {
-        return
-            string.concat(
-                uintToString(evvmId),
-                ",",
-                addressToString(serviceAddress),
-                ",",
-                bytes32ToString(hashPayload),
-                ",",
-                addressToString(executor),
-                ",",
-                uintToString(nonce),
-                ",",
-                boolToString(isAsyncExec)
-            );
+    ) internal pure returns (string memory payload) {
+        payload = string.concat(
+            uintToString(evvmId),
+            ",",
+            addressToString(senderExecutor),
+            ",",
+            bytes32ToString(hashPayload),
+            ",",
+            addressToString(originExecutor),
+            ",",
+            uintToString(nonce),
+            ",",
+            boolToString(isAsyncExec)
+        );
     }
 }

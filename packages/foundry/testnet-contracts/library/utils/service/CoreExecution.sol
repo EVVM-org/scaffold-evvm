@@ -40,6 +40,7 @@ abstract contract CoreExecution {
         address token,
         uint256 amount,
         uint256 priorityFee,
+        address originExecutor,
         uint256 nonce,
         bool isAsyncExec,
         bytes memory signature
@@ -52,6 +53,7 @@ abstract contract CoreExecution {
             amount,
             priorityFee,
             address(this),
+            originExecutor,
             nonce,
             isAsyncExec,
             signature
@@ -74,6 +76,7 @@ abstract contract CoreExecution {
         address token,
         uint256 amount,
         uint256 priorityFee,
+        address originExecutor,
         uint256 nonce,
         bool isAsyncExec,
         bytes memory signature
@@ -85,6 +88,7 @@ abstract contract CoreExecution {
             amount,
             priorityFee,
             address(this),
+            originExecutor,
             nonce,
             isAsyncExec,
             signature
@@ -122,27 +126,7 @@ abstract contract CoreExecution {
     }
 
     /**
-     * @notice Reserves async nonce for user and this service exclusively
-     * @dev Calls core.reserveAsyncNonce(user, nonce, address(this)). Nonce can be revoked before use.
-     * @param nonce Async nonce number to reserve
-     */
-    function reserveAsyncNonceToService(uint256 nonce) external {
-        core.reserveAsyncNonce(nonce, address(this));
-    }
-
-    /**
-     * @notice Revokes reserved async nonce before use
-     * @dev Calls core.revokeAsyncNonce(user, nonce). Cannot revoke consumed nonces.
-     * @param user User address that reserved nonce
-     * @param nonce Async nonce number to revoke
-     */
-    function revokeAsyncNonceToService(address user, uint256 nonce) external {
-        core.revokeAsyncNonce(user, nonce);
-    }
-
-    /**
      * @notice Gets next sequential sync nonce for user
-     * @dev View function returning core.getNextCurrentSyncNonce(user). Auto-increments after each use.
      * @param user User address to query
      * @return Next sync nonce for user
      */
@@ -154,7 +138,7 @@ abstract contract CoreExecution {
 
     /**
      * @notice Checks if async nonce was consumed
-     * @dev View function returning core.getIfUsedAsyncNonce(user, nonce). Reserved nonces return false until consumed.
+     * @dev Reserved nonces return false until consumed.
      * @param user User address to query
      * @param nonce Async nonce to check
      * @return true if consumed, false if available/reserved

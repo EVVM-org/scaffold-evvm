@@ -90,6 +90,7 @@ interface IStaking {
     function presaleStaking(
         address user,
         bool isStaking,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
         bytes memory signature,
@@ -106,6 +107,7 @@ interface IStaking {
         address user,
         bool isStaking,
         uint256 amountOfStaking,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
         bytes memory signature,

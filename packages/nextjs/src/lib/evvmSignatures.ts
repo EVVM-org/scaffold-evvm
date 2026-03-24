@@ -96,6 +96,7 @@ export interface SignPayParams {
   nonce: string | number;
   priority: boolean;
   executor: `0x${string}`;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -120,6 +121,7 @@ export async function signPay(params: SignPayParams): Promise<{
     nonce: BigInt(params.nonce),
     isAsyncExec: params.priority,
     senderExecutor: params.executor,
+    originExecutor: params.originExecutor,
   });
 
   return {
@@ -139,6 +141,7 @@ export interface SignPayParamsLegacy {
   nonce: string | number;
   priority: boolean;
   executor: `0x${string}`;
+  originExecutor: `0x${string}`;
 }
 
 export interface DispersePayMetadata {
@@ -157,6 +160,7 @@ export interface SignDispersePayParams {
   nonce: string | number;
   priority: boolean;
   executor: `0x${string}`;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -182,6 +186,7 @@ export async function signDispersePay(params: SignDispersePayParams): Promise<{
     nonce: BigInt(params.nonce),
     isAsyncExec: params.priority,
     senderExecutor: params.executor,
+    originExecutor: params.originExecutor,
   });
 
   return {
@@ -203,6 +208,7 @@ export interface SignGoldenStakingParams {
   amountOfStaking: number;
   nonce: string | number;
   priority: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -231,6 +237,7 @@ export async function signGoldenStaking(params: SignGoldenStakingParams): Promis
     nonce: BigInt(params.nonce),
     isAsyncExec: false, // MUST be false for golden staking
     senderExecutor: params.stakingAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create golden staking action
@@ -256,6 +263,7 @@ export interface SignPresaleStakingParams {
   priorityFee_EVVM: string | number;
   nonce_EVVM: string | number;
   priorityFlag_EVVM: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -283,6 +291,7 @@ export async function signPresaleStaking(params: SignPresaleStakingParams): Prom
     nonce: BigInt(params.nonce_EVVM),
     isAsyncExec: true,
     senderExecutor: params.stakingAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create presale staking action
@@ -309,6 +318,7 @@ export interface SignPublicStakingParams {
   priorityFee: string | number;
   nonceEVVM: string | number;
   priority: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -336,6 +346,7 @@ export async function signPublicStaking(params: SignPublicStakingParams): Promis
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: true,
     senderExecutor: params.stakingAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create public staking action
@@ -367,6 +378,7 @@ export interface SignPreRegistrationUsernameParams {
   priorityFee_EVVM: string | number;
   nonce_EVVM: string | number;
   priorityFlag_EVVM: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -393,6 +405,7 @@ export async function signPreRegistrationUsername(
     nonce: BigInt(params.nonce_EVVM),
     isAsyncExec: params.priorityFlag_EVVM,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Hash the username with clow number
@@ -431,6 +444,7 @@ export interface SignRegistrationUsernameParams {
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
   isAsyncExec: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -457,6 +471,7 @@ export async function signRegistrationUsername(
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: params.isAsyncExec,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create registration action
@@ -485,6 +500,7 @@ export interface SignMakeOfferParams {
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
   isAsyncExec: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -509,6 +525,7 @@ export async function signMakeOffer(params: SignMakeOfferParams): Promise<{
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: params.isAsyncExec,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create make offer action
@@ -537,6 +554,7 @@ export interface SignWithdrawOfferParams {
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
   isAsyncExec: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -563,6 +581,7 @@ export async function signWithdrawOffer(
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: params.isAsyncExec,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create withdraw offer action
@@ -590,6 +609,7 @@ export interface SignAcceptOfferParams {
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
   isAsyncExec: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -614,6 +634,7 @@ export async function signAcceptOffer(params: SignAcceptOfferParams): Promise<{
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: params.isAsyncExec,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create accept offer action
@@ -640,6 +661,7 @@ export interface SignRenewUsernameParams {
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
   isAsyncExec: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -666,6 +688,7 @@ export async function signRenewUsername(
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: params.isAsyncExec,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create renew username action
@@ -693,6 +716,7 @@ export interface SignAddCustomMetadataParams {
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
   isAsyncExec: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -719,6 +743,7 @@ export async function signAddCustomMetadata(
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: params.isAsyncExec,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create add custom metadata action
@@ -746,6 +771,7 @@ export interface SignRemoveCustomMetadataParams {
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
   isAsyncExec: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -772,6 +798,7 @@ export async function signRemoveCustomMetadata(
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: params.isAsyncExec,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create remove custom metadata action
@@ -798,6 +825,7 @@ export interface SignFlushCustomMetadataParams {
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
   isAsyncExec: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -824,6 +852,7 @@ export async function signFlushCustomMetadata(
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: params.isAsyncExec,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create flush custom metadata action
@@ -849,6 +878,7 @@ export interface SignFlushUsernameParams {
   priorityFee_EVVM: string | number;
   nonceEVVM: string | number;
   isAsyncExec: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -875,6 +905,7 @@ export async function signFlushUsername(
     nonce: BigInt(params.nonceEVVM),
     isAsyncExec: params.isAsyncExec,
     senderExecutor: params.nameServiceAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create flush username action
@@ -907,6 +938,7 @@ export interface SignMakeOrderParams {
   priorityFee: string | number;
   nonce_EVVM: string | number;
   priority: boolean;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -930,6 +962,7 @@ export async function signMakeOrder(params: SignMakeOrderParams): Promise<{
     nonce: BigInt(params.nonce_EVVM),
     isAsyncExec: params.priority,
     senderExecutor: params.p2pSwapAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create make order action
@@ -956,6 +989,7 @@ export interface SignCancelOrderParams {
   tokenA: `0x${string}`;
   tokenB: `0x${string}`;
   orderId: string | number;
+  originExecutor: `0x${string}`;
 }
 
 /**
@@ -981,6 +1015,7 @@ export async function signCancelOrder(
     nonce: 0n,
     isAsyncExec: false,
     senderExecutor: params.p2pSwapAddress,
+    originExecutor: params.originExecutor,
   });
 
   // Create cancel order action

@@ -107,6 +107,7 @@ export const RemoveCustomMetadataComponent = ({
           nonce: BigInt(formData.nonceEVVM),
           isAsyncExec: priority === "high",
           senderExecutor: formData.addressNameService as `0x${string}`,
+          originExecutor: walletData.address as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         RemoveCustomMetadataInputData: nsAction.data,

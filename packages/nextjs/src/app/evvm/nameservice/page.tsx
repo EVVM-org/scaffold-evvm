@@ -142,6 +142,7 @@ export default function NameServicePage() {
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Hash the username with lockNumber for pre-registration
@@ -174,6 +175,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -264,6 +266,7 @@ export default function NameServicePage() {
         nonce: BigInt(formData.nonceEVVM),
         isAsyncExec: formData.isAsyncExec,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create registration action
@@ -291,6 +294,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonceEVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -374,6 +378,7 @@ export default function NameServicePage() {
         nonce: formData.nonceEVVM,
         isAsyncExec: formData.isAsyncExec,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create renew action
@@ -394,6 +399,7 @@ export default function NameServicePage() {
           nonce: formData.nonceEVVM,
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -463,6 +469,7 @@ export default function NameServicePage() {
         nonce: BigInt(formData.nonceEVVM),
         isAsyncExec: formData.isAsyncExec,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create make offer action
@@ -485,6 +492,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonceEVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -532,6 +540,7 @@ export default function NameServicePage() {
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create accept offer action
@@ -553,6 +562,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -600,6 +610,7 @@ export default function NameServicePage() {
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create withdraw offer action
@@ -621,6 +632,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -678,6 +690,7 @@ export default function NameServicePage() {
         nonce: BigInt(formData.nonceEVVM),
         isAsyncExec: formData.isAsyncExec,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create add custom metadata action
@@ -699,6 +712,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonceEVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -777,6 +791,7 @@ export default function NameServicePage() {
         nonce: BigInt(formData.nonceEVVM),
         isAsyncExec: formData.isAsyncExec,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create remove custom metadata action
@@ -798,6 +813,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonceEVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -851,6 +867,7 @@ export default function NameServicePage() {
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create flush custom metadata action
@@ -871,6 +888,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: priority === "high",
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,
@@ -928,6 +946,7 @@ export default function NameServicePage() {
         nonce: BigInt(formData.nonce_EVVM),
         isAsyncExec: formData.priorityFlag_EVVM,
         senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
       });
 
       // Create flush username action
@@ -948,6 +967,7 @@ export default function NameServicePage() {
           nonce: BigInt(formData.nonce_EVVM),
           isAsyncExec: formData.priorityFlag_EVVM,
           senderExecutor: deployment.nameService as `0x${string}`,
+        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         ActionInputData: nsAction.data,

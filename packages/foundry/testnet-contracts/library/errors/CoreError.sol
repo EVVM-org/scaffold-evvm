@@ -7,24 +7,7 @@ pragma solidity ^0.8.0;
  * @title CoreError - Error Definitions for EVVM Core
  * @author Mate labs
  * @notice Custom error definitions for Core.sol core contract
- * @dev Custom errors are more gas-efficient than require
- *      statements with strings and provide better error
- *      handling in client applications.
- *
- * Error Categories:
- * - Access Control: Unauthorized access attempts
- * - Validation: Invalid inputs or state conditions
- * - Balance Management: Insufficient funds or amounts
- * - Time-Lock: Governance time delay mechanisms
- * - Initialization: Setup and configuration errors
- *
- * Integration:
- * - Used exclusively by Core.sol core contract
- * - Includes payment and nonce validation errors
- * - Provides clear failure reasons for users
- *
- * @custom:scope Exclusive to Core.sol contract
- * @custom:security Clear failures without exposing state
+ * @dev Gas-efficient custom errors for all Core.sol failure conditions.
  */
 library CoreError {
     //░▒▓█ Access Control Errors ████████████████████████████████████████████████▓▒░
@@ -47,7 +30,7 @@ library CoreError {
     /// @dev Thrown when non-proposed admin attempts acceptAdmin before timelock
     error SenderIsNotTheProposedAdmin();
 
-    error OriginIsNotTheOriginExecutor();
+    error OriginMismatch();
 
     /// @dev Thrown when EOA calls caPay/disperseCaPay (contract-only functions)
     error NotAnCA();
@@ -74,13 +57,12 @@ library CoreError {
     /// @dev Thrown when address validation fails in proposals
     error IncorrectAddressInput();
 
-    //░▒▓█ Time-Lock Errors █████████████████████████████████████████████████████▓▒░
+    //░▒▓█ Proposal Errors █████████████████████████████████████████████████████▓▒░
 
-    /// @dev Thrown when attempting time-locked action before delay (30d impl, 1d admin)
-    error TimeLockNotExpired();
+    /// @dev Thrown when accepting before timelock
+    error ProposalNotReadyToAccept();
 
-
-
+    //░▒▓█ Async/Sync Nonce Errors ██████████████████████████████████████████████▓▒░
     /// @dev Thrown when async nonce already consumed
     error AsyncNonceAlreadyUsed();
 
@@ -102,15 +84,30 @@ library CoreError {
     /// @dev Thrown when using async nonce reserved by different service
     error AsyncNonceIsReservedByAnotherService();
 
-    /// @dev Thrown when accepting UserValidator proposal before timelock
-    error ProposalForUserValidatorNotReady();
-
-    /// @dev Thrown when validateAndConsumeNonce caller is EOA (contracts only)
-    error MsgSenderIsNotAContract();
-
-    /// @dev Thrown when accepting EVVM address proposal before timelock
-    error ProposalForEvvmAddressNotReady();
+    /// @dev Thrown when msg.sender != service address only if diferent to address(0)
+    error SenderMismatch();
 
     /// @dev Thrown when reserving nonce with service == address(0)
     error InvalidServiceAddress();
+
+    //░▒▓█ Token List Errors ████████████████████████████████████████████████████▓▒░
+    /**
+     * @dev Thrown when a token is in
+     *    - the denylist (if the denylist is active)
+     *    - not in the allowlist (if the allowlist is active)
+     */
+    error TokenIsDeniedForExecution();
+
+    /// @dev Thrown when list status is invalid (not 0x00, 0x01, or 0x02)
+    error InvalidListStatus();
+
+    //░▒▓█ Reward Distribution State ██████████████████████████████████████████████████████▓▒░
+
+    error RewardFlowDistributionChangeNotAllowed();
+
+    error BaseRewardIncreaseNotAllowed();
+
+    //░▒▓█ Total Supply State ██████████████████████████████████████████████████████▓▒░
+
+    error MaxSupplyDeletionNotAllowed();
 }

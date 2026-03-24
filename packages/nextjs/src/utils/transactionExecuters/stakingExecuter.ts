@@ -63,6 +63,7 @@ const executePresaleStaking = async (
     args: [
       InputData.user,
       InputData.isStaking,
+      InputData.senderExecutor,
       InputData.originExecutor,
       InputData.nonce,
       InputData.signature,
@@ -101,6 +102,7 @@ const executePublicStaking = async (
       InputData.user,
       InputData.isStaking,
       InputData.amountOfStaking,
+      InputData.senderExecutor,
       InputData.originExecutor,
       InputData.nonce,
       InputData.signature,

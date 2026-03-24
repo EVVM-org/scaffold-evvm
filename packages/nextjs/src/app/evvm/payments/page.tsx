@@ -48,12 +48,14 @@ export default function PaymentsPage() {
   // Single payment state
   const [isUsingUsername, setIsUsingUsername] = useState(false);
   const [isUsingExecutor, setIsUsingExecutor] = useState(false);
+  const [isUsingCustomOriginExecutor, setIsUsingCustomOriginExecutor] = useState(false);
   const [priority, setPriority] = useState("low");
   const [payDataToGet, setPayDataToGet] = useState<PayInputData | null>(null);
   const [payLoading, setPayLoading] = useState(false);
 
   // Disperse payment state
   const [isUsingExecutorDisperse, setIsUsingExecutorDisperse] = useState(false);
+  const [isUsingCustomOriginExecutorDisperse, setIsUsingCustomOriginExecutorDisperse] = useState(false);
   const [priorityDisperse, setPriorityDisperse] = useState("low");
   const [isUsingUsernameOnDisperse, setIsUsingUsernameOnDisperse] = useState<boolean[]>([
     false, false, false, false, false,
@@ -118,6 +120,9 @@ export default function PaymentsPage() {
         executor: isUsingExecutor
           ? getValue("executorInput_Pay")
           : "0x0000000000000000000000000000000000000000",
+        originExecutor: isUsingCustomOriginExecutor
+          ? getValue("originExecutorInput_Pay")
+          : (walletData.address || "0x0000000000000000000000000000000000000000"),
         amount: getValue("amountTokenInput_Pay"),
         priorityFee: getValue("priorityFeeInput_Pay"),
       };
@@ -162,6 +167,7 @@ export default function PaymentsPage() {
         nonce: BigInt(formData.nonce),
         isAsyncExec: priority === "high",
         senderExecutor: formData.executor as `0x${string}`,
+        originExecutor: formData.originExecutor as `0x${string}`,
       });
 
       const signature = signedAction.data.signature;
@@ -192,6 +198,7 @@ export default function PaymentsPage() {
         nonce: BigInt(formData.nonce),
         isAsyncExec: priority === "high",
         senderExecutor: formData.executor as `0x${string}`,
+        originExecutor: formData.originExecutor as `0x${string}`,
         signature: signature as `0x${string}`,
       };
 
@@ -276,6 +283,9 @@ export default function PaymentsPage() {
         executor: isUsingExecutorDisperse
           ? getValue("executorInputSplit")
           : "0x0000000000000000000000000000000000000000",
+        originExecutor: isUsingCustomOriginExecutorDisperse
+          ? getValue("originExecutorInputSplit")
+          : (walletData.address || "0x0000000000000000000000000000000000000000"),
       };
 
       // Build recipient metadata
@@ -352,6 +362,7 @@ export default function PaymentsPage() {
         nonce: BigInt(formData.nonce),
         isAsyncExec: priorityDisperse === "high",
         senderExecutor: formData.executor as `0x${string}`,
+        originExecutor: formData.originExecutor as `0x${string}`,
       });
 
       const dispersePaySignature = signedAction.data.signature;
@@ -379,6 +390,7 @@ export default function PaymentsPage() {
         isAsyncExec: priorityDisperse === "high",
         nonce: BigInt(formData.nonce),
         senderExecutor: formData.executor as `0x${string}`,
+        originExecutor: formData.originExecutor as `0x${string}`,
         signature: dispersePaySignature as `0x${string}`,
       };
 
@@ -553,12 +565,22 @@ export default function PaymentsPage() {
             defaultValue="0"
           />
 
-          {/* Executor configuration */}
+          {/* Sender Executor configuration */}
           <ExecutorSelector
+            label="Custom sender executor (msg.sender)?"
             inputId="executorInput_Pay"
-            placeholder="Enter executor address"
+            placeholder="Enter sender executor address"
             onExecutorToggle={setIsUsingExecutor}
             isUsingExecutor={isUsingExecutor}
+          />
+
+          {/* Origin Executor configuration */}
+          <ExecutorSelector
+            label="Custom origin executor (tx.origin)?"
+            inputId="originExecutorInput_Pay"
+            placeholder="Enter origin executor address (default: connected wallet)"
+            onExecutorToggle={setIsUsingCustomOriginExecutor}
+            isUsingExecutor={isUsingCustomOriginExecutor}
           />
 
           {/* Priority configuration */}
@@ -637,12 +659,22 @@ export default function PaymentsPage() {
             defaultValue="0"
           />
 
-          {/* Executor selection */}
+          {/* Sender Executor selection */}
           <ExecutorSelector
+            label="Custom sender executor (msg.sender)?"
             inputId="executorInputSplit"
-            placeholder="Enter executor"
+            placeholder="Enter sender executor address"
             onExecutorToggle={setIsUsingExecutorDisperse}
             isUsingExecutor={isUsingExecutorDisperse}
+          />
+
+          {/* Origin Executor selection */}
+          <ExecutorSelector
+            label="Custom origin executor (tx.origin)?"
+            inputId="originExecutorInputSplit"
+            placeholder="Enter origin executor address (default: connected wallet)"
+            onExecutorToggle={setIsUsingCustomOriginExecutorDisperse}
+            isUsingExecutor={isUsingCustomOriginExecutorDisperse}
           />
 
           {/* Number of users */}

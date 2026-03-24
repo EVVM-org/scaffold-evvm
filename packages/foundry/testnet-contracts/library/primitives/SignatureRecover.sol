@@ -6,15 +6,7 @@ pragma solidity ^0.8.0;
  * @title SignatureRecover
  * @author Mate Labs
  * @notice Library for recovering signer addresses from EIP-191 signed messages
- * @dev Provides utilities for signature verification following the EIP-191 standard.
- * This library is used throughout the EVVM ecosystem for gasless transaction validation.
- *
- * EIP-191 Format:
- * The signed message follows the format:
- * "\x19Ethereum Signed Message:\n" + message.length + message
- *
- * This library can be used by community-developed services to implement
- * signature verification compatible with the EVVM ecosystem.
+ * @dev EIP-191 signer recovery for gasless transaction validation.
  */
 
 import {AdvancedStrings} from "@evvm/testnet-contracts/library/utils/AdvancedStrings.sol";
@@ -23,11 +15,10 @@ library SignatureRecover {
 
     /**
      * @notice Recovers the signer address from an EIP-191 signed message
-     * @dev Uses ecrecover to extract the signer address from the signature components.
-     *      The message is hashed with the EIP-191 prefix before recovery.
-     * @param message The original message that was signed (without prefix)
+     * @dev Prepends EIP-191 prefix, hashes with keccak256, then calls ecrecover.
+     * @param message Original message (without prefix)
      * @param signature 65-byte signature in the format (r, s, v)
-     * @return The address that signed the message, or address(0) if invalid
+     * @return Signer address, or address(0) if invalid
      */
     function recoverSigner(
         string memory message,
@@ -46,14 +37,11 @@ library SignatureRecover {
 
     /**
      * @notice Splits a 65-byte signature into its r, s, and v components
-     * @dev Extracts signature components using assembly for gas efficiency.
-     *      Handles both pre-EIP-155 and post-EIP-155 signature formats.
+     * @dev Extracts components via assembly; normalizes v < 27 by adding 27.
      * @param signature 65-byte signature to split
-     * @return r First 32 bytes of the signature
-     * @return s Second 32 bytes of the signature
+     * @return r First 32 bytes
+     * @return s Second 32 bytes
      * @return v Recovery identifier (27 or 28)
-     * @custom:throws "Invalid signature length" if signature is not 65 bytes
-     * @custom:throws "Invalid signature value" if v is not 27 or 28
      */
     function splitSignature(
         bytes memory signature

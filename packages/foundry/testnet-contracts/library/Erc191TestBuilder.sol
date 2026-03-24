@@ -37,13 +37,13 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForPay(
         uint256 evvmID,
-        address servicePointer,
         address to_address,
         string memory to_identity,
         address token,
         uint256 amount,
         uint256 priorityFee,
         address senderExecutor,
+        address originExecutor,
         uint256 nonce,
         bool isAsyncExec
     ) internal pure returns (bytes32) {
@@ -51,7 +51,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     CoreHashUtils.hashDataForPay(
                         to_address,
                         to_identity,
@@ -59,7 +59,7 @@ library Erc191TestBuilder {
                         amount,
                         priorityFee
                     ),
-                    senderExecutor,
+                    originExecutor,
                     nonce,
                     isAsyncExec
                 )
@@ -68,12 +68,12 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForDispersePay(
         uint256 evvmID,
-        address servicePointer,
         CoreStructs.DispersePayMetadata[] memory toData,
         address token,
         uint256 amount,
         uint256 priorityFee,
         address senderExecutor,
+        address originExecutor,
         uint256 nonce,
         bool isAsyncExec
     ) public pure returns (bytes32) {
@@ -81,14 +81,14 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     CoreHashUtils.hashDataForDispersePay(
                         toData,
                         token,
                         amount,
                         priorityFee
                     ),
-                    senderExecutor,
+                    originExecutor,
                     nonce,
                     isAsyncExec
                 )
@@ -101,8 +101,8 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForPreRegistrationUsername(
         uint256 evvmID,
-        address servicePointer,
         bytes32 hashPreRegisteredUsername,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -110,7 +110,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForPreRegistrationUsername(
                         hashPreRegisteredUsername
                     ),
@@ -123,9 +123,9 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForRegistrationUsername(
         uint256 evvmID,
-        address servicePointer,
         string memory username,
         uint256 lockNumber,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -133,7 +133,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForRegistrationUsername(
                         username,
                         lockNumber
@@ -147,10 +147,10 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForMakeOffer(
         uint256 evvmID,
-        address servicePointer,
         string memory username,
         uint256 amount,
         uint256 expirationDate,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -158,7 +158,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForMakeOffer(
                         username,
                         amount,
@@ -173,9 +173,9 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForWithdrawOffer(
         uint256 evvmID,
-        address servicePointer,
         string memory username,
         uint256 offerId,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -183,7 +183,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForWithdrawOffer(
                         username,
                         offerId
@@ -197,9 +197,9 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForAcceptOffer(
         uint256 evvmID,
-        address servicePointer,
         string memory username,
         uint256 offerId,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -207,7 +207,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForAcceptOffer(
                         username,
                         offerId
@@ -221,8 +221,8 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForRenewUsername(
         uint256 evvmID,
-        address servicePointer,
         string memory username,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -230,7 +230,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForRenewUsername(username),
                     originExecutor,
                     nonce,
@@ -241,9 +241,9 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForAddCustomMetadata(
         uint256 evvmID,
-        address servicePointer,
         string memory username,
         string memory value,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -251,7 +251,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForAddCustomMetadata(
                         username,
                         value
@@ -265,9 +265,9 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForRemoveCustomMetadata(
         uint256 evvmID,
-        address servicePointer,
         string memory username,
         uint256 key,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -275,7 +275,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForRemoveCustomMetadata(
                         username,
                         key
@@ -289,8 +289,8 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForFlushCustomMetadata(
         uint256 evvmID,
-        address servicePointer,
         string memory username,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -298,7 +298,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForFlushCustomMetadata(
                         username
                     ),
@@ -311,8 +311,8 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForFlushUsername(
         uint256 evvmID,
-        address servicePointer,
         string memory username,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -320,7 +320,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     NameServiceHashUtils.hashDataForFlushUsername(username),
                     originExecutor,
                     nonce,
@@ -335,9 +335,9 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForPresaleStaking(
         uint256 evvmID,
-        address servicePointer,
         bool isStaking,
         uint256 amountOfStaking,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -345,7 +345,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     StakingHashUtils.hashDataForPresaleStake(
                         isStaking,
                         amountOfStaking
@@ -359,9 +359,9 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForPublicStaking(
         uint256 evvmID,
-        address servicePointer,
         bool isStaking,
         uint256 amountOfStaking,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce
     ) internal pure returns (bytes32) {
@@ -369,7 +369,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     StakingHashUtils.hashDataForPublicStake(
                         isStaking,
                         amountOfStaking
@@ -387,7 +387,7 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForMakeOrder(
         uint256 evvmID,
-        address servicePointer,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
         address tokenA,
@@ -399,7 +399,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     P2PSwapHashUtils.hashDataForMakeOrder(
                         tokenA,
                         tokenB,
@@ -415,7 +415,7 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForCancelOrder(
         uint256 evvmID,
-        address servicePointer,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
         address tokenA,
@@ -426,7 +426,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     P2PSwapHashUtils.hashDataForCancelOrder(
                         tokenA,
                         tokenB,
@@ -441,7 +441,7 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForDispatchOrder(
         uint256 evvmID,
-        address servicePointer,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
         address tokenA,
@@ -452,7 +452,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     P2PSwapHashUtils.hashDataForDispatchOrder(
                         tokenA,
                         tokenB,
@@ -471,11 +471,11 @@ library Erc191TestBuilder {
 
     function buildMessageSignedForStateTest(
         uint256 evvmID,
-        address servicePointer,
         string memory testA,
         uint256 testB,
         address testC,
         bool testD,
+        address senderExecutor,
         address originExecutor,
         uint256 nonce,
         bool isAsyncExec
@@ -484,7 +484,7 @@ library Erc191TestBuilder {
             buildHashForSign(
                 AdvancedStrings.buildSignaturePayload(
                     evvmID,
-                    servicePointer,
+                    senderExecutor,
                     keccak256(
                         abi.encode("StateTest", testA, testB, testC, testD)
                     ),

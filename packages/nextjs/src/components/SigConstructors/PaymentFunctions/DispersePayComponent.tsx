@@ -106,6 +106,7 @@ export const DispersePayComponent = ({
         nonce: BigInt(formData.nonce),
         isAsyncExec: priorityDisperse === "high",
         senderExecutor: formData.executor as `0x${string}`,
+        originExecutor: walletData.address as `0x${string}`,
       });
 
       setDataToGet({
@@ -117,6 +118,7 @@ export const DispersePayComponent = ({
         isAsyncExec: priorityDisperse === "high",
         nonce: BigInt(formData.nonce),
         senderExecutor: formData.executor as `0x${string}`,
+        originExecutor: walletData.address as `0x${string}`,
         signature: signedAction.data.signature,
       });
     } catch (error) {
