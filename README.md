@@ -8,14 +8,16 @@ Built using NextJS, Foundry/Hardhat, Wagmi, Viem, and TypeScript.
 
 - ✅ **Auto-Setup** - Contracts automatically cloned and configured on first run
 - 🔧 **Dual Framework** - Choose Foundry or Hardhat for smart contract development
-- 📦 **Contract Source** - Testnet-Contracts
+- 📦 **Contract Source** - Testnet-Contracts (bundled + auto-cloned from GitHub)
 - 🧙 **Interactive CLI Wizard** - Guided setup for framework, contracts, and configuration
 - ⛓️ **Local Development** - Deploy to Anvil or Hardhat Network for rapid iteration
 - 💰 **Auto-Funding** - Automatically funds wallets from test accounts
-- 🔐 **Meta-Transactions** - EIP-191 gasless signatures submitted by executors
+- 🔐 **Meta-Transactions** - EIP-191 gasless signatures with dual executor pattern (senderExecutor + originExecutor)
 - 🎨 **Signature Constructor Frontend** - 23+ signature constructors for all EVVM operations
 - 🔍 **Username Lookup** - Look up registered NameService usernames and their owners
 - 💱 **Human-Readable Amounts** - Enter token amounts as decimals (e.g., "10.5") instead of raw wei
+- 🕐 **Sandbox-Ready** - All contract timelocks patched to 30 seconds for fast local testing
+- 📡 **ABI-Decoded Monitor** - Real-time blockchain monitor with auto-synced ABIs from Foundry/SDK
 
 > ⚠️ **Note:** This version supports **local deployment only**. Testnet deployment will be available in a future release.
 
@@ -82,7 +84,7 @@ npm run frontend
 npm run monitor
 ```
 
-This shows real-time blocks, transactions, contract calls, gas usage, and deployment addresses on the local chain.
+This shows real-time ABI-decoded blocks, transactions, contract calls, gas usage, and deployment addresses on the local chain. The monitor auto-loads ABIs from Foundry build output, evvm-js SDK, or bundled fallbacks.
 
 ---
 
@@ -124,6 +126,15 @@ Scaffold-EVVM deploys 6 core EVVM contracts:
 | **NameService** | Username registration and identity management |
 | **Treasury** | Cross-chain asset management |
 | **P2PSwap** | Peer-to-peer token exchange |
+
+### Dual Executor Pattern
+
+EVVM uses a dual executor model for meta-transactions:
+
+- **senderExecutor** (`msg.sender`) — the last contract/account that called the function. For service operations (staking, nameservice, p2pswap), this is automatically the service contract address.
+- **originExecutor** (`tx.origin`) — the EOA that initiated the transaction. Defaults to the connected wallet address.
+
+Both are embedded in EIP-191 signatures to prevent replay attacks across different execution contexts. See [EVVM Documentation](https://www.evvm.info/docs/intro) for details.
 
 ---
 
