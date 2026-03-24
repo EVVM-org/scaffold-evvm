@@ -285,7 +285,7 @@ function GoldenStakingComponent({
         nonce: BigInt(formData.nonce),
         isAsyncExec: false, // Golden Staking always uses sync (low priority)
         senderExecutor: formData.stakingAddress as `0x${string}`,
-        originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
+        originExecutor: "0x0000000000000000000000000000000000000000" as `0x${string}`, // Contract hardcodes address(0) for golden staking
       });
 
       // Create Golden Staking action
@@ -306,7 +306,7 @@ function GoldenStakingComponent({
           nonce: BigInt(formData.nonce),
           isAsyncExec: false, // Golden Staking always uses sync (low priority)
           senderExecutor: formData.stakingAddress as `0x${string}`,
-          originExecutor: (walletData.address || "0x0000000000000000000000000000000000000000") as `0x${string}`,
+          originExecutor: "0x0000000000000000000000000000000000000000" as `0x${string}`, // Contract hardcodes address(0) for golden staking
           signature: evvmAction.data.signature,
         },
         GoldenStakingInputData: stakingAction.data,

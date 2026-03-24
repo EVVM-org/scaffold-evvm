@@ -237,7 +237,7 @@ export async function signGoldenStaking(params: SignGoldenStakingParams): Promis
     nonce: BigInt(params.nonce),
     isAsyncExec: false, // MUST be false for golden staking
     senderExecutor: params.stakingAddress,
-    originExecutor: params.originExecutor,
+    originExecutor: '0x0000000000000000000000000000000000000000' as `0x${string}`, // Contract hardcodes address(0) for golden staking
   });
 
   // Create golden staking action

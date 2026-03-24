@@ -125,6 +125,7 @@ export const GoldenStakingComponent = ({
         nonce: BigInt(formData.nonce),
         isAsyncExec: false, // MUST be false for golden staking
         senderExecutor: formData.stakingAddress as `0x${string}`,
+        originExecutor: "0x0000000000000000000000000000000000000000" as `0x${string}`, // Contract hardcodes address(0) for golden staking
       });
       console.log('✅ [evvm-js] EVVM pay SignedAction created');
 
@@ -150,6 +151,7 @@ export const GoldenStakingComponent = ({
           nonce: BigInt(formData.nonce),
           isAsyncExec: false, // Golden staking always uses sync
           senderExecutor: formData.stakingAddress as `0x${string}`,
+          originExecutor: "0x0000000000000000000000000000000000000000" as `0x${string}`,
           signature: evvmAction.data.signature,
         },
         GoldenStakingInputData: stakingAction.data,
