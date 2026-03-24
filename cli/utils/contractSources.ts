@@ -122,6 +122,7 @@ async function fetchRemote(repoPath: string): Promise<boolean> {
     await execa('git', ['fetch', 'origin'], {
       cwd: repoPath,
       stdio: 'pipe',
+      timeout: 15000, // 15 second timeout to avoid hanging on network issues
     });
     return true;
   } catch {
