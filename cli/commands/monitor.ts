@@ -55,27 +55,50 @@ let CONTRACT_ABIS: { [key: string]: Abi } = {};
 let ADDRESS_ABIS: { [key: string]: Abi } = {};
 
 /**
- * Load ABIs from cli/abi/ directory
+ * Load ABIs from available sources.
+ * Tries evvm-js SDK first (always up-to-date), falls back to cli/abi/.
  */
 function loadABIs(): void {
-  const abiDir = join(__dirname, '..', 'abi');
+  const contractNames = ['Core', 'Staking', 'NameService', 'P2PSwap', 'Estimator'];
 
-  const abiFiles: { [key: string]: string } = {
-    'Core': 'Core.json',
-    'Staking': 'Staking.json',
-    'NameService': 'NameService.json',
-    'P2PSwap': 'P2PSwap.json',
-    'Estimator': 'Estimator.json',
-  };
+  // Try loading from evvm-js SDK (most up-to-date source)
+  const sdkAbiPaths = [
+    resolve(process.cwd(), 'node_modules', '@evvm', 'evvm-js', 'src', 'abi'),
+    resolve(process.cwd(), 'packages', 'nextjs', 'node_modules', '@evvm', 'evvm-js', 'src', 'abi'),
+    resolve(process.cwd(), '..', 'evvm-js', 'src', 'abi'),
+  ];
 
-  for (const [name, file] of Object.entries(abiFiles)) {
-    const filePath = join(abiDir, file);
-    if (existsSync(filePath)) {
-      try {
-        const data = JSON.parse(readFileSync(filePath, 'utf-8'));
-        CONTRACT_ABIS[name] = data.abi as Abi;
-      } catch {
-        // Silently skip invalid ABI files
+  // Fallback: cli/abi/ directory
+  const cliAbiDir = join(__dirname, '..', 'abi');
+
+  for (const name of contractNames) {
+    let loaded = false;
+
+    // Try SDK paths first
+    for (const sdkDir of sdkAbiPaths) {
+      const filePath = join(sdkDir, `${name}.json`);
+      if (existsSync(filePath)) {
+        try {
+          const data = JSON.parse(readFileSync(filePath, 'utf-8'));
+          CONTRACT_ABIS[name] = (data.abi || data) as Abi;
+          loaded = true;
+          break;
+        } catch {
+          // Try next path
+        }
+      }
+    }
+
+    // Fallback to cli/abi/
+    if (!loaded) {
+      const filePath = join(cliAbiDir, `${name}.json`);
+      if (existsSync(filePath)) {
+        try {
+          const data = JSON.parse(readFileSync(filePath, 'utf-8'));
+          CONTRACT_ABIS[name] = (data.abi || data) as Abi;
+        } catch {
+          // Silently skip
+        }
       }
     }
   }

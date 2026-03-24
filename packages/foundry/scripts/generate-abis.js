@@ -27,6 +27,7 @@ const CONTRACTS = [
 // Paths
 const foundryOutDir = join(__dirname, '..', 'out');
 const frontendContractsDir = join(__dirname, '..', '..', 'nextjs', 'src', 'contracts');
+const cliAbiDir = join(__dirname, '..', '..', '..', 'cli', 'abi');
 
 /**
  * Find ABI file for a contract
@@ -113,6 +114,11 @@ function main() {
 
   const generatedContracts = [];
 
+  // Create CLI ABI directory if needed
+  if (!existsSync(cliAbiDir)) {
+    mkdirSync(cliAbiDir, { recursive: true });
+  }
+
   // Extract ABIs
   for (const contractName of CONTRACTS) {
     const abi = findContractAbi(contractName);
@@ -123,6 +129,11 @@ function main() {
       writeFileSync(outputPath, tsContent);
       console.log(`  ✓ ${contractName}Abi.ts`);
       generatedContracts.push(contractName);
+
+      // Also write JSON ABI to cli/abi/ for the blockchain monitor
+      const cliAbiPath = join(cliAbiDir, `${contractName}.json`);
+      writeFileSync(cliAbiPath, JSON.stringify({ abi }, null, 2));
+      console.log(`  ✓ cli/abi/${contractName}.json (monitor)`);
     }
   }
 
