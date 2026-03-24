@@ -84,6 +84,7 @@ export const PublicStakingComponent = ({
         nonce: BigInt(formData.nonceEVVM),
         isAsyncExec: true, // Staking contract always validates with isAsyncExec=true
         senderExecutor: formData.stakingAddress as `0x${string}`,
+        originExecutor: walletData.address as `0x${string}`,
       });
       console.log('✅ [evvm-js] EVVM pay SignedAction created');
 

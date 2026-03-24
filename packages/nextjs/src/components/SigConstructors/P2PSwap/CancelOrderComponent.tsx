@@ -73,6 +73,7 @@ export const CancelOrderComponent = ({
         nonce: nonce_EVVM,
         isAsyncExec: priority === 'high',
         senderExecutor: p2pSwapAddress as `0x${string}`,
+        originExecutor: walletData.address as `0x${string}`,
       })
 
       // Create cancel order action
