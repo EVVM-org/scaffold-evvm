@@ -55,36 +55,62 @@ let CONTRACT_ABIS: { [key: string]: Abi } = {};
 let ADDRESS_ABIS: { [key: string]: Abi } = {};
 
 /**
- * Load ABIs from available sources.
- * Tries evvm-js SDK first (always up-to-date), falls back to cli/abi/.
+ * Load ABIs from available sources in priority order:
+ * 1. Foundry build output (ground truth — compiled from actual testnet contracts)
+ * 2. evvm-js SDK (derived from testnet contracts, usually in sync)
+ * 3. cli/abi/ (bundled fallback, updated by generate-abis)
  */
 function loadABIs(): void {
   const contractNames = ['Core', 'Staking', 'NameService', 'P2PSwap', 'Estimator'];
 
-  // Try loading from evvm-js SDK (most up-to-date source)
+  // Priority 1: Foundry build output (compiled from testnet contracts = ground truth)
+  const foundryOutPaths = [
+    resolve(process.cwd(), 'packages', 'foundry', 'out'),
+  ];
+
+  // Priority 2: evvm-js SDK ABIs
   const sdkAbiPaths = [
     resolve(process.cwd(), 'node_modules', '@evvm', 'evvm-js', 'src', 'abi'),
     resolve(process.cwd(), 'packages', 'nextjs', 'node_modules', '@evvm', 'evvm-js', 'src', 'abi'),
     resolve(process.cwd(), '..', 'evvm-js', 'src', 'abi'),
   ];
 
-  // Fallback: cli/abi/ directory
+  // Priority 3: cli/abi/ directory (bundled fallback)
   const cliAbiDir = join(__dirname, '..', 'abi');
 
   for (const name of contractNames) {
     let loaded = false;
 
-    // Try SDK paths first
-    for (const sdkDir of sdkAbiPaths) {
-      const filePath = join(sdkDir, `${name}.json`);
+    // Try Foundry build output first (e.g. out/Core.sol/Core.json)
+    for (const outDir of foundryOutPaths) {
+      const filePath = join(outDir, `${name}.sol`, `${name}.json`);
       if (existsSync(filePath)) {
         try {
           const data = JSON.parse(readFileSync(filePath, 'utf-8'));
-          CONTRACT_ABIS[name] = (data.abi || data) as Abi;
-          loaded = true;
-          break;
+          if (data.abi) {
+            CONTRACT_ABIS[name] = data.abi as Abi;
+            loaded = true;
+            break;
+          }
         } catch {
-          // Try next path
+          // Try next source
+        }
+      }
+    }
+
+    // Try SDK paths
+    if (!loaded) {
+      for (const sdkDir of sdkAbiPaths) {
+        const filePath = join(sdkDir, `${name}.json`);
+        if (existsSync(filePath)) {
+          try {
+            const data = JSON.parse(readFileSync(filePath, 'utf-8'));
+            CONTRACT_ABIS[name] = (data.abi || data) as Abi;
+            loaded = true;
+            break;
+          } catch {
+            // Try next path
+          }
         }
       }
     }
