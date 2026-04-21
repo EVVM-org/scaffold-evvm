@@ -118,7 +118,13 @@ export default function AddressDetailPage() {
           <div className={styles.stat}>
             <span className={styles.statLabel}>MATE (EVVM)</span>
             <span className={styles.statValue}>
-              {mateBalance === null ? '—' : formatTokenAmount(mateBalance, 18)}
+              {mateBalance === null
+                ? '—'
+                : (() => {
+                    const h = formatTokenAmount(mateBalance, 18);
+                    const [i, d] = h.split('.');
+                    return i.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (d ? '.' + d : '');
+                  })()}
             </span>
           </div>
           <div className={styles.stat}>

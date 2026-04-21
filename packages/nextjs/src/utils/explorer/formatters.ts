@@ -58,3 +58,34 @@ export function shortHash(hash: string | undefined, left = 10, right = 8): strin
   if (hash.length < left + right + 2) return hash;
   return `${hash.slice(0, left)}...${hash.slice(-right)}`;
 }
+
+const AMOUNT_NAME_REGEX = /amount|value|fee|reward|quantity|supply/i;
+const RAW_ID_NAME_REGEX = /nonce|id$|offerid|locknumber|chainid|evvmid/i;
+
+/**
+ * Decide whether a named uint256 argument should be rendered as a token
+ * amount (with 18 decimals) rather than a raw integer. IDs and nonces are
+ * explicitly excluded so they stay as plain integers.
+ */
+export function looksLikeTokenAmount(name: string, type: string, value: bigint): boolean {
+  if (!type.startsWith('uint')) return false;
+  if (RAW_ID_NAME_REGEX.test(name)) return false;
+  if (!AMOUNT_NAME_REGEX.test(name)) return false;
+  // Only apply human formatting when the magnitude warrants it. Very small
+  // values (e.g., a counter named `value`) remain raw.
+  return value >= 10n ** 12n;
+}
+
+/**
+ * Format a bigint amount as "50,000 MATE (50000000000000000000000 wei)" style.
+ */
+export function formatAmountWithRaw(value: bigint, symbol = 'MATE', decimals = 18): {
+  human: string;
+  raw: string;
+  symbol: string;
+} {
+  const human = formatTokenAmount(value, decimals);
+  const [intPart, decPart] = human.split('.');
+  const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (decPart ? '.' + decPart : '');
+  return { human: withCommas, raw: value.toString(), symbol };
+}

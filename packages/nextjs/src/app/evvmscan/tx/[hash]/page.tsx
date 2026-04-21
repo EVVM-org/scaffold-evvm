@@ -11,6 +11,7 @@ import type {
 } from 'viem';
 import { ExplorerShell } from '@/components/explorer/ExplorerShell';
 import { AddressDisplay } from '@/components/explorer/AddressDisplay';
+import { ParamValue } from '@/components/explorer/ParamValue';
 import { useExplorerClient } from '@/hooks/useExplorerClient';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import {
@@ -299,11 +300,7 @@ export default function TxDetailPage() {
                             <span className={styles.paramName}>{arg.name}</span>
                             <span className={styles.paramType}>{arg.type}</span>
                             <span className={styles.paramValue}>
-                              {isAddressLike(arg.value) ? (
-                                <AddressDisplay address={arg.value} />
-                              ) : (
-                                renderValue(arg.value)
-                              )}
+                              <ParamValue name={arg.name} type={arg.type} value={arg.value} />
                             </span>
                           </div>
                         ))}
@@ -352,9 +349,13 @@ export default function TxDetailPage() {
                                 )}
                               </td>
                               <td>
-                                {token?.symbol === 'MATE' || t.token.toLowerCase() === MATE_TOKEN
-                                  ? formatTokenAmount(t.amount, 18)
-                                  : t.amount.toString()}
+                                {(() => {
+                                  const isMate = token?.symbol === 'MATE' || t.token.toLowerCase() === MATE_TOKEN;
+                                  if (!isMate) return t.amount.toLocaleString('en-US');
+                                  const human = formatTokenAmount(t.amount, 18);
+                                  const [i, d] = human.split('.');
+                                  return (i.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (d ? '.' + d : ''));
+                                })()}
                               </td>
                               <td>
                                 <AddressDisplay address={t.token} truncate asToken />
@@ -418,11 +419,7 @@ export default function TxDetailPage() {
                                 <span className={styles.paramName}>{name}</span>
                                 <span className={styles.paramType}>{typeof value}</span>
                                 <span className={styles.paramValue}>
-                                  {isAddressLike(value) ? (
-                                    <AddressDisplay address={value} />
-                                  ) : (
-                                    renderValue(value)
-                                  )}
+                                  <ParamValue name={name} type={typeof value === 'bigint' ? 'uint256' : typeof value} value={value} />
                                 </span>
                               </div>
                             ))}

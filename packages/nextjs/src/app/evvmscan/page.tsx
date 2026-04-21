@@ -20,7 +20,9 @@ import styles from '@/styles/pages/Explorer.module.css';
 
 export default function ExplorerHome() {
   const { deployment } = useEvvmDeployment();
-  const { blocks, txs, lastBlock, connected, error } = useLatestBlocks({ keep: 12, txKeep: 20 });
+  const { blocks, txs, lastBlock, connected, error } = useLatestBlocks();
+  const displayedBlocks = blocks.slice(0, 25);
+  const displayedTxs = txs.slice(0, 40);
 
   const abiMap = useMemo(() => buildAbiMap(deployment), [deployment]);
   const book = useMemo(() => buildAddressBook(deployment), [deployment]);
@@ -76,14 +78,14 @@ export default function ExplorerHome() {
                 </tr>
               </thead>
               <tbody>
-                {blocks.length === 0 ? (
+                {displayedBlocks.length === 0 ? (
                   <tr>
                     <td colSpan={4} className={styles.empty}>
                       Waiting for blocks…
                     </td>
                   </tr>
                 ) : (
-                  blocks.map((b) => (
+                  displayedBlocks.map((b) => (
                     <tr key={b.hash ?? b.number?.toString()}>
                       <td>
                         <Link href={`/evvmscan/block/${b.number}`} className={styles.link}>
@@ -118,14 +120,14 @@ export default function ExplorerHome() {
                 </tr>
               </thead>
               <tbody>
-                {txs.length === 0 ? (
+                {displayedTxs.length === 0 ? (
                   <tr>
                     <td colSpan={5} className={styles.empty}>
                       Waiting for transactions…
                     </td>
                   </tr>
                 ) : (
-                  txs.map((tx) => {
+                  displayedTxs.map((tx) => {
                     const decoded = decodeTxInput(tx.to ?? null, tx.input, abiMap);
                     const action = classifyTx(
                       decoded,

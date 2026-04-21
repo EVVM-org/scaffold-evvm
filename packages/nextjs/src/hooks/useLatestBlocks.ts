@@ -1,69 +1,136 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { Block, Transaction } from 'viem';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useExplorerClient } from './useExplorerClient';
-
-export type MinedBlock = Block<bigint, true, 'latest'>;
+import { useEvvmDeployment } from './useEvvmDeployment';
+import {
+  cacheKey,
+  loadCache,
+  saveCache,
+  mergeBlocks,
+  mergeTxs,
+  type MinedBlock,
+  type CachedTx,
+} from '@/utils/explorer';
 
 export interface LatestData {
   blocks: MinedBlock[];
-  txs: (Transaction & { blockTimestamp: bigint })[];
+  txs: CachedTx[];
   lastBlock: bigint | null;
   connected: boolean;
   error: string | null;
 }
 
 interface Options {
+  /** How many blocks to keep around (memory + cache). Defaults to 100. */
   keep?: number;
+  /** How many txs to keep around. Defaults to 300. */
   txKeep?: number;
+  /** Poll interval in ms. Defaults to 1500. */
   intervalMs?: number;
+  /** Number of historical blocks to fetch on first mount (cold cache). */
+  backfill?: number;
+}
+
+function extractTxs(blocks: MinedBlock[]): CachedTx[] {
+  const txs: CachedTx[] = [];
+  for (const block of blocks) {
+    for (const tx of block.transactions) {
+      if (typeof tx !== 'object') continue;
+      txs.push({ ...(tx as any), blockTimestamp: block.timestamp });
+    }
+  }
+  return txs;
 }
 
 /**
- * Poll the local chain and keep a rolling window of latest blocks + txs.
- * Used by the explorer home page.
+ * Poll the local chain, keeping a rolling window of blocks and txs.
+ * Persists to localStorage so reloading the page preserves history, and
+ * backfills recent blocks on a cold start.
  */
 export function useLatestBlocks(opts: Options = {}): LatestData {
-  const { keep = 15, txKeep = 25, intervalMs = 1500 } = opts;
+  const { keep = 100, txKeep = 300, intervalMs = 1500, backfill = 25 } = opts;
   const client = useExplorerClient();
-  const [state, setState] = useState<LatestData>({
-    blocks: [],
-    txs: [],
-    lastBlock: null,
-    connected: false,
-    error: null,
+  const { deployment } = useEvvmDeployment();
+  const key = useMemo(() => cacheKey(deployment?.chainId, deployment?.evvm), [deployment]);
+
+  const [state, setState] = useState<LatestData>(() => {
+    const cached = loadCache(key);
+    if (cached) {
+      return {
+        blocks: cached.blocks,
+        txs: cached.txs,
+        lastBlock: cached.lastBlock ? BigInt(cached.lastBlock) : null,
+        connected: false,
+        error: null,
+      };
+    }
+    return { blocks: [], txs: [], lastBlock: null, connected: false, error: null };
   });
-  const lastBlockRef = useRef<bigint | null>(null);
-  const seenHashesRef = useRef<Set<string>>(new Set());
+
+  const lastBlockRef = useRef<bigint | null>(state.lastBlock);
+  const hasBackfilledRef = useRef(false);
+
+  // Reload state when the cache key changes (e.g., redeploy / new chain).
+  useEffect(() => {
+    const cached = loadCache(key);
+    hasBackfilledRef.current = false;
+    if (cached) {
+      lastBlockRef.current = cached.lastBlock ? BigInt(cached.lastBlock) : null;
+      setState({
+        blocks: cached.blocks,
+        txs: cached.txs,
+        lastBlock: lastBlockRef.current,
+        connected: false,
+        error: null,
+      });
+    } else {
+      lastBlockRef.current = null;
+      setState({ blocks: [], txs: [], lastBlock: null, connected: false, error: null });
+    }
+  }, [key]);
 
   useEffect(() => {
     let cancelled = false;
-    lastBlockRef.current = null;
-    seenHashesRef.current = new Set();
 
     async function tick() {
       try {
         const latest = await client.getBlockNumber();
         if (cancelled) return;
 
+        // First connection: either backfill (cold cache) or catch up from last seen.
         if (lastBlockRef.current === null) {
-          // First connection: seed at latest - 1 so we capture the current block as "new"
-          lastBlockRef.current = latest > 0n ? latest - 1n : latest;
-          setState((prev) => ({ ...prev, connected: true, error: null }));
+          const startFrom = latest > BigInt(backfill) ? latest - BigInt(backfill) + 1n : 0n;
+          const toFetch: bigint[] = [];
+          for (let n = startFrom; n <= latest; n++) toFetch.push(n);
+          const fetched = await Promise.all(
+            toFetch.map((n) =>
+              client.getBlock({ blockNumber: n, includeTransactions: true }).catch(() => null),
+            ),
+          );
+          if (cancelled) return;
+          const nonNull = fetched.filter((b) => b !== null) as MinedBlock[];
+          lastBlockRef.current = latest;
+          hasBackfilledRef.current = true;
+          setState((prev) => {
+            const blocks = mergeBlocks(prev.blocks, nonNull, keep);
+            const txs = mergeTxs(prev.txs, extractTxs(nonNull), txKeep);
+            saveCache(key, blocks, txs, lastBlockRef.current);
+            return { blocks, txs, lastBlock: lastBlockRef.current, connected: true, error: null };
+          });
+          return;
         }
 
-        const from = lastBlockRef.current!;
+        const from = lastBlockRef.current;
         if (latest <= from) {
           setState((prev) => (prev.connected ? prev : { ...prev, connected: true, error: null }));
           return;
         }
 
-        const toFetch: bigint[] = [];
         const span = latest - from;
-        const limit = span > 20n ? 20n : span; // cap catchup to avoid huge bursts
+        const limit = span > 50n ? 50n : span; // cap catchup bursts
+        const toFetch: bigint[] = [];
         for (let i = 1n; i <= limit; i++) toFetch.push(from + i);
-
         const fetched = await Promise.all(
           toFetch.map((n) =>
             client.getBlock({ blockNumber: n, includeTransactions: true }).catch(() => null),
@@ -72,29 +139,13 @@ export function useLatestBlocks(opts: Options = {}): LatestData {
         if (cancelled) return;
         const nonNull = fetched.filter((b) => b !== null) as MinedBlock[];
         if (nonNull.length === 0) return;
-
         lastBlockRef.current = nonNull[nonNull.length - 1].number;
 
         setState((prev) => {
-          const mergedBlocks = [...[...nonNull].reverse(), ...prev.blocks].slice(0, keep);
-          const newTxs: (Transaction & { blockTimestamp: bigint })[] = [];
-          for (const block of nonNull) {
-            for (const tx of block.transactions) {
-              if (typeof tx !== 'object') continue;
-              if (seenHashesRef.current.has(tx.hash)) continue;
-              seenHashesRef.current.add(tx.hash);
-              newTxs.push({ ...(tx as Transaction), blockTimestamp: block.timestamp });
-            }
-          }
-          const mergedTxs = [...newTxs.reverse(), ...prev.txs].slice(0, txKeep);
-          return {
-            ...prev,
-            blocks: mergedBlocks,
-            txs: mergedTxs,
-            lastBlock: lastBlockRef.current,
-            connected: true,
-            error: null,
-          };
+          const blocks = mergeBlocks(prev.blocks, nonNull, keep);
+          const txs = mergeTxs(prev.txs, extractTxs(nonNull), txKeep);
+          saveCache(key, blocks, txs, lastBlockRef.current);
+          return { blocks, txs, lastBlock: lastBlockRef.current, connected: true, error: null };
         });
       } catch (err: any) {
         if (cancelled) return;
@@ -108,7 +159,7 @@ export function useLatestBlocks(opts: Options = {}): LatestData {
       cancelled = true;
       clearInterval(id);
     };
-  }, [client, keep, txKeep, intervalMs]);
+  }, [client, key, keep, txKeep, intervalMs, backfill]);
 
   return state;
 }
