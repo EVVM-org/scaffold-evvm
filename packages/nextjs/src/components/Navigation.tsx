@@ -20,6 +20,7 @@ export function Navigation() {
     { href: '/evvm/staking', label: 'Staking' },
     { href: '/evvm/nameservice', label: 'Names' },
     { href: '/evvm/p2pswap', label: 'P2P Swap' },
+    { href: '/evvmscan', label: 'Explorer' },
   ];
 
   return (
@@ -31,15 +32,20 @@ export function Navigation() {
         </Link>
 
         <div className={styles.navLinks}>
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`${styles.navLink} ${pathname === item.href ? styles.active : ''}`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const active =
+              pathname === item.href ||
+              (item.href !== '/' && pathname?.startsWith(item.href + '/'));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.navLink} ${active ? styles.active : ''}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </div>
 
         <div className={styles.navActions}>
