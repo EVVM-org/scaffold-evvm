@@ -5,6 +5,7 @@ import { useExplorerClient } from './useExplorerClient';
 import { useEvvmDeployment } from './useEvvmDeployment';
 import {
   cacheKey,
+  clearCache,
   loadCache,
   saveCache,
   mergeBlocks,
@@ -70,6 +71,12 @@ export function useLatestBlocks(opts: Options = {}): LatestData {
 
   const lastBlockRef = useRef<bigint | null>(state.lastBlock);
   const hasBackfilledRef = useRef(false);
+  const anchorRef = useRef<{ number: bigint; hash: `0x${string}` } | null>(
+    state.blocks[0] && state.blocks[0].hash
+      ? { number: state.blocks[0].number, hash: state.blocks[0].hash }
+      : null,
+  );
+  const getAnchorFromState = () => anchorRef.current;
 
   // Reload state when the cache key changes (e.g., redeploy / new chain).
   useEffect(() => {
@@ -77,6 +84,10 @@ export function useLatestBlocks(opts: Options = {}): LatestData {
     hasBackfilledRef.current = false;
     if (cached) {
       lastBlockRef.current = cached.lastBlock ? BigInt(cached.lastBlock) : null;
+      anchorRef.current =
+        cached.blocks[0] && cached.blocks[0].hash
+          ? { number: cached.blocks[0].number, hash: cached.blocks[0].hash }
+          : null;
       setState({
         blocks: cached.blocks,
         txs: cached.txs,
@@ -86,6 +97,7 @@ export function useLatestBlocks(opts: Options = {}): LatestData {
       });
     } else {
       lastBlockRef.current = null;
+      anchorRef.current = null;
       setState({ blocks: [], txs: [], lastBlock: null, connected: false, error: null });
     }
   }, [key]);
@@ -97,6 +109,35 @@ export function useLatestBlocks(opts: Options = {}): LatestData {
       try {
         const latest = await client.getBlockNumber();
         if (cancelled) return;
+
+        // Detect a chain restart (flush + redeploy) in two ways:
+        // (1) current head dropped below our cached head, or
+        // (2) the block at our cached head has a different hash than what
+        //     we stored — i.e., same block number but a different chain.
+        // If either fires, wipe everything and fall into the cold-start path.
+        let restartDetected = lastBlockRef.current !== null && latest < lastBlockRef.current;
+
+        if (!restartDetected && lastBlockRef.current !== null && !hasBackfilledRef.current) {
+          // On cache-hydrated first tick, verify the anchor block still matches.
+          const anchor = getAnchorFromState();
+          if (anchor) {
+            const onChain = await client
+              .getBlock({ blockNumber: anchor.number })
+              .catch(() => null);
+            if (cancelled) return;
+            if (!onChain || onChain.hash !== anchor.hash) {
+              restartDetected = true;
+            }
+          }
+        }
+
+        if (restartDetected) {
+          lastBlockRef.current = null;
+          hasBackfilledRef.current = false;
+          anchorRef.current = null;
+          clearCache(key);
+          setState({ blocks: [], txs: [], lastBlock: null, connected: true, error: null });
+        }
 
         // First connection: either backfill (cold cache) or catch up from last seen.
         if (lastBlockRef.current === null) {
@@ -116,6 +157,10 @@ export function useLatestBlocks(opts: Options = {}): LatestData {
             const blocks = mergeBlocks(prev.blocks, nonNull, keep);
             const txs = mergeTxs(prev.txs, extractTxs(nonNull), txKeep);
             saveCache(key, blocks, txs, lastBlockRef.current);
+            anchorRef.current =
+              blocks[0] && blocks[0].hash
+                ? { number: blocks[0].number, hash: blocks[0].hash }
+                : null;
             return { blocks, txs, lastBlock: lastBlockRef.current, connected: true, error: null };
           });
           return;
