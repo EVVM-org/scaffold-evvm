@@ -12,6 +12,7 @@ import { useLatestBlocks } from '@/hooks/useLatestBlocks';
 import {
   buildAbiMap,
   buildAddressBook,
+  classifyAddressDirection,
   classifyTx,
   decodeTxInput,
   lookupAddress,
@@ -92,10 +93,29 @@ export default function AddressDetailPage() {
   return (
     <ExplorerShell
       title={known ? known.name : 'Address'}
-      subtitle={address}
       breadcrumbs={[{ label: 'Addresses' }, { label: shortHash(address, 8, 6) }]}
     >
       <div className={styles.card}>
+        <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', borderBottom: '1px solid var(--border-color)' }}>
+          {known && (
+            <span className={`${styles.badge} ${styles.badgePrimary}`}>{known.name}</span>
+          )}
+          <span className={styles.mono} style={{ fontSize: '0.95rem', fontWeight: 500, wordBreak: 'break-all' }}>
+            {address}
+          </span>
+          <button
+            type="button"
+            className={styles.copyBtn}
+            onClick={() => {
+              navigator.clipboard.writeText(address).catch(() => {});
+            }}
+            title="Copy address"
+            aria-label="Copy address"
+            style={{ fontSize: '1rem' }}
+          >
+            ⧉
+          </button>
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap' }}>
           <div className={styles.stat}>
             <span className={styles.statLabel}>Type</span>
@@ -136,22 +156,6 @@ export default function AddressDetailPage() {
         </div>
       </div>
 
-      {known && (
-        <div className={styles.card}>
-          <div className={styles.cardBodyTight}>
-            <div className={styles.row}>
-              <span className={styles.label}>Name</span>
-              <span className={styles.value}>
-                <span className={`${styles.badge} ${styles.badgePrimary}`}>{known.name}</span>{' '}
-                <span className={styles.valueText}>
-                  {known.kind} · Part of the scaffold-evvm deployment
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className={styles.card}>
         <div className={styles.cardHeader}>
           <h3 className={styles.cardTitle}>Recent Transactions</h3>
@@ -190,7 +194,33 @@ export default function AddressDetailPage() {
                     t.value ?? 0n,
                     !t.to,
                   );
-                  const isOutgoing = t.from.toLowerCase() === address.toLowerCase();
+                  const dir = classifyAddressDirection(
+                    decoded,
+                    {
+                      from: t.from as `0x${string}`,
+                      to: (t.to as `0x${string}` | null) ?? null,
+                      value: t.value ?? 0n,
+                    },
+                    address,
+                  );
+                  const badgeClass =
+                    dir.direction === 'in'
+                      ? styles.badgeSuccess
+                      : dir.direction === 'out'
+                      ? styles.badgeDanger
+                      : dir.direction === 'both'
+                      ? styles.badgePrimary
+                      : styles.badgeNeutral;
+                  const badgeLabel =
+                    dir.direction === 'in'
+                      ? 'IN'
+                      : dir.direction === 'out'
+                      ? 'OUT'
+                      : dir.direction === 'both'
+                      ? 'SELF'
+                      : dir.direction === 'call'
+                      ? 'CALL'
+                      : '—';
                   return (
                     <tr key={t.hash}>
                       <td>
@@ -210,8 +240,11 @@ export default function AddressDetailPage() {
                       </td>
                       <td>{relativeTime(t.blockTimestamp)}</td>
                       <td>
-                        <span className={`${styles.badge} ${isOutgoing ? styles.badgeDanger : styles.badgeSuccess}`}>
-                          {isOutgoing ? 'OUT' : 'IN'}
+                        <span
+                          className={`${styles.badge} ${badgeClass}`}
+                          title={dir.note ?? undefined}
+                        >
+                          {badgeLabel}
                         </span>
                       </td>
                       <td>{formatEther(t.value ?? 0n)} ETH</td>

@@ -172,6 +172,126 @@ export function classifyTx(
  * Infer token movements from decoded calldata. Since EVVM emits no events,
  * we surface the intended transfer(s) based on the function semantics.
  */
+/**
+ * EVVM-aware direction for an address in a given tx. Unlike the naive
+ * tx.from === address check, this looks at the decoded function semantics:
+ * Core.pay moves value from `from` to resolved recipient (regardless of
+ * tx.origin), Core.addBalance mints to `user`, Core.caPay moves value
+ * from the calling contract to `to`, etc. See contracts & EVVM docs.
+ */
+export type AddressDirection = 'in' | 'out' | 'both' | 'call' | 'none';
+
+export interface AddressDirectionResult {
+  direction: AddressDirection;
+  note?: string;
+}
+
+function eq(a: unknown, b: unknown): boolean {
+  return (
+    typeof a === 'string' &&
+    typeof b === 'string' &&
+    a.toLowerCase() === b.toLowerCase()
+  );
+}
+
+export function classifyAddressDirection(
+  decoded: DecodedFunction | null,
+  tx: {
+    from: `0x${string}`;
+    to: `0x${string}` | null;
+    value: bigint;
+  },
+  address: `0x${string}`,
+): AddressDirectionResult {
+  const isSender = eq(tx.from, address);
+  const isRecipient = !!tx.to && eq(tx.to, address);
+
+  // Native ETH transfer path (no calldata)
+  if (!decoded) {
+    if (tx.value > 0n) {
+      if (isSender && isRecipient) return { direction: 'both', note: 'self-transfer' };
+      if (isSender) return { direction: 'out', note: 'ETH transfer' };
+      if (isRecipient) return { direction: 'in', note: 'ETH transfer' };
+    }
+    return { direction: isSender ? 'call' : 'none' };
+  }
+
+  const fn = decoded.functionName;
+  const getArg = (name: string) =>
+    decoded.args.find((a) => a.name === name)?.value as unknown;
+
+  // Core.addBalance / Core.addAmountToUser / fisherBridgeReceive — mint IN to `user`
+  if (
+    decoded.contractKind === 'Core' &&
+    (fn === 'addBalance' || fn === 'addAmountToUser')
+  ) {
+    const user = getArg('user');
+    if (eq(user, address)) return { direction: 'in', note: 'EVVM balance credited' };
+    return { direction: isSender ? 'call' : 'none' };
+  }
+
+  if (decoded.contractKind === 'Core' && fn === 'removeAmountFromUser') {
+    const user = getArg('user');
+    if (eq(user, address)) return { direction: 'out', note: 'EVVM balance debited' };
+    return { direction: isSender ? 'call' : 'none' };
+  }
+
+  // Core.pay — direction decided by from vs resolved recipient
+  if (decoded.contractKind === 'Core' && fn === 'pay') {
+    const from = getArg('from');
+    const toAddr = getArg('to_address');
+    const isFrom = eq(from, address);
+    const isTo = eq(toAddr, address);
+    if (isFrom && isTo) return { direction: 'both', note: 'Pay self' };
+    if (isFrom) return { direction: 'out', note: 'EVVM pay' };
+    if (isTo) return { direction: 'in', note: 'EVVM pay' };
+    return { direction: isSender ? 'call' : 'none' };
+  }
+
+  // Core.dispersePay — from sends; recipients resolved from toData
+  if (decoded.contractKind === 'Core' && fn === 'dispersePay') {
+    const from = getArg('from');
+    const toData = getArg('toData') as unknown[] | undefined;
+    const isFrom = eq(from, address);
+    const isAnyRecipient =
+      Array.isArray(toData) &&
+      toData.some((e: any) => eq(e?.to_address, address) || eq(e?.toAddress, address));
+    if (isFrom && isAnyRecipient) return { direction: 'both', note: 'Disperse self' };
+    if (isFrom) return { direction: 'out', note: 'Disperse pay' };
+    if (isAnyRecipient) return { direction: 'in', note: 'Disperse recipient' };
+    return { direction: isSender ? 'call' : 'none' };
+  }
+
+  // Core.caPay — `msg.sender` (contract) sends to `to`
+  if (decoded.contractKind === 'Core' && fn === 'caPay') {
+    const to = getArg('to');
+    if (eq(to, address)) return { direction: 'in', note: 'CA pay' };
+    return { direction: isSender ? 'call' : 'none' };
+  }
+
+  // Service calls (staking / nameservice / p2pswap) typically debit the
+  // user via pay-forwarding. The "user" arg in these calls is the one
+  // whose EVVM balance moves.
+  if (
+    decoded.contractKind === 'Staking' ||
+    decoded.contractKind === 'NameService' ||
+    decoded.contractKind === 'P2PSwap'
+  ) {
+    const user = getArg('user');
+    if (eq(user, address)) {
+      return { direction: 'out', note: `${decoded.contractKind} service` };
+    }
+    return { direction: isSender ? 'call' : 'none' };
+  }
+
+  // Fallback: tx-level ETH value path still applies
+  if (tx.value > 0n) {
+    if (isSender) return { direction: 'out', note: 'ETH transfer' };
+    if (isRecipient) return { direction: 'in', note: 'ETH transfer' };
+  }
+  return { direction: isSender ? 'call' : 'none' };
+}
+
 export function inferTransfers(
   decoded: DecodedFunction | null,
   txFrom: `0x${string}`,
