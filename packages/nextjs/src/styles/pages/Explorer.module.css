@@ -1,9 +1,11 @@
 /* Dense explorer-style layout inspired by etherscan/basescan */
 
 .wrap {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 1rem 1.5rem 3rem;
+  /* AppShell's main already caps at 1280px and adds horizontal padding,
+   * so the explorer only needs its inner rhythm. Using 100% keeps the
+   * sub-header, stat row and the tables-grid perfectly aligned. */
+  width: 100%;
+  padding: 1rem 0 3rem;
   font-size: 0.875rem;
   color: var(--text-primary);
 }
@@ -128,6 +130,8 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   margin-bottom: 1rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .cardHeader {
@@ -216,6 +220,8 @@
 
 .tableScroll {
   overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .mono {
@@ -401,14 +407,17 @@
 
 .grid2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
-@media (max-width: 720px) {
+@media (min-width: 1200px) {
   .grid2 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
+}
+
+@media (max-width: 720px) {
   .row {
     grid-template-columns: 1fr;
     gap: 0.25rem;
