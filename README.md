@@ -19,6 +19,7 @@ Built using NextJS, Foundry/Hardhat, Wagmi, Viem, and TypeScript.
 - 🕐 **Sandbox-Ready** - All contract timelocks patched to 30 seconds for fast local testing
 - 📡 **ABI-Decoded Monitor** - Real-time blockchain monitor with auto-synced ABIs from Foundry/SDK
 - 🔭 **EVVMScan Explorer** - Built-in etherscan-style UI at `/evvmscan` for the local chain
+- 🎨 **UI Pro Max Design System** - Fira Sans + Fira Code fonts, dark/light token scale, shared `components/ui/` primitives, horizontal header nav with mobile drawer, a11y-ready (skip link, focus rings, reduced-motion) — see `design-system/scaffold-evvm/`
 
 > ⚠️ **Note:** This version supports **local deployment only**. Testnet deployment will be available in a future release.
 

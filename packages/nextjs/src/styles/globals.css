@@ -294,63 +294,40 @@ samp {
 }
 
 /* ============================================================
- * 6. App shell
+ * 5b. Skip link — keyboard users can jump past the top bar
  * ============================================================ */
 
-.app-container {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  position: relative;
-}
-
-.app-header {
+.skipLink {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 100;
   background: var(--accent);
   color: var(--accent-contrast);
-  padding: var(--space-6) var(--space-8);
-  box-shadow: var(--shadow-md);
-}
-
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.app-title {
-  font-size: var(--fs-2xl);
-  font-weight: 700;
-  margin: 0;
-}
-
-.app-subtitle {
-  font-size: var(--fs-md);
-  opacity: 0.9;
-  margin: var(--space-1) 0 0;
-}
-
-.app-main {
-  flex: 1;
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
-  padding: var(--space-8);
-  overflow-y: visible;
-  position: relative;
-}
-
-.app-footer {
-  background: var(--surface-sunken);
-  padding: var(--space-6);
-  text-align: center;
-  color: var(--text-muted);
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--radius-md);
   font-size: var(--fs-sm);
-  border-top: 1px solid var(--border);
+  font-weight: 500;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.skipLink:focus-visible {
+  transform: translateY(0);
+  color: var(--accent-contrast);
+  text-decoration: none;
+}
+
+/* Main content target for the skip link. tabindex=-1 makes it focusable
+ * programmatically without appearing in the tab order. */
+main:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 /* ============================================================
- * 7. Primitive element styling (overridden by components/ui later)
+ * 6. Primitive element styling (overridden by components/ui later)
  * ============================================================ */
 
 button {

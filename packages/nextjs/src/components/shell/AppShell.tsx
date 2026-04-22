@@ -13,8 +13,11 @@ import styles from './AppShell.module.css';
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className={styles.root}>
+      <a href="#main-content" className="skipLink">
+        Skip to content
+      </a>
       <TopBar />
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main} tabIndex={-1}>
         <div className={styles.mainInner}>
           <Breadcrumb />
           {children}
