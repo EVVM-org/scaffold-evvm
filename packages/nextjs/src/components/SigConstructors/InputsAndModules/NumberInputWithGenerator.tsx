@@ -1,6 +1,8 @@
-import React from "react";
-import mersenneTwister from "@/utils/mersenneTwister";
-import styles from "@/components/SigConstructors/SignatureConstructor.module.css";
+'use client';
+
+import React from 'react';
+import mersenneTwister from '@/utils/mersenneTwister';
+import { Input, Button } from '@/components/ui';
 
 interface NumberInputWithGeneratorProps {
   label: string;
@@ -10,43 +12,35 @@ interface NumberInputWithGeneratorProps {
   showRandomBtn?: boolean;
 }
 
-export const NumberInputWithGenerator: React.FC<
-  NumberInputWithGeneratorProps
-> = ({
+export const NumberInputWithGenerator: React.FC<NumberInputWithGeneratorProps> = ({
   label,
   inputId,
-  placeholder = "Enter number",
-  buttonText = `Generate Random ${label}`,
+  placeholder = 'Enter number',
+  buttonText,
   showRandomBtn = true,
 }) => {
   const generateRandomNumber = () => {
     const seed = Math.floor(Math.random() + Date.now());
     const mt = mersenneTwister(seed);
     const number = mt.int32();
-    (document.getElementById(inputId) as HTMLInputElement).value =
-      number.toString();
+    const el = document.getElementById(inputId) as HTMLInputElement | null;
+    if (el) el.value = number.toString();
   };
 
   return (
-    <div style={{ marginBottom: "1rem", marginTop: "1rem" }}>
-      <p>
-        {label}:{" "}
-
-        {showRandomBtn && (
-          <button
-            className={styles.numberWithGeneratorButton}
-            onClick={generateRandomNumber}
-          >
-            {buttonText}
-          </button>
-        )}
-        <input
-            type="number"
-            placeholder={placeholder}
-            id={inputId}
-            className={styles.numberWithGeneratorInput}
-          />
-      </p>
+    <div style={{ marginBottom: '1rem', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <Input
+        id={inputId}
+        type="number"
+        label={label}
+        placeholder={placeholder}
+        mono
+      />
+      {showRandomBtn && (
+        <Button variant="secondary" size="sm" onClick={generateRandomNumber} type="button">
+          {buttonText ?? `Generate random ${label.toLowerCase()}`}
+        </Button>
+      )}
     </div>
   );
 };

@@ -1,4 +1,5 @@
-import React from "react";
+import React from 'react';
+import { Select } from '@/components/ui';
 
 interface StakingActionSelectorProps {
   onChange: (isStaking: boolean) => void;
@@ -10,23 +11,16 @@ export const StakingActionSelector: React.FC<StakingActionSelectorProps> = ({
   defaultValue = true,
 }) => {
   return (
-    <div style={{ marginBottom: "1rem" }}>
-      <label>
-        Action:{" "}
-        <select
-          onChange={(e) => onChange(e.target.value === "true")}
-          defaultValue={defaultValue.toString()}
-          style={{
-            color: "black",
-            backgroundColor: "white",
-            height: "2rem",
-            width: "5rem",
-          }}
-        >
-          <option value="true">Staking</option>
-          <option value="false">Unstaking</option>
-        </select>
-      </label>
+    <div style={{ marginBottom: '1rem' }}>
+      <Select
+        label="Action"
+        defaultValue={defaultValue.toString()}
+        onChange={(e) => onChange(e.target.value === 'true')}
+        options={[
+          { value: 'true', label: 'Stake' },
+          { value: 'false', label: 'Unstake' },
+        ]}
+      />
     </div>
   );
 };

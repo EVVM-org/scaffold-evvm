@@ -1,4 +1,5 @@
-import React from "react";
+import React from 'react';
+import { Select } from '@/components/ui';
 
 interface PrioritySelectorProps {
   onPriorityChange: (priority: string) => void;
@@ -6,27 +7,23 @@ interface PrioritySelectorProps {
 }
 
 /**
-	* Offers two priority types of execution: sync (low) and async (high)
-*/
+ * Offers two priority types of execution: sync (low) and async (high).
+ */
 export const PrioritySelector: React.FC<PrioritySelectorProps> = ({
   onPriorityChange,
-  marginTop = "1rem",
+  marginTop = '1rem',
 }) => {
   return (
     <div style={{ marginTop }}>
-      <p>EVVM Nonce Type</p>
-      <select
-        style={{
-          color: "black",
-          backgroundColor: "white",
-          height: "2rem",
-          width: "12rem",
-        }}
+      <Select
+        label="EVVM Nonce Type"
+        defaultValue="low"
         onChange={(e) => onPriorityChange(e.target.value)}
-      >
-        <option value="low">synchronous nonce</option>
-        <option value="high">asynchronous nonce</option>
-      </select>
+        options={[
+          { value: 'low', label: 'Synchronous nonce' },
+          { value: 'high', label: 'Asynchronous nonce' },
+        ]}
+      />
     </div>
   );
 };

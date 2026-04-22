@@ -1,6 +1,6 @@
-import React from "react";
-import { DetailedData } from "@/components/SigConstructors/InputsAndModules/DetailedData";
-import styles from "@/components/SigConstructors/SignatureConstructor.module.css";
+import React from 'react';
+import { DetailedData } from '@/components/SigConstructors/InputsAndModules/DetailedData';
+import { Button } from '@/components/ui';
 
 interface DataDisplayWithClearProps {
   dataToGet: any;
@@ -12,7 +12,7 @@ interface DataDisplayWithClearProps {
 export const DataDisplayWithClear: React.FC<DataDisplayWithClearProps> = ({
   dataToGet,
   onClear,
-  marginTop = "2rem",
+  marginTop = '2rem',
   onExecute,
 }) => {
   if (!dataToGet) return null;
@@ -20,28 +20,14 @@ export const DataDisplayWithClear: React.FC<DataDisplayWithClearProps> = ({
   return (
     <div style={{ marginTop }}>
       <DetailedData dataToGet={dataToGet} />
-
-      {/* Action buttons */}
-      <div style={{ marginTop: "1rem" }}>
-        <button className={styles.clearButton} onClick={onClear}>
+      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <Button variant="ghost" size="sm" onClick={onClear}>
           Clear
-        </button>
-
+        </Button>
         {onExecute && (
-          <button
-            style={{
-              backgroundColor: "#4c5cafff",
-              color: "white",
-              padding: "0.5rem",
-              margin: "0.5rem",
-              borderRadius: "5px",
-              border: "none",
-              cursor: "pointer",
-            }}
-            onClick={onExecute}
-          >
+          <Button variant="primary" size="sm" onClick={onExecute}>
             Execute
-          </button>
+          </Button>
         )}
       </div>
     </div>

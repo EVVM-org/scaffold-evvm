@@ -1,5 +1,5 @@
-import React from "react";
-import styles from "@/components/SigConstructors/SignatureConstructor.module.css";
+import React from 'react';
+import { Input } from '@/components/ui';
 
 interface DateInputFieldProps {
   label: string;
@@ -11,18 +11,14 @@ interface DateInputFieldProps {
 export const DateInputField: React.FC<DateInputFieldProps> = ({
   label,
   inputId,
-  placeholder = "Select date",
   defaultValue,
 }) => {
   return (
-    <div style={{ marginBottom: "1rem" }}>
-      <p>{label}</p>
-      <input
-        type="datetime-local"
-
-        placeholder={placeholder}
+    <div style={{ marginBottom: '1rem' }}>
+      <Input
         id={inputId}
-        className={styles.dateInput}
+        label={label}
+        type="datetime-local"
         defaultValue={defaultValue}
       />
     </div>

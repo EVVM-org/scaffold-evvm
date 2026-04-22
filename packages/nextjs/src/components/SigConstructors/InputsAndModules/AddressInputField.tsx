@@ -1,5 +1,5 @@
-import React from "react";
-import styles from "@/components/SigConstructors/SignatureConstructor.module.css";
+import React from 'react';
+import { Input } from '@/components/ui';
 
 interface AddressInputFieldProps {
   label: string;
@@ -11,18 +11,19 @@ interface AddressInputFieldProps {
 export const AddressInputField: React.FC<AddressInputFieldProps> = ({
   label,
   inputId,
-  placeholder = "Enter address",
+  placeholder = '0x…',
   defaultValue,
 }) => {
   return (
-    <div style={{ marginBottom: "1rem" }}>
-      <p>{label}</p>
-      <input
-        type="text"
-        placeholder={placeholder}
+    <div style={{ marginBottom: '1rem' }}>
+      <Input
         id={inputId}
-        className={styles.addressInput}
+        label={label}
+        placeholder={placeholder}
         defaultValue={defaultValue}
+        spellCheck={false}
+        autoComplete="off"
+        mono
       />
     </div>
   );

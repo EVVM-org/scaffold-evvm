@@ -1,5 +1,5 @@
-import React from "react";
-import styles from "@/components/SigConstructors/SignatureConstructor.module.css";
+import React from 'react';
+import { Input } from '@/components/ui';
 
 interface NumberInputFieldProps {
   label: string;
@@ -11,19 +11,18 @@ interface NumberInputFieldProps {
 export const NumberInputField: React.FC<NumberInputFieldProps> = ({
   label,
   inputId,
-  placeholder = "Enter number",
+  placeholder = 'Enter number',
   defaultValue,
 }) => {
   return (
-    <div style={{ marginBottom: "1rem" }}>
-      <p>{label}</p>
-      <input
-        type="text"
-        inputMode="decimal"
-        placeholder={placeholder}
+    <div style={{ marginBottom: '1rem' }}>
+      <Input
         id={inputId}
-        className={styles.numberInput}
+        label={label}
+        placeholder={placeholder}
         defaultValue={defaultValue}
+        inputMode="decimal"
+        mono
       />
     </div>
   );

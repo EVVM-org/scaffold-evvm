@@ -5,6 +5,7 @@ import { NetworkBadge } from '@/components/NetworkBadge';
 import { NetworkWarning } from '@/components/NetworkWarning';
 import { Balances } from '@/components/Balances';
 import { EvvmInfo } from '@/components/EvvmInfo';
+import { Button, Card, CardHeader, CardBody, Stat, StatGroup, Badge, CodeBlock } from '@/components/ui';
 import { getExplorerUrl } from '@/lib/evvmConfig';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import { getPublicClient, getCurrentChainId, isContractDeployed } from '@/lib/viemClients';
@@ -130,61 +131,53 @@ export default function StatusPage() {
       {account && <Balances />}
 
       {account && (
-        <section className={styles.userInfo}>
-          <h3>Your Account Information</h3>
-          <button onClick={loadUserData} disabled={loading} className={styles.loadButton}>
-            {loading ? 'Loading...' : 'Load My Data'}
-          </button>
-
-          {contractMissing && (
-            <div className={styles.contractMissing}>
-              <span className={styles.warningIcon}>⚠️</span>
-              <div className={styles.missingContent}>
-                <p className={styles.missingTitle}>EVVM Contracts Not Found</p>
-                <p className={styles.missingText}>
-                  The contracts are not deployed at the configured address.
-                  This usually happens when the local blockchain (Anvil/Hardhat) has been reset.
-                </p>
-                <p className={styles.missingHint}>To fix this, run in your terminal:</p>
-                <code className={styles.codeBlock}>npm run wizard</code>
-                <p className={styles.missingHint}>Then select &quot;Deploy contracts&quot; to redeploy.</p>
+        <Card elevated>
+          <CardHeader
+            title="Your account"
+            subtitle="Live snapshot of this wallet's EVVM state"
+            actions={
+              <Button onClick={loadUserData} loading={loading} variant="primary" size="sm">
+                {loading ? 'Loading' : 'Load my data'}
+              </Button>
+            }
+          />
+          <CardBody>
+            {contractMissing && (
+              <div className={styles.contractMissing} role="alert">
+                <div className={styles.missingContent}>
+                  <p className={styles.missingTitle}>EVVM contracts not found</p>
+                  <p className={styles.missingText}>
+                    No bytecode at the configured address. This usually means the local
+                    blockchain (Anvil / Hardhat) was reset. Redeploy from your terminal:
+                  </p>
+                  <CodeBlock copyable copyValue="npm run wizard">
+                    {'npm run wizard'}
+                  </CodeBlock>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {dataError && !contractMissing && (
-            <div className={styles.error}>
-              <span>⚠️ {dataError}</span>
-            </div>
-          )}
+            {dataError && !contractMissing && (
+              <div className={styles.error} role="alert">{dataError}</div>
+            )}
 
-          {!contractMissing && (balance !== null || nonce !== null) && (
-            <div className={styles.infoGrid}>
-              {balance !== null && (
-                <div className={styles.infoItem}>
-                  <span className={styles.label}>MATE Balance:</span>
-                  <span className={styles.value}>{balance.toString()}</span>
-                </div>
-              )}
-              {nonce !== null && (
-                <div className={styles.infoItem}>
-                  <span className={styles.label}>Next Nonce:</span>
-                  <span className={styles.value}>{nonce.toString()}</span>
-                </div>
-              )}
-              {stakedAmount !== null && (
-                <div className={styles.infoItem}>
-                  <span className={styles.label}>Staked Amount:</span>
-                  <span className={styles.value}>{stakedAmount.toString()}</span>
-                </div>
-              )}
-              <div className={styles.infoItem}>
-                <span className={styles.label}>Staker Status:</span>
-                <span className={styles.value}>{isStaker ? '✓ Staker' : '✗ Not Staker'}</span>
-              </div>
-            </div>
-          )}
-        </section>
+            {!contractMissing && (balance !== null || nonce !== null) && (
+              <StatGroup>
+                {balance !== null && <Stat label="MATE balance" value={balance.toString()} mono />}
+                {nonce !== null && <Stat label="Next nonce" value={nonce.toString()} mono />}
+                {stakedAmount !== null && <Stat label="Staked" value={stakedAmount.toString()} mono />}
+                <Stat
+                  label="Staker status"
+                  value={
+                    <Badge variant={isStaker ? 'success' : 'neutral'} dot>
+                      {isStaker ? 'Active staker' : 'Not staking'}
+                    </Badge>
+                  }
+                />
+              </StatGroup>
+            )}
+          </CardBody>
+        </Card>
       )}
     </div>
   );

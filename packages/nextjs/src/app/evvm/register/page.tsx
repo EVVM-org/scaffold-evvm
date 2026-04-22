@@ -7,6 +7,7 @@ import { config } from '@/config';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import { CoreABI } from '@evvm/evvm-js';
 import { getExplorerTxUrl } from '@/lib/evvmConfig';
+import { Button, Input, Badge } from '@/components/ui';
 import styles from '@/styles/pages/Register.module.css';
 
 const REGISTRY_ADDRESS = '0x389dC8fb09211bbDA841D59f4a51160dA2377832' as const;
@@ -188,7 +189,7 @@ export default function RegisterPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1>🔐 EVVM Registration & Activation</h1>
+        <h1>EVVM registration &amp; activation</h1>
         <p>Register your EVVM instance on the official registry and activate it</p>
       </div>
 
@@ -205,21 +206,24 @@ export default function RegisterPage() {
       </div>
 
       {isRegistered && (
-        <div className={styles.success}>
-          <p>✅ Your EVVM is registered and activated with ID: {currentEvvmId}</p>
-          <p>You can now use all EVVM ecosystem features!</p>
+        <div className={styles.success} role="status">
+          <Badge variant="success" dot>Registered</Badge>
+          <p>Your EVVM is registered and activated with ID: <strong>{currentEvvmId}</strong></p>
+          <p>You can now use all EVVM ecosystem features.</p>
         </div>
       )}
 
       {!isConnected && (
-        <div className={styles.warning}>
-          <p>⚠️ Please connect your wallet to register and activate your EVVM</p>
+        <div className={styles.warning} role="alert">
+          <Badge variant="warning">Wallet</Badge>
+          <p>Connect your wallet to register and activate your EVVM.</p>
         </div>
       )}
 
       {isConnected && deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase() && (
-        <div className={styles.warning}>
-          <p>⚠️ You are not the admin. Only the admin can register and activate.</p>
+        <div className={styles.warning} role="alert">
+          <Badge variant="warning">Permissions</Badge>
+          <p>You are not the admin. Only the admin can register and activate.</p>
           <p><strong>Admin:</strong> {deployment.admin}</p>
           <p><strong>Your address:</strong> {address}</p>
         </div>
@@ -239,64 +243,66 @@ export default function RegisterPage() {
           <p><strong>Function:</strong> registerEvvm(chainId: {deployment.chainId}, evvmAddress: {deployment.evvm})</p>
         </div>
 
-        <button
+        <Button
+          variant="primary"
+          size="lg"
           onClick={handleRegister}
+          loading={isRegistering}
           disabled={!isConnected || isRegistering || (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase()) || !!isRegistered}
-          className={styles.registerButton}
         >
-          {isRegistering ? '⏳ Registering...' : '📝 Register EVVM on Sepolia'}
-        </button>
+          {isRegistering ? 'Registering…' : 'Register EVVM on Sepolia'}
+        </Button>
 
         {error && (
-          <div className={styles.error}>
-            <p>❌ {error}</p>
-          </div>
+          <div className={styles.error} role="alert">{error}</div>
         )}
 
         {success && !isSettingId && (
-          <div className={styles.success}>
-            <p>✅ {success}</p>
+          <div className={styles.success} role="status">
+            <Badge variant="success" dot>Success</Badge>
+            <p>{success}</p>
             <p className={styles.helper}>
-              Check the transaction on the block explorer to find your assigned EVVM ID in the logs/events.
+              Check the transaction on the block explorer to find your assigned EVVM ID in the logs.
             </p>
           </div>
         )}
       </div>
 
       <div className={styles.formCard}>
-        <h2>Step 2: Activate Your EVVM ID</h2>
+        <h2>Step 2: Activate your EVVM ID</h2>
         <p className={styles.helper}>
           After registration, enter your assigned EVVM ID here to activate it.
-          ⚠️ You have only 1 hour to set the ID after registration, then it becomes permanent.
+          You have 1 hour after registration to set the ID; after that it becomes permanent.
         </p>
 
-        <div className={styles.formGroup}>
-          <label htmlFor="evvmId">Assigned EVVM ID (from registry)</label>
-          <input
-            id="evvmId"
-            type="number"
-            placeholder="Enter your assigned EVVM ID (≥1000)"
-            value={assignedId || ''}
-            onChange={(e) => setAssignedId(e.target.value)}
-            className={styles.input}
-            min="1000"
-          />
-          <div className={styles.helper}>
-            IDs 1-999 are reserved. Public registrations start from 1000.
-          </div>
+        <Input
+          id="evvmId"
+          type="number"
+          label="Assigned EVVM ID (from registry)"
+          placeholder="≥ 1000"
+          value={assignedId || ''}
+          onChange={(e) => setAssignedId(e.target.value)}
+          min={1000}
+          helper="IDs 1–999 are reserved. Public registrations start from 1000."
+          mono
+        />
+
+        <div style={{ marginTop: '1rem' }}>
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={handleSetEvvmId}
+            loading={isSettingId}
+            disabled={!isConnected || isSettingId || !assignedId || (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase()) || !!isRegistered}
+          >
+            {isSettingId ? 'Activating…' : 'Activate EVVM ID'}
+          </Button>
         </div>
 
-        <button
-          onClick={handleSetEvvmId}
-          disabled={!isConnected || isSettingId || !assignedId || (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase()) || !!isRegistered}
-          className={styles.activateButton}
-        >
-          {isSettingId ? '⏳ Activating...' : '🚀 Activate EVVM ID'}
-        </button>
-
         {success && isSettingId && (
-          <div className={styles.success}>
-            <p>✅ {success}</p>
+          <div className={styles.success} role="status">
+            <Badge variant="success" dot>Activated</Badge>
+            <p>{success}</p>
             {txHash && deployment && (
               <p>
                 <a
@@ -313,7 +319,7 @@ export default function RegisterPage() {
       </div>
 
       <div className={styles.infoCard}>
-        <h3>ℹ️ Registration Requirements</h3>
+        <h3>Registration requirements</h3>
         <ul>
           <li><strong>ETH Sepolia Required:</strong> You need Sepolia ETH for gas fees (even if EVVM deployed elsewhere)</li>
           <li><strong>Admin Only:</strong> Only the admin address can register and activate</li>

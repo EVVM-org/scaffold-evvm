@@ -1,4 +1,5 @@
-import React from "react";
+import React from 'react';
+import { Select } from '@/components/ui';
 
 interface AsStakerSelectorProps {
   onAsStakerChange: (asStaker: boolean) => void;
@@ -7,23 +8,19 @@ interface AsStakerSelectorProps {
 
 export const AsStakerSelector: React.FC<AsStakerSelectorProps> = ({
   onAsStakerChange,
-  marginTop = "1rem",
+  marginTop = '1rem',
 }) => {
   return (
     <div style={{ marginTop }}>
-      <p>Execute as Staker</p>
-      <select
-        style={{
-          color: "black",
-          backgroundColor: "white",
-          height: "2rem",
-          width: "12rem",
-        }}
-        onChange={(e) => onAsStakerChange(e.target.value === "true")}
-      >
-        <option value="false">No</option>
-        <option value="true">Yes</option>
-      </select>
+      <Select
+        label="Execute as staker"
+        defaultValue="false"
+        onChange={(e) => onAsStakerChange(e.target.value === 'true')}
+        options={[
+          { value: 'false', label: 'No' },
+          { value: 'true', label: 'Yes' },
+        ]}
+      />
     </div>
   );
 };

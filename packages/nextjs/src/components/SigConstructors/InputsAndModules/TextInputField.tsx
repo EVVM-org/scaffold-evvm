@@ -1,5 +1,5 @@
-import React from "react";
-import styles from "@/components/SigConstructors/SignatureConstructor.module.css";
+import React from 'react';
+import { Input } from '@/components/ui';
 
 interface TextInputFieldProps {
   label: string;
@@ -12,18 +12,16 @@ interface TextInputFieldProps {
 export const TextInputField: React.FC<TextInputFieldProps> = ({
   label,
   inputId,
-  placeholder = "Enter text",
+  placeholder = 'Enter text',
   defaultValue,
   onChange,
 }) => {
   return (
-    <div style={{ marginBottom: "1rem" }}>
-      <p>{label}</p>
-      <input
-        type="text"
-        placeholder={placeholder}
+    <div style={{ marginBottom: '1rem' }}>
+      <Input
         id={inputId}
-        className={styles.textInput}
+        label={label}
+        placeholder={placeholder}
         defaultValue={defaultValue}
         onChange={onChange}
       />
