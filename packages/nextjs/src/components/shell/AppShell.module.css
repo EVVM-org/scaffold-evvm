@@ -3,6 +3,8 @@
   min-height: 100dvh;
   width: 100%;
   background: var(--surface-muted);
+  display: flex;
+  flex-direction: column;
 }
 
 .main {
@@ -18,10 +20,6 @@
   width: 100%;
 }
 
-.desktopActionBar {
-  display: none;
-}
-
 .footer {
   padding: var(--space-4) var(--space-6);
   text-align: center;
@@ -30,35 +28,8 @@
   border-top: 1px solid var(--border);
 }
 
-/* Desktop: sidebar left, main right. Hide the TopBar's chrome via CSS in TopBar.module.css. */
 @media (min-width: 1024px) {
-  .root {
-    display: grid;
-    grid-template-columns: 240px 1fr;
-    align-items: flex-start;
-  }
-
-  .column {
-    display: flex;
-    flex-direction: column;
-    min-height: 100dvh;
-    min-width: 0;
-  }
-
   .main {
     padding: var(--space-2) var(--space-8) var(--space-12);
-  }
-
-  .desktopActionBar {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-8);
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    position: sticky;
-    top: 0;
-    z-index: 30;
   }
 }

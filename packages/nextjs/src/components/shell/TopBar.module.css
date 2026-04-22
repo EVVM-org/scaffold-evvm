@@ -1,13 +1,18 @@
-.topbar {
+.header {
   position: sticky;
   top: 0;
   z-index: 40;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: var(--space-3) var(--space-4);
+}
+
+/* --- Top row: brand, network, theme, wallet --- */
+.topRow {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
 }
 
 .brand {
@@ -18,11 +23,12 @@
   color: var(--text);
   font-weight: 600;
   font-size: var(--fs-md);
+  letter-spacing: -0.01em;
 }
 
 .brandIcon {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border-radius: var(--radius-sm);
@@ -30,11 +36,41 @@
   color: #0f172a;
   font-weight: 700;
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.9rem;
+}
+
+.brandText {
+  white-space: nowrap;
 }
 
 .spacer {
   flex: 1;
+}
+
+.network {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.networkDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent);
+}
+
+.networkNum {
+  font-family: var(--font-mono);
+  color: var(--text);
 }
 
 .actions {
@@ -43,11 +79,62 @@
   gap: var(--space-2);
 }
 
-.menuBtn {
-  display: grid;
+/* --- Tabs row: horizontal nav on desktop --- */
+.navRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-4);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.navRow::-webkit-scrollbar {
+  height: 2px;
+}
+
+.navRow::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.625rem var(--space-3);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+  margin-bottom: -1px; /* sit underline flush with header border */
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tabActive {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tabIcon {
+  display: inline-grid;
   place-items: center;
+  color: inherit;
+}
+
+/* --- Mobile: show hamburger, hide nav row, drawer for overflow --- */
+.menuBtn {
+  display: none;
   width: 36px;
   height: 36px;
+  place-items: center;
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
@@ -59,13 +146,14 @@
   background: var(--surface-muted);
 }
 
-/* Hide hamburger on desktop (sidebar takes over) */
-@media (min-width: 1024px) {
-  .topbar {
-    padding: var(--space-3) var(--space-6);
+@media (max-width: 767px) {
+  .menuBtn {
+    display: grid;
   }
-  .menuBtn,
-  .brand {
+  .navRow {
+    display: none;
+  }
+  .network {
     display: none;
   }
 }
@@ -110,13 +198,13 @@
   gap: var(--space-5);
 }
 
-.group {
+.drawerGroup {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.groupLabel {
+.drawerGroupLabel {
   font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--text-faint);
@@ -126,7 +214,7 @@
   margin-bottom: var(--space-1);
 }
 
-.item {
+.drawerItem {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -138,12 +226,12 @@
   text-decoration: none;
 }
 
-.item:hover {
+.drawerItem:hover {
   background: var(--surface-muted);
   color: var(--text);
 }
 
-.itemActive {
+.drawerItemActive {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent);
 }

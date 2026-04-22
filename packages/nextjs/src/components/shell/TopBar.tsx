@@ -6,20 +6,26 @@ import { useEffect, useState } from 'react';
 import { WalletConnect } from '@/components/WalletConnect';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui';
-import { NAV_GROUPS, isActive } from './navItems';
+import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
+import { NAV_GROUPS, isActive, type NavItem } from './navItems';
 import { IconMenu, IconX } from './icons';
 import styles from './TopBar.module.css';
 
+/**
+ * Flatten grouped nav into the order we want tabs to appear, but keep the
+ * groups around for the mobile drawer (where section labels still help).
+ */
+const FLAT_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
+
 export function TopBar() {
   const pathname = usePathname();
+  const { deployment } = useEvvmDeployment();
   const [open, setOpen] = useState(false);
 
-  // Close the drawer whenever the route changes.
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
-  // Lock page scroll while drawer is open on mobile.
   useEffect(() => {
     if (!open) return;
     const original = document.body.style.overflow;
@@ -29,7 +35,6 @@ export function TopBar() {
     };
   }, [open]);
 
-  // Close on Escape.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -41,27 +46,56 @@ export function TopBar() {
 
   return (
     <>
-      <header className={styles.topbar}>
-        <Button
-          variant="ghost"
-          size="md"
-          iconOnly
-          className={styles.menuBtn}
-          aria-label="Open navigation"
-          aria-expanded={open}
-          onClick={() => setOpen(true)}
-        >
-          <IconMenu />
-        </Button>
-        <Link href="/" className={styles.brand}>
-          <span className={styles.brandIcon} aria-hidden>E</span>
-          Scaffold-EVVM
-        </Link>
-        <span className={styles.spacer} />
-        <div className={styles.actions}>
-          <ThemeToggle />
-          <WalletConnect />
+      <header className={styles.header}>
+        <div className={styles.topRow}>
+          <Button
+            variant="ghost"
+            size="md"
+            iconOnly
+            className={styles.menuBtn}
+            aria-label="Open navigation"
+            aria-expanded={open}
+            onClick={() => setOpen(true)}
+          >
+            <IconMenu />
+          </Button>
+          <Link href="/" className={styles.brand}>
+            <span className={styles.brandIcon} aria-hidden>E</span>
+            <span className={styles.brandText}>Scaffold-EVVM</span>
+          </Link>
+          <span className={styles.spacer} />
+          {deployment && (
+            <span className={styles.network} title="Connected chain · EVVM ID">
+              <span className={styles.networkDot} aria-hidden />
+              Chain <span className={styles.networkNum}>{deployment.chainId}</span>
+              <span style={{ opacity: 0.6 }}>·</span>
+              EVVM <span className={styles.networkNum}>{deployment.evvmID}</span>
+            </span>
+          )}
+          <div className={styles.actions}>
+            <ThemeToggle />
+            <WalletConnect />
+          </div>
         </div>
+        <nav className={styles.navRow} aria-label="Primary">
+          {FLAT_ITEMS.map((item) => {
+            const active = isActive(pathname, item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.tab} ${active ? styles.tabActive : ''}`.trim()}
+                aria-current={active ? 'page' : undefined}
+              >
+                <span className={styles.tabIcon}>
+                  <Icon width={16} height={16} />
+                </span>
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </header>
 
       {open && (
@@ -80,7 +114,7 @@ export function TopBar() {
             <div className={styles.drawerHead}>
               <Link href="/" className={styles.brand}>
                 <span className={styles.brandIcon} aria-hidden>E</span>
-                Scaffold-EVVM
+                <span className={styles.brandText}>Scaffold-EVVM</span>
               </Link>
               <Button
                 variant="ghost"
@@ -94,8 +128,8 @@ export function TopBar() {
             </div>
             <nav className={styles.drawerNav}>
               {NAV_GROUPS.map((group) => (
-                <div key={group.label} className={styles.group}>
-                  <span className={styles.groupLabel}>{group.label}</span>
+                <div key={group.label} className={styles.drawerGroup}>
+                  <span className={styles.drawerGroupLabel}>{group.label}</span>
                   {group.items.map((item) => {
                     const active = isActive(pathname, item.href);
                     const Icon = item.icon;
@@ -103,7 +137,7 @@ export function TopBar() {
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`${styles.item} ${active ? styles.itemActive : ''}`.trim()}
+                        className={`${styles.drawerItem} ${active ? styles.drawerItemActive : ''}`.trim()}
                         aria-current={active ? 'page' : undefined}
                       >
                         <Icon />
