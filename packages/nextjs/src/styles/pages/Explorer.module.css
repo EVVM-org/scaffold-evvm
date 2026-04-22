@@ -412,10 +412,12 @@
 }
 
 @media (min-width: 1200px) {
-  /* Blocks table is compact (Block / Age / Txs / Gas) so it only needs
-   * a minor share; transactions needs more room for addresses. */
+  /* Blocks is compact and its contents never exceed about 10 chars per
+   * column, so let it shrink to its natural content width and give
+   * everything left over to the Transactions card. `max-content` caps
+   * the Blocks card at exactly what it needs (no whitespace gap). */
   .grid2 {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-columns: max-content minmax(0, 1fr);
   }
 }
 
