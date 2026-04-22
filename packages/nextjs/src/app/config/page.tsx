@@ -87,7 +87,7 @@ export default function ConfigPage() {
         throw new Error(`Unsupported chain ID: ${chainId}`);
       }
 
-      console.log('🔍 Fetching contracts for EVVM:', evvmAddress);
+      console.log('Fetching contracts for EVVM:', evvmAddress);
       console.log('  Chain:', selectedChain.name, `(${chainId})`);
 
       // Create public client for the selected chain
@@ -157,7 +157,7 @@ export default function ConfigPage() {
         goldenFisher: goldenFisherAddress as string,
       };
 
-      console.log('✅ Successfully fetched contracts:');
+      console.log('Successfully fetched contracts:');
       console.log('  EVVM ID:', contracts.evvmID.toString());
       console.log('  EVVM Name:', contracts.evvmName);
       console.log('  Staking:', contracts.staking);
@@ -209,7 +209,7 @@ export default function ConfigPage() {
       setHasConfig(true);
       setConfigAge('just now');
 
-      console.log('✅ Configuration saved:', deploymentConfig);
+      console.log('Configuration saved:', deploymentConfig);
     } catch (err: any) {
       console.error('Error saving configuration:', err);
       setError(err.message || 'Failed to save configuration');
@@ -231,7 +231,7 @@ export default function ConfigPage() {
       setSuccess('Configuration cleared! You can now configure a different EVVM instance.');
       setError(null);
 
-      console.log('🗑️  Configuration cleared');
+      console.log(' Configuration cleared');
     } catch (err: any) {
       console.error('Error clearing configuration:', err);
       setError(err.message || 'Failed to clear configuration');
@@ -241,19 +241,19 @@ export default function ConfigPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1>⚙️ EVVM Configuration</h1>
+        <h1>EVVM Configuration</h1>
         <p>Connect to an existing EVVM deployment by providing the core contract address</p>
       </div>
 
       {hasConfig && (
         <div className={styles.infoCard}>
           <h3>Current Configuration Status</h3>
-          <p>✅ You have a saved EVVM configuration (saved {configAge})</p>
+          <p>You have a saved EVVM configuration (saved {configAge})</p>
           <p className={styles.helper}>
             You can clear this configuration to load a different EVVM instance without restarting the server.
           </p>
           <button onClick={handleClearConfiguration} className={styles.clearButton}>
-            🗑️ Clear Configuration
+           Clear Configuration
           </button>
         </div>
       )}
@@ -297,18 +297,18 @@ export default function ConfigPage() {
           disabled={isFetching || !evvmAddress}
           className={styles.fetchButton}
         >
-          {isFetching ? '⏳ Fetching...' : '🔍 Fetch Contracts'}
+          {isFetching ? 'Fetching...' : 'Fetch Contracts'}
         </button>
 
         {error && (
           <div className={styles.error}>
-            <p>❌ {error}</p>
+            <p>{error}</p>
           </div>
         )}
 
         {success && (
           <div className={styles.success}>
-            <p>✅ {success}</p>
+            <p>{success}</p>
           </div>
         )}
       </div>
@@ -399,7 +399,7 @@ export default function ConfigPage() {
       )}
 
       <div className={styles.infoCard}>
-        <h3>ℹ️ How It Works</h3>
+        <h3>How It Works</h3>
         <ul>
           <li>
             <strong>Automatic Fetching:</strong> The tool queries the EVVM and Staking contracts to fetch related

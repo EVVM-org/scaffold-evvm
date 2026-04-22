@@ -347,7 +347,7 @@ function GoldenStakingComponent({
         borderRadius: "8px",
         color: "#fff"
       }}>
-        <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700" }}>⚠️ Golden Fisher Only</h4>
+        <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700" }}>Golden Fisher only</h4>
         <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
           This function is <strong>EXCLUSIVE</strong> to the designated Golden Fisher address.
         </p>
@@ -393,7 +393,7 @@ function GoldenStakingComponent({
               </div>
               {evvmBalance && parseFloat(evvmBalance) < 5083 && (
                 <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "0.25rem" }}>
-                  ⚠️ Insufficient for 1 fisher
+                  Insufficient for 1 fisher
                 </div>
               )}
             </div>
@@ -877,7 +877,7 @@ function PublicStakingComponent({
         </p>
         {publicStakingStatus?.isPending && (
           <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.85rem", fontStyle: "italic" }}>
-            ⏳ A change is pending. Time to accept: {new Date(Number(publicStakingStatus.timeToAccept) * 1000).toLocaleString()}
+            A change is pending. Time to accept: {new Date(Number(publicStakingStatus.timeToAccept) * 1000).toLocaleString()}
           </p>
         )}
       </div>
@@ -892,7 +892,7 @@ function PublicStakingComponent({
           borderRadius: "8px",
           color: "#fff"
         }}>
-          <h4 style={{ margin: "0 0 0.75rem 0", fontWeight: "700" }}>🔐 Admin Controls</h4>
+          <h4 style={{ margin: "0 0 0.75rem 0", fontWeight: "700" }}>Admin controls</h4>
           <p style={{ margin: "0 0 1rem 0", fontSize: "0.85rem" }}>
             As the contract admin, you can toggle public staking on/off.
             This is a 2-step process with a timelock for security.
@@ -963,7 +963,7 @@ function PublicStakingComponent({
           borderRadius: "8px",
           color: "#000"
         }}>
-          <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700" }}>⚠️ Public Staking Disabled</h4>
+          <h4 style={{ margin: "0 0 0.5rem 0", fontWeight: "700" }}>Public staking disabled</h4>
           <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
             Public staking is currently <strong>disabled</strong>. Only the contract admin can enable it.
           </p>

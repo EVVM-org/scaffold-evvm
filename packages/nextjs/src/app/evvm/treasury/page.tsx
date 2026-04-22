@@ -203,7 +203,7 @@ export default function TreasuryPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1>💰 Treasury</h1>
+        <h1>Treasury</h1>
         <p>Deposit and withdraw ERC20 tokens to your EVVM instance</p>
         <NetworkBadge chainId={deployment.chainId} networkName={deployment.networkName} />
       </div>
@@ -212,13 +212,13 @@ export default function TreasuryPage() {
 
       {!isConnected && (
         <div className={styles.warning}>
-          <p>⚠️ Please connect your wallet to use the Treasury</p>
+          <p>Please connect your wallet to use the Treasury</p>
         </div>
       )}
 
       {/* Treasury Info */}
       <div className={styles.section}>
-        <h2>📋 Treasury Information</h2>
+        <h2>Treasury Information</h2>
         <div className={styles.infoGrid}>
           <div className={styles.infoItem}>
             <span className={styles.label}>Treasury Address:</span>
@@ -247,7 +247,7 @@ export default function TreasuryPage() {
 
       {/* Token Discovery */}
       <div className={styles.section}>
-        <h2>🔍 Select Token</h2>
+        <h2>Select Token</h2>
 
         <div className={styles.tokenInput}>
           <label>Token Contract Address</label>
@@ -271,13 +271,13 @@ export default function TreasuryPage() {
 
           {validation.error && (
             <div className={styles.error}>
-              <p>❌ {validation.error}</p>
+              <p>{validation.error}</p>
             </div>
           )}
 
           {validation.isValid && validation.metadata && (
             <div className={styles.tokenInfo}>
-              <h3>✅ Token Found</h3>
+              <h3>Token Found</h3>
               <div className={styles.infoGrid}>
                 <div className={styles.infoItem}>
                   <span className={styles.label}>Name:</span>
@@ -308,7 +308,7 @@ export default function TreasuryPage() {
                 🔄 Refresh
               </button>
               <button onClick={handleClearCache} className={styles.buttonSmall}>
-                🗑️ Clear All
+               Clear All
               </button>
             </div>
             <div className={styles.tokenList}>
@@ -355,7 +355,7 @@ export default function TreasuryPage() {
 
           {/* Deposit */}
           <div className={styles.section}>
-            <h2>⬇️ Deposit</h2>
+            <h2>Deposit</h2>
 
             <div className={styles.form}>
               <div className={styles.inputGroup}>
@@ -417,13 +417,13 @@ export default function TreasuryPage() {
 
               {approve.isSuccess && (
                 <div className={styles.success}>
-                  ✅ Approval successful! You can now deposit.
+                 Approval successful! You can now deposit.
                 </div>
               )}
 
               {deposit.isSuccess && (
                 <div className={styles.success}>
-                  ✅ Deposit successful!
+                 Deposit successful!
                   {deposit.hash && (
                     <a
                       href={getExplorerUrl(chainId!, deposit.hash)}
@@ -439,7 +439,7 @@ export default function TreasuryPage() {
 
               {(approve.error || deposit.error) && (
                 <div className={styles.error}>
-                  ❌ {(approve.error || deposit.error)?.message}
+                 {(approve.error || deposit.error)?.message}
                 </div>
               )}
             </div>
@@ -447,7 +447,7 @@ export default function TreasuryPage() {
 
           {/* Withdraw */}
           <div className={styles.section}>
-            <h2>⬆️ Withdraw</h2>
+            <h2>Withdraw</h2>
 
             <div className={styles.form}>
               <input
@@ -477,7 +477,7 @@ export default function TreasuryPage() {
 
               {withdraw.isSuccess && (
                 <div className={styles.success}>
-                  ✅ Withdrawal successful!
+                 Withdrawal successful!
                   {withdraw.hash && (
                     <a
                       href={getExplorerUrl(chainId!, withdraw.hash)}
@@ -492,7 +492,7 @@ export default function TreasuryPage() {
               )}
 
               {withdraw.error && (
-                <div className={styles.error}>❌ {withdraw.error.message}</div>
+                <div className={styles.error}>{withdraw.error.message}</div>
               )}
             </div>
           </div>
@@ -501,7 +501,7 @@ export default function TreasuryPage() {
 
       {/* Help */}
       <div className={styles.section}>
-        <h2>ℹ️ How it Works</h2>
+        <h2>How it Works</h2>
         <ol className={styles.steps}>
           <li>
             <strong>Enter Token Address</strong> - Input the contract address of any ERC20

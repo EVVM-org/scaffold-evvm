@@ -8,6 +8,7 @@ import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import { CoreABI } from '@evvm/evvm-js';
 import { getExplorerTxUrl } from '@/lib/evvmConfig';
 import { parseTokenAmount } from '@/utils/parseTokenAmount';
+import { Button, Input, Select, Badge } from '@/components/ui';
 import styles from '@/styles/pages/Faucet.module.css';
 
 // Common token addresses in EVVM
@@ -173,9 +174,9 @@ export default function FaucetPage() {
     return (
       <div className={styles.container}>
         <h1>MATE Token Faucet</h1>
-        <div className={styles.error}>
-          <p>⚠️ No EVVM deployment found</p>
-          <p>Please deploy an EVVM instance first using: <code>npm run wizard</code></p>
+        <div className={styles.error} role="alert">
+          <Badge variant="danger">No deployment</Badge>
+          <p>Deploy an EVVM instance first using: <code>npm run wizard</code></p>
         </div>
       </div>
     );
@@ -184,7 +185,7 @@ export default function FaucetPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1>🚰 MATE Token Faucet</h1>
+        <h1>MATE Token Faucet</h1>
         <p>Claim test MATE tokens for development and testing</p>
       </div>
 
@@ -199,121 +200,122 @@ export default function FaucetPage() {
       </div>
 
       {!isConnected && (
-        <div className={styles.warning}>
-          <p>⚠️ Please connect your wallet to use the faucet</p>
+        <div className={styles.warning} role="alert">
+          <Badge variant="warning">Wallet</Badge>
+          <p>Connect your wallet to use the faucet.</p>
         </div>
       )}
 
       {isConnected && deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase() && (
-        <div className={styles.warning}>
-          <p>⚠️ You are not the admin. Only the admin can use the faucet.</p>
+        <div className={styles.warning} role="alert">
+          <Badge variant="warning">Permissions</Badge>
+          <p>You are not the admin. Only the admin can use the faucet.</p>
           <p><strong>Admin:</strong> {deployment.admin}</p>
           <p><strong>Your address:</strong> {address}</p>
         </div>
       )}
 
       <div className={styles.formCard}>
-        <h2>Claim Tokens</h2>
+        <h2>Claim tokens</h2>
 
-        <div className={styles.formGroup}>
-          <label htmlFor="recipient">
-            Recipient Address
-            <button
-              onClick={handleQuickFill}
-              className={styles.quickFillBtn}
-              disabled={!address}
-            >
-              Use My Address
-            </button>
-          </label>
-          <input
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <Input
             id="recipient"
-            type="text"
-            placeholder="0x..."
+            label="Recipient address"
+            placeholder="0x…"
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
-            className={styles.input}
+            mono
+            spellCheck={false}
+            autoComplete="off"
+            trailing={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleQuickFill}
+                disabled={!address}
+                type="button"
+              >
+                My address
+              </Button>
+            }
           />
-        </div>
 
-        <div className={styles.formGroup}>
-          <label htmlFor="token">Token</label>
-          <select
+          <Select
             id="token"
+            label="Token"
             value={tokenAddress}
             onChange={(e) => setTokenAddress(e.target.value)}
-            className={styles.select}
-          >
-            <option value={MATE_TOKEN}>MATE Token (Principal)</option>
-            <option value={ETH_TOKEN}>ETH (Wrapped)</option>
-          </select>
-          <div className={styles.helper}>
-            <details>
-              <summary>Token Addresses</summary>
-              <div>
-                <p><strong>MATE:</strong> {MATE_TOKEN}</p>
-                <p><strong>ETH:</strong> {ETH_TOKEN}</p>
-              </div>
-            </details>
-          </div>
-        </div>
+            options={[
+              { value: MATE_TOKEN, label: 'MATE Token (Principal)' },
+              { value: ETH_TOKEN, label: 'ETH (Wrapped)' },
+            ]}
+          />
 
-        <div className={styles.formGroup}>
-          <label htmlFor="amount">Amount</label>
-          <input
+          <Input
             id="amount"
             type="number"
+            label="Amount"
             placeholder="1000"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className={styles.input}
             step="0.01"
-            min="0"
-          />
-          <div className={styles.quickAmounts}>
-            <button onClick={() => setAmount('1000')}>1,000</button>
-            <button onClick={() => setAmount('5083')}>5,083 (1 sMATE)</button>
-            <button onClick={() => setAmount('10000')}>10,000</button>
-            <button onClick={() => setAmount('50000')}>50,000</button>
-          </div>
-          {amount && parseFloat(amount) > 0 && !isNaN(parseFloat(amount)) && (
-            <div className={styles.helper}>
-              <small>
-                📊 <strong>Will claim:</strong> {parseFloat(amount).toLocaleString()} {tokenAddress === MATE_TOKEN ? 'MATE' : 'ETH'} tokens
-                {parseFloat(amount) >= 5083 && tokenAddress === MATE_TOKEN && (
-                  <span> ({Math.floor(parseFloat(amount) / 5083)} sMATE{Math.floor(parseFloat(amount) / 5083) > 1 ? 's' : ''})</span>
+            min={0}
+            mono
+            helper={
+              <>
+                {amount && parseFloat(amount) > 0 && !isNaN(parseFloat(amount)) && (
+                  <span>
+                    Will claim {parseFloat(amount).toLocaleString()}{' '}
+                    {tokenAddress === MATE_TOKEN ? 'MATE' : 'ETH'}
+                    {parseFloat(amount) >= 5083 && tokenAddress === MATE_TOKEN && (
+                      <>
+                        {' '}·{' '}
+                        {Math.floor(parseFloat(amount) / 5083)} sMATE
+                        {Math.floor(parseFloat(amount) / 5083) > 1 ? 's' : ''}
+                      </>
+                    )}
+                    . Tip: 5,083 MATE is 1 sMATE, the minimum to earn fisher rewards.
+                  </span>
                 )}
-              </small>
-            </div>
-          )}
-          <div className={styles.helper}>
-            <small>💡 Tip: The 5,083 MATE to stake (1 sMATE) is the minimum requirement for getting rewards as a fisher.</small>
+              </>
+            }
+          />
+
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <Button variant="secondary" size="sm" onClick={() => setAmount('1000')}>1,000</Button>
+            <Button variant="secondary" size="sm" onClick={() => setAmount('5083')}>5,083 (1 sMATE)</Button>
+            <Button variant="secondary" size="sm" onClick={() => setAmount('10000')}>10,000</Button>
+            <Button variant="secondary" size="sm" onClick={() => setAmount('50000')}>50,000</Button>
+          </div>
+
+          <div>
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={handleClaimTokens}
+              loading={isExecuting}
+              disabled={!isConnected || isExecuting || (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase())}
+            >
+              {isExecuting ? 'Claiming…' : 'Claim tokens'}
+            </Button>
           </div>
         </div>
 
-        <button
-          onClick={handleClaimTokens}
-          disabled={!isConnected || isExecuting || (deployment.admin && address?.toLowerCase() !== deployment.admin.toLowerCase())}
-          className={styles.claimButton}
-        >
-          {isExecuting ? '⏳ Claiming...' : '🚰 Claim Tokens'}
-        </button>
-
         {error && (
-          <div className={styles.error}>
-            <p>❌ {error}</p>
-          </div>
+          <div className={styles.error} role="alert">{error}</div>
         )}
 
         {success && (
-          <div className={styles.success}>
-            <p>✅ {success}</p>
+          <div className={styles.success} role="status">
+            <Badge variant="success" dot>Success</Badge>
+            <span>{success}</span>
           </div>
         )}
       </div>
 
       <div className={styles.infoCard}>
-        <h3>ℹ️ About the Faucet</h3>
+        <h3>About the faucet</h3>
         <ul>
           <li><strong>Admin Only:</strong> Only the admin address can distribute tokens</li>
           <li><strong>MATE Token:</strong> The principal token of your EVVM instance</li>
