@@ -15,6 +15,7 @@ import chalk from 'chalk';
 import { execa } from 'execa';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
 import { commandExists } from '../utils/prerequisites.js';
+import { toChecksum } from '../utils/address.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -235,7 +236,7 @@ async function promptAddress(message: string): Promise<string> {
     process.exit(1);
   }
 
-  return response.value;
+  return toChecksum(response.value);
 }
 
 /**

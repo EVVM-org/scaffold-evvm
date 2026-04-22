@@ -24,6 +24,7 @@ import { execa, ExecaChildProcess } from 'execa';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
 import { commandExists, getAvailableWallets } from '../utils/prerequisites.js';
 import { ensureContractSources, findContractPath } from '../utils/contractSources.js';
+import { isValidAddressShape, toChecksum } from '../utils/address.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -396,7 +397,7 @@ export async function fullStart(): Promise<void> {
  */
 async function promptAddresses(): Promise<FullStartConfig['addresses']> {
   const validateAddress = (v: string) =>
-    /^0x[a-fA-F0-9]{40}$/.test(v) ? true : 'Invalid address format';
+    isValidAddressShape(v) ? true : 'Invalid address format';
 
   const admin = await prompts({
     type: 'text',
@@ -420,9 +421,9 @@ async function promptAddresses(): Promise<FullStartConfig['addresses']> {
   });
 
   return {
-    admin: admin.value,
-    goldenFisher: goldenFisher.value,
-    activator: activator.value
+    admin: toChecksum(admin.value),
+    goldenFisher: toChecksum(goldenFisher.value),
+    activator: toChecksum(activator.value)
   };
 }
 
@@ -890,9 +891,9 @@ pragma solidity ^0.8.0;
 import {CoreStructs} from "@evvm/testnet-contracts/library/structs/CoreStructs.sol";
 
 abstract contract Inputs {
-    address admin = ${config.addresses.admin};
-    address goldenFisher = ${config.addresses.goldenFisher};
-    address activator = ${config.addresses.activator};
+    address admin = ${toChecksum(config.addresses.admin)};
+    address goldenFisher = ${toChecksum(config.addresses.goldenFisher)};
+    address activator = ${toChecksum(config.addresses.activator)};
 
     CoreStructs.EvvmMetadata inputMetadata =
         CoreStructs.EvvmMetadata({

@@ -9,6 +9,7 @@ import { join } from 'path';
 import prompts from 'prompts';
 import chalk from 'chalk';
 import { sectionHeader, success, warning, error, info, dim, divider } from '../utils/display.js';
+import { tryChecksum } from '../utils/address.js';
 
 interface AddressConfig {
   admin: string;
@@ -143,9 +144,9 @@ async function configureAddresses(inputDir: string): Promise<void> {
   ]);
 
   const updated: AddressConfig = {
-    admin: responses.admin || current.admin,
-    goldenFisher: responses.goldenFisher || current.goldenFisher,
-    activator: responses.activator || current.activator
+    admin: tryChecksum(responses.admin || current.admin) || current.admin,
+    goldenFisher: tryChecksum(responses.goldenFisher || current.goldenFisher) || current.goldenFisher,
+    activator: tryChecksum(responses.activator || current.activator) || current.activator
   };
 
   writeFileSync(addressPath, JSON.stringify(updated, null, 2) + '\n');

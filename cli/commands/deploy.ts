@@ -14,6 +14,7 @@ import type { Address } from 'viem';
 import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen } from '../utils/display.js';
 import { getAvailableWallets, commandExists } from '../utils/prerequisites.js';
 import { ensureContractSources, findContractPath } from '../utils/contractSources.js';
+import { isValidAddressShape, toChecksum, tryChecksum } from '../utils/address.js';
 
 // Anvil configuration
 const ANVIL_PORT = 8545;
@@ -587,13 +588,20 @@ export async function deployContracts(): Promise<void> {
   if (useExistingConfig) {
     // Load existing config
     const addresses = JSON.parse(readFileSync(existingAddressPath, 'utf-8'));
+    // Normalize any lowercase addresses left over from older versions of the CLI
+    // so Solidity 0.8 will accept them.
+    const normalizedAddresses = {
+      admin: toChecksum(addresses.admin),
+      goldenFisher: toChecksum(addresses.goldenFisher),
+      activator: toChecksum(addresses.activator),
+    };
     const basicPath = join(inputDir, 'evvmBasicMetadata.json');
     const basicMetadata = existsSync(basicPath)
       ? JSON.parse(readFileSync(basicPath, 'utf-8'))
       : { EvvmName: 'EVVM', principalTokenName: 'Mate token', principalTokenSymbol: 'MATE' };
 
     evvmConfig = {
-      addresses,
+      addresses: normalizedAddresses,
       basicMetadata,
       advancedMetadata: {
         totalSupply: '2033333333000000000000000000',
@@ -607,7 +615,7 @@ export async function deployContracts(): Promise<void> {
     info('Configure admin addresses for your EVVM instance.\n');
 
     const validateAddress = (v: string) =>
-      /^0x[a-fA-F0-9]{40}$/.test(v) ? true : 'Invalid address format';
+      isValidAddressShape(v) ? true : 'Invalid address format';
 
     const adminResponse = await prompts({
       type: 'text',
@@ -659,9 +667,9 @@ export async function deployContracts(): Promise<void> {
 
     evvmConfig = {
       addresses: {
-        admin: adminResponse.value,
-        goldenFisher: goldenFisherResponse.value,
-        activator: activatorResponse.value
+        admin: toChecksum(adminResponse.value),
+        goldenFisher: toChecksum(goldenFisherResponse.value),
+        activator: toChecksum(activatorResponse.value)
       },
       basicMetadata: basicResponse,
       advancedMetadata: {
@@ -1626,9 +1634,9 @@ pragma solidity ^0.8.0;
 import {CoreStructs} from "${importPath}/library/structs/CoreStructs.sol";
 
 abstract contract Inputs {
-    address admin = ${config.addresses.admin};
-    address goldenFisher = ${config.addresses.goldenFisher};
-    address activator = ${config.addresses.activator};
+    address admin = ${toChecksum(config.addresses.admin)};
+    address goldenFisher = ${toChecksum(config.addresses.goldenFisher)};
+    address activator = ${toChecksum(config.addresses.activator)};
 
     CoreStructs.EvvmMetadata inputMetadata =
         CoreStructs.EvvmMetadata({
