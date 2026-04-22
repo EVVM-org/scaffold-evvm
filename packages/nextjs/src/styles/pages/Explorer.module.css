@@ -412,8 +412,10 @@
 }
 
 @media (min-width: 1200px) {
+  /* Blocks table is compact (Block / Age / Txs / Gas) so it only needs
+   * a minor share; transactions needs more room for addresses. */
   .grid2 {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   }
 }
 
