@@ -18,6 +18,7 @@ Built using NextJS, Foundry/Hardhat, Wagmi, Viem, and TypeScript.
 - 💱 **Human-Readable Amounts** - Enter token amounts as decimals (e.g., "10.5") instead of raw wei
 - 🕐 **Sandbox-Ready** - All contract timelocks patched to 30 seconds for fast local testing
 - 📡 **ABI-Decoded Monitor** - Real-time blockchain monitor with auto-synced ABIs from Foundry/SDK
+- 🔭 **EVVMScan Explorer** - Built-in etherscan-style UI at `/evvmscan` for the local chain
 
 > ⚠️ **Note:** This version supports **local deployment only**. Testnet deployment will be available in a future release.
 
@@ -85,6 +86,22 @@ npm run monitor
 ```
 
 This shows real-time ABI-decoded blocks, transactions, contract calls, gas usage, and deployment addresses on the local chain. The monitor auto-loads ABIs from Foundry build output, evvm-js SDK, or bundled fallbacks.
+
+---
+
+## 🔭 EVVMScan — Block Explorer
+
+With the frontend running, open [http://localhost:3000/evvmscan](http://localhost:3000/evvmscan) for a dense, etherscan-style explorer of the local chain. No backend or indexer is involved — everything runs in the browser against the same RPC the monitor uses.
+
+**What you get:**
+
+- **Live home feed** — Latest Blocks and Latest Transactions tables with method decoding, updated every ~1.5s.
+- **Transaction detail** (`/evvmscan/tx/[hash]`) — Overview, Logs, and Input Data tabs. Decoded function call with every argument (including `senderExecutor` / `originExecutor`), a "Transaction Action" summary, and an inferred EVVM transfer table. Token amounts are rendered as `50,000 MATE (50000000000000000000000 wei)` so the raw-and-human value is always visible.
+- **Block detail** (`/evvmscan/block/[number]`) — Block metadata plus every contained transaction with prev/next navigation.
+- **Address detail** (`/evvmscan/address/[address]`) — Contract-vs-EOA detection, live ETH balance, MATE (EVVM) balance, staked amount, and recent transactions. Direction uses EVVM-aware classification (e.g., `Core.addBalance` shows as **IN** for the credited user even when they are also `tx.from`).
+- **Smart search** — Paste a tx hash, block number, address, or `@username` (resolved via NameService) into the search bar; the explorer routes you to the right page.
+- **localStorage cache** — Blocks and txs persist across page reloads, keyed by chain ID + Core contract address. On each mount the cache is validated against the chain; if anvil/hardhat was restarted (block head dropped or anchor hash mismatches), the stale cache is dropped automatically.
+- **Known-address labels** — Core, Staking, Estimator, NameService, Treasury, P2PSwap, Admin, Golden Fisher, and Activator are tagged with badges throughout the UI.
 
 ---
 
