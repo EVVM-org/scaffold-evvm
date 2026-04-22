@@ -10,7 +10,7 @@
 }
 
 .header h2 {
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 2vw, 1.875rem);
   margin: 0;
 }
 

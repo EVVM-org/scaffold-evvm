@@ -6,7 +6,6 @@ import { usePublicClient } from "wagmi";
 import { getWalletClient } from "@wagmi/core";
 import { config } from "@/config";
 import { useEvvmDeployment } from "@/hooks/useEvvmDeployment";
-import { WalletConnect } from "@/components/WalletConnect";
 import { NetworkWarning } from "@/components/NetworkWarning";
 import {
   TitleAndLink,
@@ -73,7 +72,6 @@ export default function PaymentsPage() {
       <div className={styles.container}>
         <div className={styles.header}>
           <h2>EVVM Payments</h2>
-          <WalletConnect />
         </div>
         <p>Loading deployment information...</p>
       </div>
@@ -85,7 +83,6 @@ export default function PaymentsPage() {
       <div className={styles.container}>
         <div className={styles.header}>
           <h2>EVVM Payments</h2>
-          <WalletConnect />
         </div>
         <div className={styles.error}>
           {deploymentError || "No EVVM deployment found."}
@@ -463,7 +460,6 @@ export default function PaymentsPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h2>EVVM Payments</h2>
-        <WalletConnect />
       </div>
 
       <NetworkWarning deployment={deployment} />

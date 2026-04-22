@@ -269,6 +269,47 @@ samp {
   font-variant-numeric: tabular-nums;
 }
 
+/* Sensible heading defaults so pages that haven't fully migrated to the
+ * token type scale still look calibrated rather than using the
+ * oversized browser defaults (2em / 1.5em). */
+h1 {
+  font-size: clamp(1.5rem, 2vw, 1.875rem);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+h2 {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+h3 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+h4 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: var(--lh-base);
+  color: var(--text);
+}
+h5,
+h6 {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+p {
+  line-height: var(--lh-base);
+}
+
 ::selection {
   background: var(--accent);
   color: var(--accent-contrast);
