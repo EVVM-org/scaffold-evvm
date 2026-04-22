@@ -1,0 +1,49 @@
+.inline {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-xs);
+  background: var(--surface-muted);
+  color: var(--text);
+  border: 1px solid var(--border);
+  word-break: break-all;
+}
+
+.block {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  overflow: auto;
+  max-height: 320px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: var(--lh-base);
+}
+
+.wrap {
+  position: relative;
+}
+
+.copy {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  background: var(--surface-muted);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.wrap:hover .copy,
+.copy:focus-visible {
+  opacity: 1;
+}

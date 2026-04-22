@@ -1,0 +1,25 @@
+.skel {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-start, var(--surface-muted)) 0%,
+    var(--skeleton-middle, var(--surface-sunken)) 50%,
+    var(--skeleton-start, var(--surface-muted)) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: shimmer 1.4s linear infinite;
+}
+
+.text  { height: 0.875em; }
+.title { height: 1.25em;  }
+.block { height: 100px;  }
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: none; }
+}
