@@ -1,7 +1,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import Link from 'next/link';
 import { ExplorerSearch } from './ExplorerSearch';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import styles from '@/styles/pages/Explorer.module.css';
@@ -14,11 +13,12 @@ interface Crumb {
 interface ExplorerShellProps {
   title: string;
   subtitle?: string;
+  /** Kept for API compatibility; AppShell renders automatic breadcrumbs now. */
   breadcrumbs?: Crumb[];
   children: ReactNode;
 }
 
-export function ExplorerShell({ title, subtitle, breadcrumbs, children }: ExplorerShellProps) {
+export function ExplorerShell({ title, subtitle, children }: ExplorerShellProps) {
   const { deployment } = useEvvmDeployment();
   const chainLabel = deployment
     ? `Chain ${deployment.chainId} · EVVM ID ${deployment.evvmID}`
@@ -39,19 +39,6 @@ export function ExplorerShell({ title, subtitle, breadcrumbs, children }: Explor
         </div>
         <ExplorerSearch />
       </div>
-
-      {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav className={styles.breadcrumb}>
-          <Link href="/evvmscan">EVVMScan</Link>
-          {breadcrumbs.map((c, i) => (
-            <span key={i}>
-              <span aria-hidden>›</span>{' '}
-              {c.href ? <Link href={c.href}>{c.label}</Link> : <span>{c.label}</span>}
-            </span>
-          ))}
-        </nav>
-      )}
-
       {children}
     </div>
   );

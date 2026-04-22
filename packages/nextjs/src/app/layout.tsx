@@ -3,7 +3,7 @@ import { Fira_Sans, Fira_Code } from 'next/font/google';
 import '../styles/globals.css';
 import ContextProvider from '@/context';
 import { ThemeProvider } from '@/context/ThemeProvider';
-import { Navigation } from '@/components/Navigation';
+import { AppShell } from '@/components/shell/AppShell';
 
 // Project fonts — recommended by ui-ux-pro-max skill for the Financial /
 // Analytics Dashboard product classification. Exposed as CSS variables so
@@ -41,15 +41,7 @@ export default async function RootLayout({
       <body>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <ContextProvider cookies={cookies}>
-            <div className="app-container">
-              <Navigation />
-              <main className="app-main">
-                {children}
-              </main>
-              <footer className="app-footer">
-                <p>By EVVM with ❤️</p>
-              </footer>
-            </div>
+            <AppShell>{children}</AppShell>
           </ContextProvider>
         </ThemeProvider>
       </body>
