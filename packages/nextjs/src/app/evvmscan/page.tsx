@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { ExplorerShell } from '@/components/explorer/ExplorerShell';
 import { AddressDisplay } from '@/components/explorer/AddressDisplay';
+import { Badge, EmptyState, Stat, StatGroup } from '@/components/ui';
 import { useLatestBlocks } from '@/hooks/useLatestBlocks';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
 import {
@@ -33,32 +34,27 @@ export default function ExplorerHome() {
       subtitle="Local blockchain explorer for the EVVM virtual layer"
     >
       <div className={styles.card}>
-        <div style={{ display: 'flex' }}>
-          <div className={styles.stat}>
-            <span className={styles.statLabel}>Status</span>
-            <span className={styles.statValue}>
-              {error ? (
-                <span className={`${styles.badge} ${styles.badgeDanger}`}>Disconnected</span>
+        <StatGroup>
+          <Stat
+            label="Status"
+            value={
+              error ? (
+                <Badge variant="danger" dot>Disconnected</Badge>
               ) : connected ? (
-                <span className={`${styles.badge} ${styles.badgeSuccess}`}>Monitoring</span>
+                <Badge variant="success" dot>Monitoring</Badge>
               ) : (
-                <span className={`${styles.badge} ${styles.badgeNeutral}`}>Connecting…</span>
-              )}
-            </span>
-          </div>
-          <div className={styles.stat}>
-            <span className={styles.statLabel}>Latest Block</span>
-            <span className={styles.statValue}>{lastBlock !== null ? `#${lastBlock}` : '—'}</span>
-          </div>
-          <div className={styles.stat}>
-            <span className={styles.statLabel}>Chain ID</span>
-            <span className={styles.statValue}>{deployment?.chainId ?? '—'}</span>
-          </div>
-          <div className={styles.stat}>
-            <span className={styles.statLabel}>EVVM ID</span>
-            <span className={styles.statValue}>{deployment?.evvmID ?? '—'}</span>
-          </div>
-        </div>
+                <Badge variant="neutral">Connecting…</Badge>
+              )
+            }
+          />
+          <Stat
+            label="Latest Block"
+            value={lastBlock !== null ? `#${lastBlock}` : '—'}
+            mono
+          />
+          <Stat label="Chain ID" value={deployment?.chainId ?? '—'} mono />
+          <Stat label="EVVM ID" value={deployment?.evvmID ?? '—'} mono />
+        </StatGroup>
       </div>
 
       <div className={styles.grid2}>
@@ -80,8 +76,11 @@ export default function ExplorerHome() {
               <tbody>
                 {displayedBlocks.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className={styles.empty}>
-                      Waiting for blocks…
+                    <td colSpan={4}>
+                      <EmptyState
+                        title="Waiting for blocks…"
+                        description="This will populate as soon as a block is produced on the local chain."
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -122,8 +121,11 @@ export default function ExplorerHome() {
               <tbody>
                 {displayedTxs.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className={styles.empty}>
-                      Waiting for transactions…
+                    <td colSpan={5}>
+                      <EmptyState
+                        title="No transactions yet"
+                        description="Trigger a faucet claim or any EVVM signature flow to see transactions stream in here."
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -145,9 +147,9 @@ export default function ExplorerHome() {
                           </Link>
                         </td>
                         <td>
-                          <span className={`${styles.badge} ${action.category.startsWith('evvm') ? styles.badgeEvvm : styles.badgeNeutral}`}>
+                          <Badge variant={action.category.startsWith('evvm') ? 'evvm' : 'neutral'} size="sm">
                             {action.methodLabel}
-                          </span>
+                          </Badge>
                         </td>
                         <td>
                           <Link href={`/evvmscan/block/${tx.blockNumber}`} className={styles.link}>
