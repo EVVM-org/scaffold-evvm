@@ -25,6 +25,7 @@ import { sectionHeader, success, warning, error, info, dim, divider, evvmGreen }
 import { commandExists, getAvailableWallets } from '../utils/prerequisites.js';
 import { ensureContractSources, findContractPath } from '../utils/contractSources.js';
 import { isValidAddressShape, toChecksum } from '../utils/address.js';
+import { discoverServices, ensureServicesLinked, formatServicesSummary } from '../utils/services.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -497,6 +498,11 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     // Step 2: Compile contracts
     sectionHeader('Compiling Contracts');
 
+    // Link user's services/ folder into Foundry's source tree so any .sol
+    // under services/<name>/ is picked up by the same build. No-op if the
+    // symlink already exists or if services/ is missing.
+    ensureServicesLinked(PROJECT_ROOT);
+
     if (config.framework === 'foundry') {
       info('Compiling with Forge...');
       await execa('forge', ['build', '--via-ir'], {
@@ -519,6 +525,19 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     }
 
     success('Contracts compiled');
+
+    // Discovery of custom services under `services/`. Deployment of these
+    // is wired in a later phase; for now we just surface what was found so
+    // users can verify the folder convention works.
+    const services = discoverServices(PROJECT_ROOT);
+    sectionHeader('Custom Services');
+    if (services.length === 0) {
+      dim('   No custom services found. Drop a Solidity file under services/<name>/ to add one.');
+    } else {
+      info(`Discovered ${services.length} custom service${services.length === 1 ? '' : 's'}:`);
+      console.log(formatServicesSummary(services));
+      dim('   (Deployment of custom services is coming in the next scaffold update.)');
+    }
 
     // Step 3: Start local chain
     sectionHeader('Starting Local Chain');
