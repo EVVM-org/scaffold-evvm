@@ -26,6 +26,7 @@ import { commandExists, getAvailableWallets } from '../utils/prerequisites.js';
 import { ensureContractSources, findContractPath } from '../utils/contractSources.js';
 import { isValidAddressShape, toChecksum } from '../utils/address.js';
 import { discoverServices, ensureServicesLinked, formatServicesSummary } from '../utils/services.js';
+import { deployCustomServices, persistDeployments, type CoreDeploymentSlots } from '../utils/servicesDeploy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -722,6 +723,42 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
 
       // Save deployment summary
       await saveDeploymentSummary(deployedAddresses);
+
+      // Step 5b: Deploy any custom services found under services/<slug>/.
+      // Skipped silently when there's nothing to deploy.
+      if (services.length > 0) {
+        sectionHeader('Deploying Custom Services');
+        const coreSlots: CoreDeploymentSlots = {
+          evvm: deployedAddresses.evvm,
+          staking: deployedAddresses.staking,
+          estimator: deployedAddresses.estimator,
+          treasury: deployedAddresses.treasury,
+          nameService: deployedAddresses.nameService,
+          p2pSwap: deployedAddresses.p2pSwap,
+          admin: config.addresses.admin,
+          activator: config.addresses.activator,
+          goldenFisher: config.addresses.goldenFisher,
+        };
+        const deployed = await deployCustomServices({
+          projectRoot: PROJECT_ROOT,
+          services,
+          selectedSlugs: services.map((s) => s.slug),
+          chainId: deployedAddresses.chainId,
+          coreSlots,
+          deploy: {
+            rpcUrl: 'http://localhost:8545',
+            // Use the well-known Anvil test key for custom deploys. The
+            // deployer address doesn't affect service ownership because the
+            // manifest resolves the `_owner`/`_admin` constructor arg from
+            // the user's configured admin address.
+            privateKey: DEFAULT_ANVIL_KEY,
+          },
+        });
+        persistDeployments(PROJECT_ROOT, deployedAddresses.chainId, deployed);
+        if (deployed.length > 0) {
+          success(`${deployed.length} custom service${deployed.length === 1 ? '' : 's'} deployed.`);
+        }
+      }
 
       // Step 6: Update frontend .env
       sectionHeader('Updating Frontend Configuration');
