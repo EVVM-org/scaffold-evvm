@@ -18,6 +18,7 @@ import {
   IconSwap,
   IconExplorer,
   IconSettings,
+  IconBox,
 } from './icons';
 
 export interface NavItem {
@@ -51,6 +52,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Explorer',
     items: [{ href: '/evvmscan', label: 'EVVMScan', icon: IconExplorer }],
+  },
+  {
+    label: 'Custom',
+    items: [{ href: '/services', label: 'Services', icon: IconBox }],
   },
   {
     label: 'Tools',

@@ -393,4 +393,16 @@ export function persistDeployments(
     }
   }
   writeFileSync(envPath, envContent);
+
+  // Mirror the registry into the Next.js public/ folder so the frontend
+  // can fetch it at /customservices.json with no API route. The dev
+  // server picks up changes without a restart, so re-running the wizard
+  // immediately refreshes the /services pages.
+  const publicDir = join(projectRoot, 'packages', 'nextjs', 'public');
+  if (existsSync(publicDir)) {
+    writeFileSync(
+      join(publicDir, 'customservices.json'),
+      JSON.stringify(reg, null, 2) + '\n',
+    );
+  }
 }

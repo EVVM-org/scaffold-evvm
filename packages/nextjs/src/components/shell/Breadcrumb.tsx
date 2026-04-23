@@ -20,6 +20,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   address: 'Address',
   nameservice: 'Names',
   p2pswap: 'P2P Swap',
+  services: 'Services',
 };
 
 function labelFor(segment: string, href: string): string {

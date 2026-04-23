@@ -139,6 +139,17 @@ export function IconX(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconBox(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M3 7.5 12 3l9 4.5" />
+      <path d="M3 7.5V17l9 4 9-4V7.5" />
+      <path d="M3 7.5 12 12l9-4.5" />
+      <path d="M12 12v9" />
+    </svg>
+  );
+}
+
 export function IconChevronRight(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...baseProps} {...props}>
