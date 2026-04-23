@@ -7,6 +7,7 @@ import { Card, CardHeader, CardBody, Badge, EmptyState, Skeleton, Stat, StatGrou
 import { AddressDisplay } from '@/components/explorer/AddressDisplay';
 import { ReadCard } from '@/components/services/ReadCard';
 import { WriteCard } from '@/components/services/WriteCard';
+import { EvvmSignedForm } from '@/components/services/EvvmSignedForm';
 
 export default function CustomServiceDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -103,9 +104,13 @@ export default function CustomServiceDetail() {
         <section>
           <h2 style={{ fontSize: 'var(--fs-lg)', marginBottom: 'var(--space-3)' }}>Write</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            {groups.writes.map((fn) => (
-              <WriteCard key={fn.name} address={service.address} abi={service.abi} fn={fn} />
-            ))}
+            {groups.writes.map((fn) =>
+              fn.role === 'publicPay' || fn.role === 'publicAction' ? (
+                <EvvmSignedForm key={fn.name} address={service.address} abi={service.abi} fn={fn} />
+              ) : (
+                <WriteCard key={fn.name} address={service.address} abi={service.abi} fn={fn} />
+              ),
+            )}
           </div>
         </section>
       )}
