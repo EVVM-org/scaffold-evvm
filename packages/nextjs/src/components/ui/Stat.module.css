@@ -10,7 +10,12 @@
   padding: var(--space-3) var(--space-5);
   border-right: 1px solid var(--border);
   min-width: 140px;
-  flex: 1;
+  flex: 1 1 auto;
+  /* Prevents a long value (like a full 0x… address) from pushing
+     neighboring stats horizontally: inside a flex child, min-width
+     defaults to auto and takes the intrinsic content width; resetting
+     to 0 lets the cell shrink and wrap via overflow-wrap below. */
+  min-width: 0;
 }
 
 .stat:last-child {
@@ -31,6 +36,9 @@
   color: var(--text);
   line-height: var(--lh-tight);
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .hint {
