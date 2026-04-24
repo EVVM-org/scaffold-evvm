@@ -287,6 +287,23 @@ export async function deployCustomServices({
   const picked = services.filter((s) => selectedSlugs.includes(s.slug));
   const deployed: DeployedService[] = [];
 
+  // The core deploy step wipes `packages/foundry/out/` before running its
+  // Deploy.s.sol, and that script only recompiles contracts it imports — so
+  // custom service artifacts built earlier in the wizard are gone by now.
+  // Re-run `forge build` so the artifacts exist before we look them up.
+  if (picked.length > 0) {
+    dim('  Rebuilding service artifacts...');
+    try {
+      await execa('forge', ['build', '--via-ir'], {
+        cwd: join(projectRoot, 'packages', 'foundry'),
+        stdio: 'pipe',
+      });
+    } catch (err: any) {
+      error(`  forge build failed: ${err?.shortMessage ?? err?.message ?? err}`);
+      return deployed;
+    }
+  }
+
   for (const svc of picked) {
     info(`Deploying custom service: ${svc.slug}`);
     const mainSol = svc.mainContract;

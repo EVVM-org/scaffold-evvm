@@ -527,9 +527,9 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
 
     success('Contracts compiled');
 
-    // Discovery of custom services under `services/`. Deployment of these
-    // is wired in a later phase; for now we just surface what was found so
-    // users can verify the folder convention works.
+    // Discovery of custom services under `services/`. These get deployed
+    // right after the core EVVM contracts (see "Deploying Custom Services"
+    // section below).
     const services = discoverServices(PROJECT_ROOT);
     sectionHeader('Custom Services');
     if (services.length === 0) {
@@ -537,7 +537,6 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
     } else {
       info(`Discovered ${services.length} custom service${services.length === 1 ? '' : 's'}:`);
       console.log(formatServicesSummary(services));
-      dim('   (Deployment of custom services is coming in the next scaffold update.)');
     }
 
     // Step 3: Start local chain
