@@ -8,6 +8,7 @@ import { ExplorerShell } from '@/components/explorer/ExplorerShell';
 import { AddressDisplay } from '@/components/explorer/AddressDisplay';
 import { useExplorerClient } from '@/hooks/useExplorerClient';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
+import { useCustomServices } from '@/hooks/useCustomServices';
 import { useLatestBlocks } from '@/hooks/useLatestBlocks';
 import {
   buildAbiMap,
@@ -30,6 +31,7 @@ export default function AddressDetailPage() {
   const address = params.address as `0x${string}`;
   const client = useExplorerClient();
   const { deployment } = useEvvmDeployment();
+  const { registry: servicesRegistry } = useCustomServices();
   const { txs: liveTxs } = useLatestBlocks({ txKeep: 100 });
 
   const [ethBalance, setEthBalance] = useState<bigint | null>(null);
@@ -79,7 +81,22 @@ export default function AddressDetailPage() {
     };
   }, [address, client, deployment]);
 
-  const abiMap = useMemo(() => buildAbiMap(deployment), [deployment]);
+  const abiMap = useMemo(
+    () => buildAbiMap(deployment, servicesRegistry),
+    [deployment, servicesRegistry],
+  );
+
+  /** If this address is a deployed custom service, the registry entry.
+   *  Gates rendering of the "Contract" tab below. */
+  const customService = useMemo(() => {
+    if (!servicesRegistry) return null;
+    const lower = address.toLowerCase();
+    return (
+      Object.values(servicesRegistry.services).find(
+        (s) => s.address.toLowerCase() === lower,
+      ) ?? null
+    );
+  }, [servicesRegistry, address]);
   const book = useMemo(() => buildAddressBook(deployment), [deployment]);
   const known = useMemo(() => lookupAddress(book, address), [book, address]);
 
@@ -256,6 +273,59 @@ export default function AddressDetailPage() {
           </table>
         </div>
       </div>
+
+      {customService && (
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h3 className={styles.cardTitle}>
+              <span className={`${styles.badge} ${styles.badgePrimary}`} style={{ marginRight: '0.5rem' }}>
+                Custom Service
+              </span>
+              {customService.name}
+            </h3>
+            <span className={styles.subtitle}>
+              Verified via scaffold-evvm deployer · {customService.abi.filter((i) => i.type === 'function').length} functions, {customService.abi.filter((i) => i.type === 'event').length} events
+            </span>
+          </div>
+          <div className={styles.cardBody} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <Link
+                href={`/services/${customService.slug}`}
+                className={`${styles.badge} ${styles.badgePrimary}`}
+                style={{ textDecoration: 'none', padding: '0.5rem 0.75rem' }}
+              >
+                Read / Write on /services/{customService.slug} →
+              </Link>
+              {customService.manifest.contract.extendsEvvmService && (
+                <span className={`${styles.badge} ${styles.badgeSuccess}`} style={{ padding: '0.5rem 0.75rem' }}>
+                  extends EvvmService
+                </span>
+              )}
+            </div>
+            <details>
+              <summary style={{ cursor: 'pointer', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                Contract ABI ({customService.abi.length} items)
+              </summary>
+              <pre
+                style={{
+                  marginTop: '0.5rem',
+                  padding: '0.75rem',
+                  background: 'var(--bg-subtle)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  overflow: 'auto',
+                  maxHeight: '360px',
+                  fontSize: '0.75rem',
+                  fontFamily: 'var(--font-mono)',
+                  lineHeight: 1.5,
+                }}
+              >
+                {JSON.stringify(customService.abi, null, 2)}
+              </pre>
+            </details>
+          </div>
+        </div>
+      )}
     </ExplorerShell>
   );
 }

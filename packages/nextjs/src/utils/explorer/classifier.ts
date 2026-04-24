@@ -161,6 +161,14 @@ export function classifyTx(
     };
   }
 
+  if (decoded.contractKind === 'CustomService') {
+    return {
+      category: 'contract-call',
+      summary: `${methodLabel} (${toKnown?.name ?? 'custom service'})`,
+      methodLabel,
+    };
+  }
+
   return {
     category: 'contract-call',
     summary: `${decoded.contractKind}.${fn}()`,

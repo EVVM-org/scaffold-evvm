@@ -14,6 +14,7 @@ import { AddressDisplay } from '@/components/explorer/AddressDisplay';
 import { ParamValue } from '@/components/explorer/ParamValue';
 import { useExplorerClient } from '@/hooks/useExplorerClient';
 import { useEvvmDeployment } from '@/hooks/useEvvmDeployment';
+import { useCustomServices } from '@/hooks/useCustomServices';
 import {
   buildAbiMap,
   buildAddressBook,
@@ -67,6 +68,7 @@ export default function TxDetailPage() {
   const hash = params.hash as Hex;
   const client = useExplorerClient();
   const { deployment } = useEvvmDeployment();
+  const { registry: servicesRegistry } = useCustomServices();
 
   const [tx, setTx] = useState<Transaction | null>(null);
   const [receipt, setReceipt] = useState<TransactionReceipt | null>(null);
@@ -105,7 +107,10 @@ export default function TxDetailPage() {
     };
   }, [client, hash]);
 
-  const abiMap = useMemo(() => buildAbiMap(deployment), [deployment]);
+  const abiMap = useMemo(
+    () => buildAbiMap(deployment, servicesRegistry),
+    [deployment, servicesRegistry],
+  );
   const book = useMemo(() => buildAddressBook(deployment), [deployment]);
 
   const decoded = useMemo(

@@ -12,19 +12,43 @@ import {
   EstimatorABI,
 } from '@evvm/evvm-js';
 import type { EvvmDeployment } from '@/types/evvm';
+import type { ServicesRegistry } from '@/types/services';
 
-export type ContractKind = 'Core' | 'Staking' | 'Estimator' | 'NameService' | 'P2PSwap' | 'Unknown';
+export type ContractKind =
+  | 'Core'
+  | 'Staking'
+  | 'Estimator'
+  | 'NameService'
+  | 'P2PSwap'
+  | 'CustomService'
+  | 'Unknown';
+
+export interface AbiEntry {
+  kind: ContractKind;
+  abi: Abi;
+  /** For CustomService entries: the service's human-readable name (used
+   *  in the explorer UI to label the source of a decoded event/tx). */
+  label?: string;
+}
 
 export interface AddressAbiMap {
-  byAddress: Record<string, { kind: ContractKind; abi: Abi }>;
+  byAddress: Record<string, AbiEntry>;
   allAbis: Abi[];
 }
 
-export function buildAbiMap(deployment: EvvmDeployment | null): AddressAbiMap {
+export function buildAbiMap(
+  deployment: EvvmDeployment | null,
+  registry?: ServicesRegistry | null,
+): AddressAbiMap {
   const byAddress: AddressAbiMap['byAddress'] = {};
-  const addAbi = (addr: string | undefined, kind: ContractKind, abi: Abi) => {
+  const addAbi = (
+    addr: string | undefined,
+    kind: ContractKind,
+    abi: Abi,
+    label?: string,
+  ) => {
     if (!addr) return;
-    byAddress[addr.toLowerCase()] = { kind, abi };
+    byAddress[addr.toLowerCase()] = { kind, abi, label };
   };
   if (deployment) {
     addAbi(deployment.evvm, 'Core', CoreABI as Abi);
@@ -32,6 +56,11 @@ export function buildAbiMap(deployment: EvvmDeployment | null): AddressAbiMap {
     addAbi(deployment.estimator, 'Estimator', EstimatorABI as Abi);
     addAbi(deployment.nameService, 'NameService', NameServiceABI as Abi);
     addAbi(deployment.p2pSwap, 'P2PSwap', P2PSwapABI as Abi);
+  }
+  if (registry) {
+    for (const svc of Object.values(registry.services)) {
+      addAbi(svc.address, 'CustomService', svc.abi as unknown as Abi, svc.name);
+    }
   }
   const allAbis: Abi[] = [
     CoreABI as Abi,
