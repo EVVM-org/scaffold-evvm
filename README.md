@@ -18,7 +18,8 @@ Built using NextJS, Foundry/Hardhat, Wagmi, Viem, and TypeScript.
 - 💱 **Human-Readable Amounts** - Enter token amounts as decimals (e.g., "10.5") instead of raw wei
 - 🕐 **Sandbox-Ready** - All contract timelocks patched to 30 seconds for fast local testing
 - 📡 **ABI-Decoded Monitor** - Real-time blockchain monitor with auto-synced ABIs from Foundry/SDK
-- 🔭 **EVVMScan Explorer** - Built-in etherscan-style UI at `/evvmscan` for the local chain
+- 🔭 **EVVMScan Explorer** - Built-in etherscan-style UI at `/evvmscan` for the local chain (decodes both core EVVM contracts and your custom services)
+- 🧩 **Custom Services** - Drop a `.sol` file under `services/<Name>/`, run the wizard, and get an auto-deployed contract with an auto-generated read/write/events page at `/services/<name>`
 - 🎨 **UI Pro Max Design System** - Fira Sans + Fira Code fonts, dark/light token scale, shared `components/ui/` primitives, horizontal header nav with mobile drawer, a11y-ready (skip link, focus rings, reduced-motion) — see `design-system/scaffold-evvm/`
 
 > ⚠️ **Note:** This version supports **local deployment only**. Testnet deployment will be available in a future release.
@@ -103,6 +104,20 @@ With the frontend running, open [http://localhost:3000/evvmscan](http://localhos
 - **Smart search** — Paste a tx hash, block number, address, or `@username` (resolved via NameService) into the search bar; the explorer routes you to the right page.
 - **localStorage cache** — Blocks and txs persist across page reloads, keyed by chain ID + Core contract address. On each mount the cache is validated against the chain; if anvil/hardhat was restarted (block head dropped or anchor hash mismatches), the stale cache is dropped automatically.
 - **Known-address labels** — Core, Staking, Estimator, NameService, Treasury, P2PSwap, Admin, Golden Fisher, and Activator are tagged with badges throughout the UI.
+- **Custom-service awareness** — Calls and event logs from contracts you deploy via `services/<Name>/` are decoded with their own ABI; the address page surfaces a "Custom Service" card with a deep-link to `/services/<slug>` and a collapsible ABI viewer.
+
+---
+
+## 🧩 Custom Services
+
+Drop a Solidity contract into `services/<YourService>/<YourService>.sol`, run `npm run wizard`, and scaffold-evvm will:
+
+1. **Compile** it via the existing Foundry pipeline (the `services/` folder is symlinked into `packages/foundry/contracts/services/`).
+2. **Deploy** it after the core EVVM stack, auto-resolving constructor arguments (it recognises common types: `address` for Core/Staking/owner, fresh deployer-funded EOAs, and primitive defaults).
+3. **Persist** the deployed address to `deployments/customcontracts.json` and inject `NEXT_PUBLIC_CUSTOM_<NAME>_ADDRESS` into the frontend `.env`.
+4. **Generate a UI** at `/services/<name>` that auto-classifies every function as **Read**, **Write**, **Admin**, **publicPay** (EVVM-paid action), or **publicAction** (action signature only), and tails the contract's events live.
+
+The included **Counter** example (`services/Counter/Counter.sol`) is a zero-dependency demo. For services that extend `EvvmService` (the base for dual-signature flows), the auto-UI builds the action signature payload from `manifest.json` and signs both the action and the EVVM `pay` for you. See `services/README.md` for the manifest schema and `/services` in the running app for the index of deployed services.
 
 ---
 
@@ -173,15 +188,16 @@ Both Anvil and Hardhat Network use:
 ```
 scaffold-evvm/
 ├── cli/                    # Interactive CLI wizard
+├── services/               # Drop your custom .sol services here (auto-deployed + auto-UI)
 ├── packages/
 │   ├── foundry/            # Foundry package
 │   │   ├── testnet-contracts/    # Production EVVM contracts (bundled snapshot)
-│   │   └── contracts/            # Your custom services
+│   │   └── contracts/            # Symlinked target for services/
 │   ├── hardhat/            # Hardhat package
 │   └── nextjs/             # Frontend application (@evvm/evvm-js from npm)
 ├── Testnet-Contracts/      # Auto-cloned at deploy time (git ignored)
 ├── input/                  # EVVM configuration (generated)
-└── deployments/            # Deployment summaries (generated)
+└── deployments/            # Deployment summaries + customcontracts.json (generated)
 ```
 
 ---
