@@ -22,7 +22,11 @@
     "start": "npm run -w @scaffold-evvm/nextjs start",
     "check-env": "node scripts/check-env.js",
     "flush": "tsx cli/index.ts flush",
-    "lint": "npm run -w @scaffold-evvm/nextjs lint"
+    "lint": "npm run -w @scaffold-evvm/nextjs lint",
+    "docs": "npm run -w @scaffold-evvm/docs start",
+    "docs:build": "npm run -w @scaffold-evvm/docs build && node scripts/copy-docs-build.js",
+    "docs:serve": "npm run -w @scaffold-evvm/docs serve",
+    "docs:install": "npm install -w @scaffold-evvm/docs"
   },
   "keywords": [
     "evvm",
