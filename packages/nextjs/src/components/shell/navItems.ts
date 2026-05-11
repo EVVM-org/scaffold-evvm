@@ -19,12 +19,18 @@ import {
   IconExplorer,
   IconSettings,
   IconBox,
+  IconBook,
 } from './icons';
 
 export interface NavItem {
   href: string;
   label: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
+  /** When true the shell renders this entry as a plain `<a>` so the request
+   *  hits the server. Used for routes (like /docs) that are served by a
+   *  different framework via a Next.js rewrite — Next's client-side router
+   *  would otherwise try to handle the navigation itself and fail. */
+  external?: boolean;
 }
 
 export interface NavGroup {
@@ -56,6 +62,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Custom',
     items: [{ href: '/services', label: 'Services', icon: IconBox }],
+  },
+  {
+    label: 'Learn',
+    items: [{ href: '/docs', label: 'Docs', icon: IconBook, external: true }],
   },
   {
     label: 'Tools',

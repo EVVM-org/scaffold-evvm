@@ -1,0 +1,80 @@
+/**
+ * Theme overrides matching scaffold-evvm's UI Pro Max design system.
+ * Maps Docusaurus's `--ifm-*` tokens onto our Fira Sans + Fira Code stack
+ * with the same accent + neutral ramps used in the Next.js app shell.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --ifm-font-family-base: 'Fira Sans', system-ui, -apple-system, sans-serif;
+  --ifm-font-family-monospace: 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+
+  --ifm-color-primary: #4a7d4f;
+  --ifm-color-primary-dark: #3f6b43;
+  --ifm-color-primary-darker: #3b6440;
+  --ifm-color-primary-darkest: #305334;
+  --ifm-color-primary-light: #588f5d;
+  --ifm-color-primary-lighter: #5f9665;
+  --ifm-color-primary-lightest: #76a87b;
+
+  --ifm-code-font-size: 92%;
+  --ifm-line-height-base: 1.6;
+  --ifm-leading: 1.5em;
+
+  --ifm-navbar-height: 56px;
+  --ifm-navbar-shadow: 0 1px 0 var(--ifm-toc-border-color);
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #7fb585;
+  --ifm-color-primary-dark: #6aa771;
+  --ifm-color-primary-darker: #5fa067;
+  --ifm-color-primary-darkest: #4d8454;
+  --ifm-color-primary-light: #94c399;
+  --ifm-color-primary-lighter: #9fc9a3;
+  --ifm-color-primary-lightest: #bbd9be;
+
+  --ifm-background-color: #0e0f10;
+  --ifm-background-surface-color: #16181a;
+  --ifm-navbar-background-color: #0e0f10;
+  --ifm-footer-background-color: #0a0b0c;
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.08);
+}
+
+html {
+  font-family: var(--ifm-font-family-base);
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--ifm-font-family-monospace);
+  font-feature-settings: 'liga' 0, 'calt' 0;
+}
+
+.navbar__brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+article header h1 {
+  letter-spacing: -0.02em;
+}
+
+.markdown h2 {
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--ifm-toc-border-color);
+  padding-top: 1.5rem;
+}
+.markdown h2:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.theme-doc-sidebar-item-category > .menu__list-item-collapsible {
+  font-weight: 600;
+}

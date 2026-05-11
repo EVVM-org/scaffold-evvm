@@ -809,6 +809,7 @@ async function executeFullSetup(config: FullStartConfig): Promise<void> {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       console.log(chalk.gray('\nThe frontend will open at http://localhost:3000\n'));
+      console.log(chalk.gray('Documentation is bundled — visit http://localhost:3000/docs/ once it boots.\n'));
       console.log(chalk.yellow('Note: Keep this terminal open to maintain the local chain.'));
       console.log(chalk.gray('Press Ctrl+C to stop everything.\n'));
 

@@ -20,6 +20,7 @@ Built using NextJS, Foundry/Hardhat, Wagmi, Viem, and TypeScript.
 - 📡 **ABI-Decoded Monitor** - Real-time blockchain monitor with auto-synced ABIs from Foundry/SDK
 - 🔭 **EVVMScan Explorer** - Built-in etherscan-style UI at `/evvmscan` for the local chain (decodes both core EVVM contracts and your custom services)
 - 🧩 **Custom Services** - Drop a `.sol` file under `services/<Name>/`, run the wizard, and get an auto-deployed contract with an auto-generated read/write/events page at `/services/<name>`
+- 📚 **In-app Docs** - A pre-built Docusaurus site at `/docs` covering every concept, contract, frontend page, and the custom services workflow — works out of the box, no extra install or process needed
 - 🎨 **UI Pro Max Design System** - Fira Sans + Fira Code fonts, dark/light token scale, shared `components/ui/` primitives, horizontal header nav with mobile drawer, a11y-ready (skip link, focus rings, reduced-motion) — see `design-system/scaffold-evvm/`
 
 > ⚠️ **Note:** This version supports **local deployment only**. Testnet deployment will be available in a future release.
@@ -194,7 +195,8 @@ scaffold-evvm/
 │   │   ├── testnet-contracts/    # Production EVVM contracts (bundled snapshot)
 │   │   └── contracts/            # Symlinked target for services/
 │   ├── hardhat/            # Hardhat package
-│   └── nextjs/             # Frontend application (@evvm/evvm-js from npm)
+│   ├── nextjs/             # Frontend application (@evvm/evvm-js from npm)
+│   └── docs/               # Bundled Docusaurus site, proxied at /docs
 ├── Testnet-Contracts/      # Auto-cloned at deploy time (git ignored)
 ├── input/                  # EVVM configuration (generated)
 └── deployments/            # Deployment summaries + customcontracts.json (generated)
@@ -203,6 +205,26 @@ scaffold-evvm/
 ---
 
 ## 📚 Documentation
+
+Scaffold-EVVM ships with a pre-built Docusaurus site at
+**`http://localhost:3000/docs/`** — open it as soon as the frontend is
+running. The static build lives in `packages/nextjs/public/docs/` and is
+served directly by Next.js, so there's no extra process to start.
+
+**For docs authors** (editing the MDX content under `packages/docs/`):
+
+```bash
+npm run docs:install   # one-time install of the Docusaurus workspace
+npm run docs           # start docs dev server with HMR on http://localhost:3001
+# edit MDX files, see live updates at localhost:3001
+npm run docs:build     # rebuild + refresh the static bundle in public/docs/
+```
+
+The same `packages/docs/` source is hostable at `evvm.info/docs` or any
+static host — `npm run docs:build` produces a self-contained site under
+`packages/docs/build/`.
+
+External references:
 
 - [EVVM Documentation](https://www.evvm.info/docs/intro) - Complete EVVM protocol documentation
 - [EVVM Website](https://evvm.org) - Learn more about EVVM ecosystem

@@ -81,17 +81,36 @@ export function TopBar() {
           {FLAT_ITEMS.map((item) => {
             const active = isActive(pathname, item.href);
             const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${styles.tab} ${active ? styles.tabActive : ''}`.trim()}
-                aria-current={active ? 'page' : undefined}
-              >
+            const className = `${styles.tab} ${active ? styles.tabActive : ''}`.trim();
+            const ariaCurrent = active ? ('page' as const) : undefined;
+            const inner = (
+              <>
                 <span className={styles.tabIcon}>
                   <Icon width={16} height={16} />
                 </span>
                 <span>{item.label}</span>
+              </>
+            );
+            if (item.external) {
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className={className}
+                  aria-current={ariaCurrent}
+                >
+                  {inner}
+                </a>
+              );
+            }
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={className}
+                aria-current={ariaCurrent}
+              >
+                {inner}
               </Link>
             );
           })}
@@ -133,12 +152,27 @@ export function TopBar() {
                   {group.items.map((item) => {
                     const active = isActive(pathname, item.href);
                     const Icon = item.icon;
+                    const className = `${styles.drawerItem} ${active ? styles.drawerItemActive : ''}`.trim();
+                    const ariaCurrent = active ? ('page' as const) : undefined;
+                    if (item.external) {
+                      return (
+                        <a
+                          key={item.href}
+                          href={item.href}
+                          className={className}
+                          aria-current={ariaCurrent}
+                        >
+                          <Icon />
+                          <span>{item.label}</span>
+                        </a>
+                      );
+                    }
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`${styles.drawerItem} ${active ? styles.drawerItemActive : ''}`.trim()}
-                        aria-current={active ? 'page' : undefined}
+                        className={className}
+                        aria-current={ariaCurrent}
                       >
                         <Icon />
                         <span>{item.label}</span>

@@ -157,3 +157,13 @@ export function IconChevronRight(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function IconBook(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" />
+      <path d="M4 5.5v15" />
+      <path d="M8 7h8M8 11h8" />
+    </svg>
+  );
+}

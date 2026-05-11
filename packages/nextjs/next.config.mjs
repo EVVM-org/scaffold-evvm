@@ -67,6 +67,25 @@ const nextConfig = {
   experimental: {
     esmExternals: 'loose',
   },
+
+  /**
+   * Bundled docs site.
+   *
+   * The Docusaurus build is committed to packages/nextjs/public/docs/
+   * (built from packages/docs/) and Next.js serves the deep pages
+   * directly because we configured Docusaurus to emit flat `.html`
+   * files (`trailingSlash: false` in docusaurus.config.ts).
+   *
+   * The one path Next.js can't resolve from disk on its own is the
+   * bare `/docs` URL — `public/docs/` is a directory, not a file, and
+   * the static handler won't auto-resolve to `index.html` without a
+   * trailing slash. The rewrite below maps that single case.
+   */
+  async rewrites() {
+    return [
+      { source: '/docs', destination: '/docs/index.html' },
+    ];
+  },
 };
 
 export default nextConfig;
