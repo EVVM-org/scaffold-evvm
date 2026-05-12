@@ -41,51 +41,84 @@ working page at `/services/Counter` with:
   click — admin-gated by the contract itself)
 - **Events**: live `Bumped` tail
 
-## Service that extends EvvmService
+## Service that extends EvvmService — full dual-signature flow
+
+This is the canonical shape. The constructor takes **both** Core and
+Staking (`EvvmService` requires both), and the function carries the
+canonical EVVM plumbing for action + payment.
 
 ```solidity
 // services/Tipjar/Tipjar.sol
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import "@scaffold-evvm/testnet-contracts/library/EvvmService.sol";
-import "@scaffold-evvm/testnet-contracts/interfaces/ICore.sol";
 
 contract Tipjar is EvvmService {
+    error Unauthorized();
+
+    address public immutable owner;
     mapping(address => uint256) public received;
 
     event Tipped(address indexed from, address indexed to, uint256 amount);
 
-    constructor(address _core) EvvmService(_core) {}
+    constructor(address _core, address _staking, address _owner)
+        EvvmService(_core, _staking)
+    {
+        owner = _owner;
+    }
 
     function tip(
+        // action params
         address user,
         address to,
         uint256 amount,
-        address senderExecutor,
-        address originExecutor,
+
+        // canonical action plumbing
+        address senderExecutor,    // usually address(this)
+        address originExecutor,    // address(0) = any fisher may execute
         uint256 nonce,
-        bytes calldata signature,
+        bool    isAsyncExec,
+        bytes   calldata signature,
+
+        // canonical payment plumbing (independent of action plumbing)
         uint256 priorityFeePay,
         uint256 noncePay,
-        bytes calldata signaturePay
+        bool    isAsyncExecPay,
+        bytes   calldata signaturePay
     ) external {
-        // Action hash encodes only the operation name + business args.
-        // The unified envelope (executor pair + nonce + isAsyncExec)
-        // is added inside Core.validateAndConsumeNonce.
-        bytes32 actionHash = keccak256(abi.encode("tip", to, amount));
-
-        ICore(getCoreAddress()).validateAndConsumeNonce(
-            user, senderExecutor, actionHash, originExecutor,
-            nonce, true, signature
+        // (1) Verify the user signed the action + consume nonce atomically.
+        //     The action hash holds ONLY the operation name + business args.
+        //     The unified envelope (executor pair, nonce, isAsyncExec, evvmId)
+        //     is added by Core.validateAndConsumeNonce — not by this hash.
+        core.validateAndConsumeNonce(
+            user,
+            senderExecutor,
+            keccak256(abi.encode("tip", to, amount)),
+            originExecutor,
+            nonce,
+            isAsyncExec,
+            signature
         );
 
-        // requestPay (inherited from EvvmService) funnels the fee
-        // through Core.pay and forwards the priority fee to the executor.
+        // (2) Pull the user's payment via Core.pay — separate signature, separate nonce.
         requestPay(
-            user, getPrincipalTokenAddress(), amount, priorityFeePay,
-            originExecutor, noncePay, true, signaturePay
+            user,
+            getPrincipalTokenAddress(),
+            amount,
+            priorityFeePay,
+            originExecutor,
+            noncePay,
+            isAsyncExecPay,
+            signaturePay
         );
 
+        // (3) Reward the fisher (only meaningful if this contract is a registered staker).
+        if (core.isAddressStaker(address(this))) {
+            makeCaPay(msg.sender, getPrincipalTokenAddress(), priorityFeePay);
+        }
+
+        // (4) Domain logic + events.
         received[to] += amount;
         emit Tipped(user, to, amount);
     }
@@ -97,9 +130,10 @@ Add a `manifest.json` to wire the auto-UI for the dual-signature flow:
 ```json
 {
   "name": "Tipjar",
-  "description": "Send a tip to any EVVM user, paid in MATE.",
+  "description": "Send a gasless tip to any EVVM user, paid in MATE.",
   "tags": {
-    "publicPay": ["tip"]
+    "publicPay": ["tip"],
+    "admin": []
   },
   "actions": {
     "tip": {
@@ -110,8 +144,27 @@ Add a `manifest.json` to wire the auto-UI for the dual-signature flow:
 ```
 
 After deploying, `/services/Tipjar` shows a `tip` form with two
-business inputs (`to`, `amount`) — the auto-UI handles both signatures
-and submits them together.
+business inputs (`to`, `amount`) — the auto-UI handles both
+signatures and submits them together.
+
+### The four invariants
+
+Every EVVM service must honor these four — they are the contract you
+sign with the protocol:
+
+1. **Validate before side effects.** `core.validateAndConsumeNonce(...)`
+   is the first line of the function. Skip it and the same signature
+   can be replayed.
+2. **Action hash holds the action, nothing else.** Only the function
+   name + domain arguments go inside `keccak256(abi.encode(...))`.
+   Plumbing (executors, nonce, isAsyncExec, evvmId) lives in the
+   unified envelope automatically.
+3. **The pay signature is separate.** `requestPay` takes its own
+   nonce + signature — a compromised pay nonce doesn't invalidate
+   the action.
+4. **Use `originExecutor` deliberately.** Pass `address(0)` to let any
+   fisher execute. Pass a specific address only if you want to lock
+   execution to one EOA.
 
 ## Patterns to copy
 

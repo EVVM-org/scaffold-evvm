@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.1">
 <title data-rh="true">Folder convention | Scaffold-EVVM Docs</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="http://localhost:3000/docs/img/scaffold-evvm-social-card.png"><meta data-rh="true" name="twitter:image" content="http://localhost:3000/docs/img/scaffold-evvm-social-card.png"><meta data-rh="true" property="og:url" content="http://localhost:3000/docs/custom-services/folder-convention"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Folder convention | Scaffold-EVVM Docs"><meta data-rh="true" name="description" content="One folder per service. The folder name is the service&#x27;s slug"><meta data-rh="true" property="og:description" content="One folder per service. The folder name is the service&#x27;s slug"><link data-rh="true" rel="icon" href="/docs/img/favicon.ico"><link data-rh="true" rel="canonical" href="http://localhost:3000/docs/custom-services/folder-convention"><link data-rh="true" rel="alternate" href="http://localhost:3000/docs/custom-services/folder-convention" hreflang="en"><link data-rh="true" rel="alternate" href="http://localhost:3000/docs/custom-services/folder-convention" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Folder convention","item":"http://localhost:3000/docs/custom-services/folder-convention"}]}</script><link rel="stylesheet" href="/docs/assets/css/styles.46c1885e.css">
-<script src="/docs/assets/js/runtime~main.a426164c.js" defer="defer"></script>
+<script src="/docs/assets/js/runtime~main.98f30bdf.js" defer="defer"></script>
 <script src="/docs/assets/js/main.8757ab15.js" defer="defer"></script>
 </head>
 <body>
@@ -44,6 +44,13 @@ parameter:</p>
 <table><thead><tr><th>Parameter type / name</th><th>How it&#x27;s resolved</th></tr></thead><tbody><tr><td><code>address _core</code> / <code>_evvm</code> / etc. matching a known role</td><td>Auto-filled with the deployed address</td></tr><tr><td><code>address _staking</code> / <code>_nameService</code> / <code>_p2pSwap</code></td><td>Same</td></tr><tr><td><code>address _owner</code> / <code>_admin</code> / <code>_treasury</code></td><td>Defaults to the deployer EOA</td></tr><tr><td>Other <code>address</code></td><td>Prompts you to enter or pick a fresh deployer-funded address</td></tr><tr><td><code>uint256</code> / <code>uint8</code> / etc.</td><td>Prompts you for a value with sensible defaults</td></tr><tr><td><code>bool</code></td><td>Prompts yes/no</td></tr><tr><td>Arrays / structs</td><td>Falls back to a JSON entry; usually you&#x27;ll write a <code>Deploy.s.sol</code> instead</td></tr></tbody></table>
 <p>If the auto-resolver can&#x27;t figure out a parameter, the wizard says so
 and asks you to add a <code>Deploy.s.sol</code> to the service folder.</p>
+<blockquote>
+<p><strong><code>EvvmService</code> reminder:</strong> the abstract base
+<code>constructor(address coreAddress, address stakingAddress)</code> requires
+<strong>both</strong> Core and Staking — so your contract&#x27;s constructor must
+accept and forward two addresses. The wizard auto-fills both based
+on parameter names.</p>
+</blockquote>
 <h2 class="anchor anchorTargetStickyNavbar_x4mB" id="custom-deployssol">Custom Deploy.s.sol<a href="#custom-deployssol" class="hash-link" aria-label="Direct link to Custom Deploy.s.sol" title="Direct link to Custom Deploy.s.sol" translate="no">​</a></h2>
 <p>When the auto-resolver isn&#x27;t enough, drop a <code>Deploy.s.sol</code> in the
 service folder and the wizard will run it via <code>forge script</code> instead.

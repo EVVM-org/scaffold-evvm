@@ -17,12 +17,21 @@ export default function CustomServicesIndex() {
           Services
         </span>
         <h1 style={{ fontSize: 'clamp(1.5rem, 2vw, 1.875rem)', fontWeight: 700, letterSpacing: '-0.02em', margin: '0.25rem 0 0.375rem' }}>
-          Custom EVVM services
+          Battle-test your services locally
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-md)', maxWidth: '65ch', lineHeight: 'var(--lh-relaxed)' }}>
-          Contracts you dropped into the project&apos;s <code>services/</code> folder, auto-deployed by
-          the wizard and auto-rendered here. Drop another and re-run{' '}
-          <code>npm run wizard</code> to get a new page.
+          Drop a Solidity file under <code>services/&lt;Name&gt;/</code>, run{' '}
+          <code>npm run wizard</code>, and scaffold-evvm compiles it, deploys it
+          against the local protocol stack, and generates a read / write / events
+          UI from your ABI — zero wagmi/viem code, zero testnet gas. Extend{' '}
+          <code>EvvmService</code> for full gasless dual-signature flows;{' '}
+          <a
+            href="/docs/custom-services/overview"
+            style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+          >
+            see the docs
+          </a>{' '}
+          for the full walkthrough.
         </p>
       </div>
 
@@ -49,11 +58,31 @@ export default function CustomServicesIndex() {
         <Card>
           <EmptyState
             title="No custom services deployed yet"
-            description="Drop a Solidity file under services/<Name>/, then run:"
+            description={
+              <>
+                Drop a Solidity file under <code>services/&lt;Name&gt;/</code>, then run
+                the wizard. The auto-UI will appear at <code>/services/&lt;Name&gt;</code>{' '}
+                with read panel, write panel (admin / publicAction / publicPay forms),
+                and a live event tail.
+              </>
+            }
             action={
-              <CodeBlock copyable copyValue="npm run wizard">
-                {'npm run wizard'}
-              </CodeBlock>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', alignItems: 'flex-start' }}>
+                <CodeBlock copyable copyValue="npm run wizard">
+                  {'npm run wizard'}
+                </CodeBlock>
+                <a
+                  href="/docs/custom-services/overview"
+                  style={{
+                    color: 'var(--accent)',
+                    fontSize: 'var(--fs-sm)',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: '2px',
+                  }}
+                >
+                  How to make an EVVM service →
+                </a>
+              </div>
             }
           />
         </Card>

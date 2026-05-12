@@ -71,6 +71,12 @@ parameter:
 If the auto-resolver can't figure out a parameter, the wizard says so
 and asks you to add a `Deploy.s.sol` to the service folder.
 
+> **`EvvmService` reminder:** the abstract base
+> `constructor(address coreAddress, address stakingAddress)` requires
+> **both** Core and Staking — so your contract's constructor must
+> accept and forward two addresses. The wizard auto-fills both based
+> on parameter names.
+
 ## Custom Deploy.s.sol
 
 When the auto-resolver isn't enough, drop a `Deploy.s.sol` in the
