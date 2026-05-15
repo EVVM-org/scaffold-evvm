@@ -26,7 +26,7 @@ export default function CustomServicesIndex() {
           UI from your ABI — zero wagmi/viem code, zero testnet gas. Extend{' '}
           <code>EvvmService</code> for full gasless dual-signature flows;{' '}
           <a
-            href="https://www.evvm.info/docs/LibrariesAndTools/scaffold-evvm/custom-services/overview"
+            href="https://www.evvm.info/docs/LibrariesAndTools/ScaffoldEvvm/custom-services/overview"
                   target="_blank"
                   rel="noreferrer"
             style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
@@ -74,7 +74,7 @@ export default function CustomServicesIndex() {
                   {'npm run wizard'}
                 </CodeBlock>
                 <a
-                  href="https://www.evvm.info/docs/LibrariesAndTools/scaffold-evvm/custom-services/overview"
+                  href="https://www.evvm.info/docs/LibrariesAndTools/ScaffoldEvvm/custom-services/overview"
                   target="_blank"
                   rel="noreferrer"
                   style={{

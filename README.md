@@ -2,7 +2,7 @@
 
 **Battle-test EVVM services locally before you spend a wei of testnet or mainnet gas.**
 
-#### 📚 [Documentation](https://www.evvm.info/docs/LibrariesAndTools/scaffold-evvm/) | 🌐 [Website](https://evvm.org) | 📖 [How to make an EVVM service](https://www.evvm.info/docs/HowToMakeAEVVMService)
+#### 📚 [Documentation](https://www.evvm.info/docs/LibrariesAndTools/ScaffoldEvvm/) | 🌐 [Website](https://evvm.org) | 📖 [How to make an EVVM service](https://www.evvm.info/docs/HowToMakeAEVVMService)
 
 Scaffold-EVVM is the iteration loop for anyone shipping an EVVM service. Drop your `.sol` file, run one command, and you get:
 
@@ -369,14 +369,14 @@ scaffold-evvm/
 
 ## 📚 Documentation
 
-All scaffold-evvm documentation lives at **[evvm.info/docs/LibrariesAndTools/scaffold-evvm](https://www.evvm.info/docs/LibrariesAndTools/scaffold-evvm/)** alongside the rest of the EVVM protocol docs — one canonical home, no second site to maintain.
+All scaffold-evvm documentation lives at **[evvm.info/docs/LibrariesAndTools/ScaffoldEvvm](https://www.evvm.info/docs/LibrariesAndTools/ScaffoldEvvm/)** alongside the rest of the EVVM protocol docs — one canonical home, no second site to maintain.
 
 **Start here:**
 
-- [Scaffold-EVVM overview](https://www.evvm.info/docs/LibrariesAndTools/scaffold-evvm/) — what it is, the iteration loop, when to use it
-- [Custom services walkthrough](https://www.evvm.info/docs/LibrariesAndTools/scaffold-evvm/custom-services/overview) — folder convention, manifest, examples
-- [Auto-UI reference](https://www.evvm.info/docs/LibrariesAndTools/scaffold-evvm/custom-services/auto-ui) — what the generated page renders for each function shape
-- [Getting started](https://www.evvm.info/docs/LibrariesAndTools/scaffold-evvm/getting-started/quickstart) — install, wizard, troubleshooting
+- [Scaffold-EVVM overview](https://www.evvm.info/docs/LibrariesAndTools/ScaffoldEvvm/) — what it is, the iteration loop, when to use it
+- [Custom services walkthrough](https://www.evvm.info/docs/LibrariesAndTools/ScaffoldEvvm/custom-services/overview) — folder convention, manifest, examples
+- [Auto-UI reference](https://www.evvm.info/docs/LibrariesAndTools/ScaffoldEvvm/custom-services/auto-ui) — what the generated page renders for each function shape
+- [Getting started](https://www.evvm.info/docs/LibrariesAndTools/ScaffoldEvvm/getting-started/quickstart) — install, wizard, troubleshooting
 
 **Protocol references:**
 
